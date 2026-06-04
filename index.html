@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IHSG Suite</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
+
+  <style>
+    /* =========================================================
+       CSS VARIABLES — ubah di sini untuk ganti tema
+       ========================================================= */
+    :root {
+      --bg:          #0a0a0a;
+      --bg-card:     #111111;
+      --bg-card-hover: #161616;
+      --border:      #222222;
+      --border-hover:#333333;
+      --text-primary:   #e8e8e8;
+      --text-secondary: #666666;
+      --text-muted:     #3a3a3a;
+      --accent:      #e8e8e8;
+      --accent-dim:  #444444;
+
+      /* Status warna */
+      --open:   #4ade80;
+      --close:  #f87171;
+      --unknown:#666666;
+
+      /* Per-card accent (untuk garis tipis di kiri) */
+      --defence-color: #60a5fa;
+      --cacing-color:  #34d399;
+      --scalping-color:#f59e0b;
+      --lab-color:     #a78bfa;
+
+      --font-mono: 'DM Mono', monospace;
+      --font-sans: 'DM Sans', sans-serif;
+      --radius: 2px;
+      --transition: 200ms ease;
+    }
+
+    /* =========================================================
+       RESET & BASE
+       ========================================================= */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 14px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* =========================================================
+       LAYOUT
+       ========================================================= */
+    .page {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* =========================================================
+       HEADER
+       ========================================================= */
+    .header {
+      padding: 40px 0 32px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      border-bottom: 1px solid var(--border);
+      animation: fadeDown 400ms ease both;
+    }
+
+    .header-left {}
+
+    .logo {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 400;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+
+    .title {
+      font-family: var(--font-mono);
+      font-size: 28px;
+      font-weight: 300;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+      line-height: 1.1;
+    }
+
+    .title span {
+      color: var(--text-secondary);
+    }
+
+    .header-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+      padding-top: 4px;
+    }
+
+    /* Badge status pasar */
+    .market-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      color: var(--text-secondary);
+    }
+
+    .market-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--unknown);
+      transition: background var(--transition);
+    }
+
+    .market-dot.open  { background: var(--open);  box-shadow: 0 0 6px var(--open); }
+    .market-dot.close { background: var(--close); }
+
+    .market-label {
+      transition: color var(--transition);
+    }
+
+    .market-label.open  { color: var(--open); }
+    .market-label.close { color: var(--close); }
+
+    /* =========================================================
+       TOKEN SECTION
+       ========================================================= */
+    .token-section {
+      padding: 20px 0;
+      border-bottom: 1px solid var(--border);
+      animation: fadeDown 400ms 80ms ease both;
+    }
+
+    .token-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+
+    .token-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .token-input {
+      flex: 1;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 9px 12px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-primary);
+      outline: none;
+      transition: border-color var(--transition);
+      min-width: 0;
+    }
+
+    .token-input::placeholder { color: var(--text-muted); }
+    .token-input:focus { border-color: var(--accent-dim); }
+
+    .token-input.has-token {
+      color: var(--text-secondary);
+      letter-spacing: 0.05em;
+    }
+
+    .btn {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 9px 16px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all var(--transition);
+      white-space: nowrap;
+    }
+
+    .btn:hover {
+      border-color: var(--accent-dim);
+      color: var(--text-primary);
+    }
+
+    .btn.btn-save {
+      border-color: var(--accent-dim);
+      color: var(--text-primary);
+    }
+
+    .btn.btn-save:hover {
+      background: var(--bg-card-hover);
+    }
+
+    .token-status {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-top: 6px;
+      min-height: 16px;
+      transition: color var(--transition);
+    }
+
+    .token-status.ok    { color: var(--open); }
+    .token-status.error { color: var(--close); }
+
+    /* =========================================================
+       CARD GRID
+       ========================================================= */
+    .main {
+      padding: 32px 0;
+    }
+
+    .section-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+    }
+
+    /* Card */
+    .card {
+      background: var(--bg-card);
+      padding: 28px 24px;
+      text-decoration: none;
+      display: block;
+      position: relative;
+      transition: background var(--transition);
+      overflow: hidden;
+      cursor: pointer;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0;
+      width: 2px;
+      height: 100%;
+      opacity: 0;
+      transition: opacity var(--transition);
+    }
+
+    .card:hover { background: var(--bg-card-hover); }
+    .card:hover::before { opacity: 1; }
+
+    /* Card accent lines */
+    .card[data-module="defence"]::before { background: var(--defence-color); }
+    .card[data-module="cacing"]::before  { background: var(--cacing-color); }
+    .card[data-module="scalping"]::before{ background: var(--scalping-color); }
+    .card[data-module="lab"]::before     { background: var(--lab-color); }
+
+    .card-index {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-bottom: 20px;
+      letter-spacing: 0.1em;
+    }
+
+    .card-title {
+      font-family: var(--font-mono);
+      font-size: 18px;
+      font-weight: 400;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+      margin-bottom: 8px;
+      line-height: 1.2;
+    }
+
+    .card-subtitle {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+
+    .card-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .tag {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      padding: 3px 8px;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      border-radius: var(--radius);
+    }
+
+    .card:hover .tag {
+      border-color: var(--border-hover);
+      color: var(--text-secondary);
+    }
+
+    .card-arrow {
+      position: absolute;
+      bottom: 24px;
+      right: 24px;
+      font-family: var(--font-mono);
+      font-size: 16px;
+      color: var(--text-muted);
+      transition: all var(--transition);
+      line-height: 1;
+    }
+
+    .card:hover .card-arrow {
+      color: var(--text-secondary);
+      transform: translate(2px, -2px);
+    }
+
+    /* Stagger animation untuk card */
+    .card:nth-child(1) { animation: fadeUp 400ms 160ms ease both; }
+    .card:nth-child(2) { animation: fadeUp 400ms 220ms ease both; }
+    .card:nth-child(3) { animation: fadeUp 400ms 280ms ease both; }
+    .card:nth-child(4) { animation: fadeUp 400ms 340ms ease both; }
+
+    /* =========================================================
+       FOOTER
+       ========================================================= */
+    .footer {
+      padding: 20px 0 32px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      animation: fadeUp 400ms 400ms ease both;
+    }
+
+    .footer-left {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 0.1em;
+    }
+
+    .footer-right {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 0.1em;
+    }
+
+    /* =========================================================
+       MODAL TOKEN EXPIRED
+       ========================================================= */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--transition);
+    }
+
+    .modal-overlay.visible {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .modal {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      padding: 32px;
+      width: 100%;
+      max-width: 480px;
+      margin: 24px;
+    }
+
+    .modal-title {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+
+    .modal-desc {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-bottom: 20px;
+      line-height: 1.6;
+    }
+
+    /* =========================================================
+       ANIMATIONS
+       ========================================================= */
+    @keyframes fadeDown {
+      from { opacity: 0; transform: translateY(-8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* =========================================================
+       RESPONSIVE
+       ========================================================= */
+    @media (max-width: 600px) {
+      .card-grid { grid-template-columns: 1fr; }
+      .title { font-size: 22px; }
+      .header { flex-direction: column; gap: 12px; }
+      .header-right { align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="header-left">
+      <div class="logo">IHSG Suite · wisnuputra17</div>
+      <h1 class="title">Analisa<br><span>Saham IDX</span></h1>
+    </div>
+    <div class="header-right">
+      <div class="market-badge">
+        <div class="market-dot" id="marketDot"></div>
+        <span class="market-label" id="marketLabel">–––</span>
+      </div>
+      <div class="market-badge" style="color: var(--text-muted)">
+        <span id="marketTime">–</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- TOKEN -->
+  <div class="token-section">
+    <div class="token-label">Bearer Token · Stockbit</div>
+    <div class="token-row">
+      <input
+        type="password"
+        class="token-input"
+        id="tokenInput"
+        placeholder="eyJ..."
+        autocomplete="off"
+        spellcheck="false"
+      >
+      <button class="btn btn-save" id="btnSave">Simpan</button>
+      <button class="btn" id="btnClear">Hapus</button>
+      <button class="btn" id="btnToggle">Lihat</button>
+    </div>
+    <div class="token-status" id="tokenStatus"></div>
+  </div>
+
+  <!-- MAIN — CARD GRID -->
+  <main class="main">
+    <div class="section-label">Pilih Modul</div>
+    <div class="card-grid">
+
+      <!-- DEFENCE -->
+      <a class="card" href="defence/index.html" data-module="defence">
+        <div class="card-index">01</div>
+        <div class="card-title">Defence</div>
+        <div class="card-subtitle">Conviction play jangka panjang.<br>Monitor thesis & entry 250 juta.</div>
+        <div class="card-tags">
+          <span class="tag">Watchlist</span>
+          <span class="tag">Thesis Tracker</span>
+          <span class="tag">Alert</span>
+        </div>
+        <div class="card-arrow">↗</div>
+      </a>
+
+      <!-- CACING / NAGA -->
+      <a class="card" href="cacing/index.html" data-module="cacing">
+        <div class="card-index">02</div>
+        <div class="card-title">Cacing / Naga</div>
+        <div class="card-subtitle">Small cap dengan probabilitas meledak.<br>Backdoor, turnaround, akuisisi.</div>
+        <div class="card-tags">
+          <span class="tag">Screening</span>
+          <span class="tag">Catalyst Notes</span>
+          <span class="tag">Corporate Action</span>
+        </div>
+        <div class="card-arrow">↗</div>
+      </a>
+
+      <!-- SCALPING -->
+      <a class="card" href="scalping/index.html" data-module="scalping">
+        <div class="card-index">03</div>
+        <div class="card-title">Scalping</div>
+        <div class="card-subtitle">Full matematis. Backtesting probabilitas,<br>win rate, dan scanner real-time.</div>
+        <div class="card-tags">
+          <span class="tag">Chart</span>
+          <span class="tag">Win Rate</span>
+          <span class="tag">Broker Analysis</span>
+          <span class="tag">IEP Scanner</span>
+        </div>
+        <div class="card-arrow">↗</div>
+      </a>
+
+      <!-- LAB -->
+      <a class="card" href="lab/index.html" data-module="lab">
+        <div class="card-index">04</div>
+        <div class="card-title">Lab</div>
+        <div class="card-subtitle">Eksperimen bebas. Analisa abstrak,<br>logic baru, data eksplorasi.</div>
+        <div class="card-tags">
+          <span class="tag">Eksperimen</span>
+          <span class="tag">Export Data</span>
+          <span class="tag">Analisa Bebas</span>
+        </div>
+        <div class="card-arrow">↗</div>
+      </a>
+
+    </div>
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="footer-left" id="footerEmiten">894 emiten · IDX</div>
+    <div class="footer-right" id="footerTime"></div>
+  </footer>
+
+</div>
+
+<!-- MODAL: Token expired -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-title">Token Diperlukan</div>
+    <div class="modal-desc">
+      Masukkan Bearer token Stockbit untuk menggunakan fitur yang membutuhkan data real-time.<br><br>
+      Cara ambil token: buka stockbit.com → F12 → Network → klik request apapun → header <code style="font-family:var(--font-mono);color:var(--text-primary)">Authorization</code>.
+    </div>
+    <div class="token-row">
+      <input type="password" class="token-input" id="modalTokenInput" placeholder="eyJ..." autocomplete="off">
+      <button class="btn btn-save" id="modalBtnSave">Simpan</button>
+    </div>
+    <div class="token-status" id="modalTokenStatus"></div>
+  </div>
+</div>
+
+<script type="module">
+  import { TOKEN } from './shared/store.js'
+  import { fetchMarketStatus } from './shared/api.js'
+
+  // ============================================================
+  // SEKSI 1: TOKEN UI
+  // ============================================================
+
+  const tokenInput   = document.getElementById('tokenInput')
+  const tokenStatus  = document.getElementById('tokenStatus')
+  const btnSave      = document.getElementById('btnSave')
+  const btnClear     = document.getElementById('btnClear')
+  const btnToggle    = document.getElementById('btnToggle')
+
+  function _renderTokenState() {
+    const t = TOKEN.get()
+    if (t) {
+      // Tampilkan sebagian token — sembunyikan sisanya
+      tokenInput.value      = t
+      tokenInput.type       = 'password'
+      tokenInput.classList.add('has-token')
+      tokenStatus.textContent = '✓ Token tersimpan'
+      tokenStatus.className   = 'token-status ok'
+      btnToggle.textContent   = 'Lihat'
+    } else {
+      tokenInput.value      = ''
+      tokenInput.type       = 'password'
+      tokenInput.classList.remove('has-token')
+      tokenStatus.textContent = 'Token belum diisi'
+      tokenStatus.className   = 'token-status'
+    }
+  }
+
+  btnSave.addEventListener('click', () => {
+    const val = tokenInput.value.trim()
+    if (!val) {
+      tokenStatus.textContent = '✗ Token kosong'
+      tokenStatus.className   = 'token-status error'
+      return
+    }
+    TOKEN.set(val)
+    _renderTokenState()
+    // Refresh status pasar setelah token diisi
+    _fetchMarketStatus()
+  })
+
+  btnClear.addEventListener('click', () => {
+    TOKEN.clear()
+    _renderTokenState()
+    _setMarketUnknown()
+  })
+
+  btnToggle.addEventListener('click', () => {
+    if (tokenInput.type === 'password') {
+      tokenInput.type       = 'text'
+      btnToggle.textContent = 'Sembunyikan'
+    } else {
+      tokenInput.type       = 'password'
+      btnToggle.textContent = 'Lihat'
+    }
+  })
+
+  // Enter di input = simpan
+  tokenInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') btnSave.click()
+  })
+
+  // ============================================================
+  // SEKSI 2: STATUS PASAR
+  // ============================================================
+
+  const marketDot   = document.getElementById('marketDot')
+  const marketLabel = document.getElementById('marketLabel')
+  const marketTime  = document.getElementById('marketTime')
+
+  function _setMarketUnknown() {
+    marketDot.className      = 'market-dot'
+    marketLabel.className    = 'market-label'
+    marketLabel.textContent  = '–––'
+    marketTime.textContent   = '–'
+  }
+
+  function _setMarketStatus(status) {
+    const isOpen = status.market === 'open'
+    marketDot.className     = 'market-dot ' + (isOpen ? 'open' : 'close')
+    marketLabel.className   = 'market-label ' + (isOpen ? 'open' : 'close')
+    marketLabel.textContent = isOpen ? 'PASAR BUKA' : 'PASAR TUTUP'
+
+    // IEP status
+    const iepOpen = status.iepiev_regular === 'open'
+    if (iepOpen) {
+      marketLabel.textContent = 'SESI IEP'
+      marketDot.className = 'market-dot open'
+      marketLabel.className = 'market-label open'
+    }
+  }
+
+  async function _fetchMarketStatus() {
+    if (!TOKEN.isSet()) return
+    try {
+      const status = await fetchMarketStatus()
+      _setMarketStatus(status)
+    } catch (e) {
+      if (e.code === 'TOKEN_EXPIRED') {
+        tokenStatus.textContent = '✗ Token expired — perlu diperbarui'
+        tokenStatus.className   = 'token-status error'
+      }
+      _setMarketUnknown()
+    }
+  }
+
+  // ============================================================
+  // SEKSI 3: FOOTER — waktu sekarang
+  // ============================================================
+
+  const footerTime = document.getElementById('footerTime')
+
+  function _updateTime() {
+    const now = new Date()
+    footerTime.textContent = now.toLocaleString('id-ID', {
+      timeZone: 'Asia/Jakarta',
+      day:    '2-digit',
+      month:  'short',
+      year:   'numeric',
+      hour:   '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    }) + ' WIB'
+  }
+
+  // ============================================================
+  // SEKSI 4: MODAL
+  // ============================================================
+
+  const modalOverlay     = document.getElementById('modalOverlay')
+  const modalTokenInput  = document.getElementById('modalTokenInput')
+  const modalBtnSave     = document.getElementById('modalBtnSave')
+  const modalTokenStatus = document.getElementById('modalTokenStatus')
+
+  // Expose ke window — koordinator modul lain bisa panggil ini
+  window.showTokenModal = () => {
+    modalOverlay.classList.add('visible')
+    modalTokenInput.focus()
+  }
+
+  window.hideTokenModal = () => {
+    modalOverlay.classList.remove('visible')
+  }
+
+  modalBtnSave.addEventListener('click', () => {
+    const val = modalTokenInput.value.trim()
+    if (!val) {
+      modalTokenStatus.textContent = '✗ Token kosong'
+      modalTokenStatus.className   = 'token-status error'
+      return
+    }
+    TOKEN.set(val)
+    modalTokenStatus.textContent = '✓ Tersimpan'
+    modalTokenStatus.className   = 'token-status ok'
+    tokenInput.value = val
+    _renderTokenState()
+    setTimeout(() => window.hideTokenModal(), 800)
+    _fetchMarketStatus()
+  })
+
+  modalOverlay.addEventListener('click', e => {
+    if (e.target === modalOverlay) window.hideTokenModal()
+  })
+
+  modalTokenInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') modalBtnSave.click()
+    if (e.key === 'Escape') window.hideTokenModal()
+  })
+
+  // ============================================================
+  // SEKSI 5: INIT
+  // ============================================================
+
+  function init() {
+    _renderTokenState()
+    _fetchMarketStatus()
+    _updateTime()
+    setInterval(_updateTime, 1000)
+    // Refresh status pasar tiap 60 detik
+    setInterval(_fetchMarketStatus, 60_000)
+  }
+
+  init()
+</script>
+
+</body>
+</html>
