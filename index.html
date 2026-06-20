@@ -7,8 +7,19 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500;1,600&family=DM+Mono:wght@300;400;500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+
+  <!-- Theme applied before paint — prevents flash -->
+  <script>
+    (function(){
+      const t = localStorage.getItem('ihsglab_theme') || 'cmbyn'
+      document.documentElement.setAttribute('data-theme', t)
+    })()
+  </script>
+
   <style>
-    :root {
+    /* ══ CMBYN (default) — warm Italian summer ══ */
+    :root,
+    [data-theme="cmbyn"] {
       --cream:       #f5ede0;
       --cream-warm:  #ede0cc;
       --paper:       #faf6ef;
@@ -28,6 +39,90 @@
       --font-sans:  'Inter', system-ui, sans-serif;
       --font-mono:  'DM Mono', monospace;
 
+      --nav-h: 64px;
+      --ease:  cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+
+    /* ══ NOIR — Fajar: dark ink, gold accents ══ */
+    [data-theme="noir"] {
+      --cream:       #1e1a14;
+      --cream-warm:  #2a2318;
+      --paper:       #141009;
+      --peach:       #c9a046;
+      --peach-light: #e0bb6a;
+      --terracotta:  #d4863c;
+      --gold:        #c9a046;
+      --olive:       #8a9e6a;
+      --brown:       #e8d4b0;
+      --brown-mid:   #c4a87a;
+      --brown-light: #8c7a5a;
+      --ink:         #f0e8d8;
+      --ink-2:       #d8cbb8;
+      --mist:        rgba(200,180,140,0.08);
+
+      --font-serif: 'Cormorant Garamond', Georgia, serif;
+      --font-sans:  'Inter', system-ui, sans-serif;
+      --font-mono:  'DM Mono', monospace;
+      --nav-h: 64px;
+      --ease:  cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+
+    /* ══ FOREST — Muhajir: deep green, moss, earth ══ */
+    [data-theme="forest"] {
+      --cream:       #edf0e8;
+      --cream-warm:  #dde3d5;
+      --paper:       #f4f6f0;
+      --peach:       #7a9e5c;
+      --peach-light: #9abf7a;
+      --terracotta:  #546040;
+      --gold:        #a08c3c;
+      --olive:       #546040;
+      --brown:       #1e2a14;
+      --brown-mid:   #3a4c28;
+      --brown-light: #6a7c58;
+      --ink:         #141e0a;
+      --ink-2:       #233016;
+      --mist:        rgba(54,80,32,0.07);
+
+      --font-serif: 'Cormorant Garamond', Georgia, serif;
+      --font-sans:  'Inter', system-ui, sans-serif;
+      --font-mono:  'DM Mono', monospace;
+      --nav-h: 64px;
+      --ease:  cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+
+    /* Nav adjustments per theme */
+    [data-theme="noir"] nav {
+      background: rgba(8,6,2,0.92);
+      border-color: rgba(200,160,70,0.12);
+    }
+    [data-theme="forest"] nav {
+      background: rgba(14,22,6,0.88);
+    }
+    [data-theme="ocean"] nav {
+      background: rgba(4,18,20,0.88);
+    }
+
+    /* ══ OCEAN — Wisnu: teal, slate, silver ══ */
+    [data-theme="ocean"] {
+      --cream:       #e8eff0;
+      --cream-warm:  #d4e2e4;
+      --paper:       #f0f6f7;
+      --peach:       #3e8c8f;
+      --peach-light: #5eadb0;
+      --terracotta:  #2a6870;
+      --gold:        #5a8c8e;
+      --olive:       #4a7a7c;
+      --brown:       #0e2426;
+      --brown-mid:   #244c50;
+      --brown-light: #567a7c;
+      --ink:         #081618;
+      --ink-2:       #122c30;
+      --mist:        rgba(30,80,86,0.07);
+
+      --font-serif: 'Cormorant Garamond', Georgia, serif;
+      --font-sans:  'Inter', system-ui, sans-serif;
+      --font-mono:  'DM Mono', monospace;
       --nav-h: 64px;
       --ease:  cubic-bezier(0.25, 0.46, 0.45, 0.94);
     }
@@ -53,7 +148,7 @@
       z-index: 100;
       width: calc(100% - 48px);
       max-width: 1100px;
-      background: rgba(26,18,8,0.88);
+      background: rgba(var(--nav-bg, 26,18,8), 0.88);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       border-radius: 60px;
@@ -801,7 +896,11 @@
 
 <!-- ── NAVIGATION ── -->
 <nav>
-  <span class="nav-logo">IHSG Suite</span>
+  <span class="nav-logo" style="display:flex;align-items:center;gap:12px;">
+    <a href="profiles.html" style="color:rgba(255,255,255,0.4);font-size:16px;line-height:1;text-decoration:none;" title="Ganti profil">←</a>
+    IHSG Suite
+    <span id="navProfile" style="font-size:11px;opacity:0.45;font-weight:400;letter-spacing:0.08em;"></span>
+  </span>
   <ul class="nav-links">
     <li><a href="#features">Fitur</a></li>
     <li><a href="#about">Tentang</a></li>
@@ -1232,6 +1331,13 @@
     }
   }
   updateNavBtn()
+
+  // Show profile name in nav
+  const profileName = localStorage.getItem('ihsglab_profile')
+  if (profileName) {
+    const el = document.getElementById('navProfile')
+    if (el) el.textContent = '/ ' + profileName
+  }
 
   // Pre-fill settings if already saved
   const savedGs = getGsUrl()
