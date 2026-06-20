@@ -38,10 +38,36 @@
       padding: 4px 6px; font-family: var(--f-mono); font-size: 10px; color: var(--paper); outline: none;
     }
 
-    .chart-wrap { border: 1px solid var(--line); margin-bottom: 4px; }
+    .chart-wrap { border: 1px solid var(--line); margin-bottom: 4px; position: relative; }
     #chart-main { height: 300px; transition: height 200ms ease; }
 
     .lpm-status { font-family: var(--f-mono); font-size: 10px; color: var(--ghost); margin-bottom: 4px; }
+
+    /* ── OHLC info bar — di atas chart, gaya TradingView ── */
+    .ohlc-bar {
+      display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+      font-family: var(--f-mono); font-size: 12px; padding: 6px 2px 10px;
+    }
+    .ohlc-sym { color: var(--paper); font-weight: 500; }
+    .ohlc-tf  { color: var(--ghost); }
+    .ohlc-val { color: var(--dim); }
+    .ohlc-val b { color: var(--paper); font-weight: 400; }
+    .ohlc-chg.up   { color: var(--live); }
+    .ohlc-chg.down { color: var(--down); }
+
+    /* ── Legend overlay — menempel pojok kiri-atas chart ── */
+    .chart-legend {
+      position: absolute; top: 8px; left: 8px; z-index: 5;
+      display: flex; flex-direction: column; gap: 2px;
+      pointer-events: none; max-width: 260px;
+    }
+    .legend-row {
+      font-family: var(--f-mono); font-size: 11px; line-height: 1.5;
+      white-space: nowrap; text-shadow: 0 0 4px rgba(10,9,8,0.9);
+    }
+    .legend-swatch { display: inline-block; width: 8px; height: 2px; margin-right: 5px; vertical-align: middle; }
+    .legend-name  { color: var(--dim); }
+    .legend-value { font-weight: 500; }
   </style>
 </head>
 <body>
@@ -89,7 +115,11 @@
     </div>
 
     <div class="lpm-status" id="lpm-status"></div>
-    <div class="chart-wrap"><div id="chart-main"></div></div>
+    <div class="ohlc-bar" id="ohlc-bar"></div>
+    <div class="chart-wrap">
+      <div class="chart-legend" id="chart-legend"></div>
+      <div id="chart-main"></div>
+    </div>
 
   </div>
 </div>
@@ -227,9 +257,15 @@
    * Bangun ulang chart dari nol — hanya dipanggil saat ganti saham
    * (time axis berubah total, tidak masuk akal pertahankan instance lama).
    */
+  let _dateToIndex = {}
+
   function _rebuildChart() {
     if (chart) { chart.remove(); chart = null }
     Object.keys(ACTIVE).forEach(k => delete ACTIVE[k])
+
+    const days = DB.daily
+    _dateToIndex = {}
+    days.forEach((d, i) => { _dateToIndex[d.date] = i })
 
     chart = LightweightCharts.createChart(document.getElementById('chart-main'), {
       autoSize: true,
@@ -242,7 +278,7 @@
       upColor: '#4ade80', downColor: '#f0635c', borderVisible: false,
       wickUpColor: '#4ade80', wickDownColor: '#f0635c'
     })
-    candleSeries.setData(DB.daily.map(d => ({ time: d.date, open: d.open, high: d.high, low: d.low, close: d.close })))
+    candleSeries.setData(days.map(d => ({ time: d.date, open: d.open, high: d.high, low: d.low, close: d.close })))
     ACTIVE._candle = { series: [candleSeries], overlay: true }
 
     // Tambahkan kembali indikator yang sedang dicentang
@@ -251,6 +287,14 @@
     })
 
     chart.timeScale().fitContent()
+
+    // Crosshair → update OHLC bar + legend dengan nilai di titik yang dihover
+    chart.subscribeCrosshairMove(param => {
+      const idx = param.time ? _dateToIndex[param.time] : days.length - 1
+      _updateInfoAndLegend(idx !== undefined ? idx : days.length - 1)
+    })
+
+    _updateInfoAndLegend(days.length - 1) // tampilan awal: bar terakhir
   }
 
   /**
@@ -278,55 +322,85 @@
     if (key === 'ma') {
       const period = parseInt(document.getElementById('ma-period').value) || 20
       const ma = calcSMA(closes, period)
-      const s = chart.addSeries(LightweightCharts.LineSeries, { color: '#d98e2b', lineWidth: 1.5, priceLineVisible: false, lastValueVisible: false, title: 'MA' + period })
+      const s = chart.addSeries(LightweightCharts.LineSeries, { color: '#d98e2b', lineWidth: 1.5, priceLineVisible: true, lastValueVisible: true, title: 'MA' + period })
       s.setData(_align(days, ma))
-      ACTIVE.ma = { series: [s], overlay: true }
+      ACTIVE.ma = {
+        series: [s], overlay: true,
+        legend: idx => [{ label: 'MA' + period, color: '#d98e2b', value: ma[idx], fmt: 'price' }]
+      }
     }
 
     else if (key === 'bollinger') {
       const { upper, middle, lower } = calcBollinger(closes, 20, 2)
-      const mid = chart.addSeries(LightweightCharts.LineSeries, { color: 'rgba(217,142,43,0.8)', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, title: 'BB' })
+      const mid = chart.addSeries(LightweightCharts.LineSeries, { color: 'rgba(217,142,43,0.8)', lineWidth: 1, priceLineVisible: true, lastValueVisible: true, title: 'BB' })
       const up  = chart.addSeries(LightweightCharts.LineSeries, { color: 'rgba(217,142,43,0.4)', lineWidth: 1, priceLineVisible: false, lastValueVisible: false })
       const lo  = chart.addSeries(LightweightCharts.LineSeries, { color: 'rgba(217,142,43,0.4)', lineWidth: 1, priceLineVisible: false, lastValueVisible: false })
       mid.setData(_align(days, middle)); up.setData(_align(days, upper)); lo.setData(_align(days, lower))
-      ACTIVE.bollinger = { series: [mid, up, lo], overlay: true }
+      ACTIVE.bollinger = {
+        series: [mid, up, lo], overlay: true,
+        legend: idx => [{ label: 'BB(20,2)', color: 'rgba(217,142,43,0.8)', value: middle[idx], fmt: 'price' }]
+      }
     }
 
     else if (key === 'volume') {
       const pIdx = _paneIndexFor('volume')
       const s = chart.addSeries(LightweightCharts.HistogramSeries, { priceFormat: { type: 'volume' }, priceLineVisible: false, lastValueVisible: true, title: 'Vol' }, pIdx)
       s.setData(days.map(d => ({ time: d.date, value: d.volume, color: d.close >= d.open ? 'rgba(74,222,128,0.5)' : 'rgba(240,99,92,0.5)' })))
-      ACTIVE.volume = { series: [s], overlay: false }
+      ACTIVE.volume = {
+        series: [s], overlay: false,
+        legend: idx => [{ label: 'Vol', color: '#9aa0a6', value: days[idx]?.volume, fmt: 'vol' }]
+      }
     }
 
     else if (key === 'rsi') {
       const pIdx = _paneIndexFor('rsi')
       const rsi = calcRSI(closes, 14)
-      const s = chart.addSeries(LightweightCharts.LineSeries, { color: '#ece7de', lineWidth: 1.5, priceLineVisible: false, lastValueVisible: true, title: 'RSI' }, pIdx)
+      const s = chart.addSeries(LightweightCharts.LineSeries, { color: '#ece7de', lineWidth: 1.5, priceLineVisible: true, lastValueVisible: true, title: 'RSI' }, pIdx)
       s.setData(_align(days, rsi))
-      ACTIVE.rsi = { series: [s], overlay: false }
+      ACTIVE.rsi = {
+        series: [s], overlay: false,
+        legend: idx => [{ label: 'RSI(14)', color: '#ece7de', value: rsi[idx], fmt: 'num1' }]
+      }
     }
 
     else if (key === 'macd') {
       const pIdx = _paneIndexFor('macd')
       const { macd, signal, hist } = calcMACD(closes)
-      const macdLine = chart.addSeries(LightweightCharts.LineSeries, { color: '#60a5fa', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, title: 'MACD' }, pIdx)
-      const sigLine  = chart.addSeries(LightweightCharts.LineSeries, { color: '#d98e2b', lineWidth: 1, priceLineVisible: false, lastValueVisible: false }, pIdx)
+      const macdLine = chart.addSeries(LightweightCharts.LineSeries, { color: '#60a5fa', lineWidth: 1, priceLineVisible: true, lastValueVisible: true, title: 'MACD' }, pIdx)
+      const sigLine  = chart.addSeries(LightweightCharts.LineSeries, { color: '#d98e2b', lineWidth: 1, priceLineVisible: true, lastValueVisible: true }, pIdx)
       const histS    = chart.addSeries(LightweightCharts.HistogramSeries, { priceLineVisible: false, lastValueVisible: false }, pIdx)
       macdLine.setData(_align(days, macd))
       sigLine.setData(_align(days, signal))
       histS.setData(days.map((d, i) => hist[i] !== null ? { time: d.date, value: hist[i], color: hist[i] >= 0 ? 'rgba(74,222,128,0.5)' : 'rgba(240,99,92,0.5)' } : null).filter(Boolean))
-      ACTIVE.macd = { series: [macdLine, sigLine, histS], overlay: false }
+      ACTIVE.macd = {
+        series: [macdLine, sigLine, histS], overlay: false,
+        legend: idx => [
+          { label: 'MACD',   color: '#60a5fa', value: macd[idx],   fmt: 'price2' },
+          { label: 'Signal', color: '#d98e2b', value: signal[idx], fmt: 'price2' }
+        ]
+      }
     }
 
     else if (key === 'lpm') {
       const pIdx = _paneIndexFor('lpm')
-      ACTIVE.lpm = { series: [], overlay: false, paneIdx: pIdx }
+      ACTIVE.lpm = {
+        series: [], overlay: false, paneIdx: pIdx,
+        legend: idx => {
+          const date = days[idx]?.date
+          const v = date ? DB.lpmCache[date] : null
+          if (!v) return [{ label: 'LPM', color: '#d98e2b', value: null, fmt: 'rp' }]
+          const mode = document.getElementById('lpm-mode').value
+          if (mode === 'bar') return [{ label: 'LPM', color: '#d98e2b', value: v.net, fmt: 'rp' }]
+          const total = v.buy + v.sell
+          return [{ label: 'LPM', color: '#d98e2b', value: total > 0 ? (v.buy/total)*100 : 50, fmt: 'pct' }]
+        }
+      }
       chart.timeScale().subscribeVisibleLogicalRangeChange(_debouncedLpmUpdate)
       _updateLpmForVisibleRange()
     }
 
     _layoutPanes()
+    if (chart) _updateInfoAndLegend(days.length - 1)
   }
 
   /** Hapus 1 indikator — series-nya saja, chart & indikator lain tetap utuh. */
@@ -336,6 +410,7 @@
     ind.series.forEach(s => { try { chart.removeSeries(s) } catch (_) {} })
     delete ACTIVE[key]
     _layoutPanes()
+    if (chart && DB.daily.length) _updateInfoAndLegend(DB.daily.length - 1)
   }
 
   /** Selaraskan {time, value} dengan array hasil indikator yang bisa berisi null (warmup). */
@@ -441,10 +516,67 @@
       }))
       ACTIVE.lpm.series.push(s)
     }
+    if (DB.daily.length) _updateInfoAndLegend(DB.daily.length - 1)
   }
 
   // ============================================================
-  // SEKSI 7: CLOCK
+  // SEKSI 7: OHLC BAR + LEGEND OVERLAY
+  // ============================================================
+
+  /**
+   * Update baris info OHLC + legend overlay chart untuk 1 index hari.
+   * Dipanggil saat data baru dimuat (index terakhir) dan saat crosshair
+   * hover (index sesuai bar yang dihover).
+   */
+  function _updateInfoAndLegend(idx) {
+    const days = DB.daily
+    if (!days.length || idx === undefined || idx < 0 || idx >= days.length) return
+    const d = days[idx]
+    const prevClose = idx > 0 ? days[idx - 1].close : d.open
+    const chg = d.close - prevClose
+    const chgPct = prevClose > 0 ? (chg / prevClose) * 100 : 0
+    const up = chg >= 0
+
+    document.getElementById('ohlc-bar').innerHTML = `
+      <span class="ohlc-sym">${DB.sym}</span>
+      <span class="ohlc-tf">· 1D</span>
+      <span class="ohlc-val">O <b>${_fmtVal(d.open,'price')}</b></span>
+      <span class="ohlc-val">H <b>${_fmtVal(d.high,'price')}</b></span>
+      <span class="ohlc-val">L <b>${_fmtVal(d.low,'price')}</b></span>
+      <span class="ohlc-val">C <b>${_fmtVal(d.close,'price')}</b></span>
+      <span class="ohlc-chg ${up ? 'up' : 'down'}">${up?'+':''}${_fmtVal(chg,'price')} (${up?'+':''}${chgPct.toFixed(2)}%)</span>
+      <span class="ohlc-tf">${d.date}</span>
+    `
+
+    const rows = []
+    Object.keys(ACTIVE).forEach(key => {
+      if (key === '_candle') return
+      const ind = ACTIVE[key]
+      if (!ind.legend) return
+      rows.push(...ind.legend(idx))
+    })
+
+    document.getElementById('chart-legend').innerHTML = rows.map(r => `
+      <div class="legend-row">
+        <span class="legend-swatch" style="background:${r.color}"></span>
+        <span class="legend-name">${r.label}</span>
+        <span class="legend-value" style="color:${r.color}">${_fmtVal(r.value, r.fmt)}</span>
+      </div>
+    `).join('')
+  }
+
+  function _fmtVal(v, fmt) {
+    if (v === null || v === undefined || isNaN(v)) return '–'
+    if (fmt === 'vol')    return v >= 1e6 ? (v/1e6).toFixed(1)+'jt' : v >= 1e3 ? (v/1e3).toFixed(0)+'rb' : String(v)
+    if (fmt === 'rp')     return (v >= 0 ? '' : '-') + (Math.abs(v) >= 1e9 ? (Math.abs(v)/1e9).toFixed(2)+'M' : Math.abs(v) >= 1e6 ? (Math.abs(v)/1e6).toFixed(0)+'jt' : Math.abs(v).toFixed(0))
+    if (fmt === 'pct')    return v.toFixed(1) + '%'
+    if (fmt === 'num1')   return v.toFixed(1)
+    if (fmt === 'price2') return v.toFixed(2)
+    return new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 }).format(v)
+  }
+
+  // ============================================================
+  // SEKSI 8: CLOCK
   // ============================================================
   function _startClock() {
     const el = document.getElementById('clock')
