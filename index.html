@@ -148,7 +148,7 @@
       z-index: 100;
       width: calc(100% - 48px);
       max-width: 1100px;
-      background: rgba(var(--nav-bg, 26,18,8), 0.88);
+      background: rgba(26,18,8, 0.88);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       border-radius: 60px;
@@ -262,7 +262,7 @@
     .hero-search {
       display: flex;
       align-items: center;
-      background: #fff;
+      background: var(--paper);
       border: 1.5px solid var(--cream-warm);
       border-radius: 40px;
       padding: 4px 6px 4px 20px;
@@ -450,10 +450,10 @@
     }
 
     .feat-card {
-      background: #fff;
+      background: var(--paper);
       border-radius: 16px;
       overflow: hidden;
-      border: 1px solid rgba(61,44,30,0.07);
+      border: 1px solid var(--mist);
       transition: transform .35s var(--ease), box-shadow .35s var(--ease), border-color .35s;
       text-decoration: none;
       color: inherit;
@@ -667,10 +667,10 @@
       margin-top: 48px;
     }
     .settings-card {
-      background: #fff;
+      background: var(--paper);
       border-radius: 16px;
       padding: 32px;
-      border: 1px solid rgba(61,44,30,0.07);
+      border: 1px solid var(--mist);
     }
     .settings-card-title {
       font-family: var(--font-serif);
@@ -808,7 +808,7 @@
       font-family: var(--font-mono);
       color: var(--ink-2);
       outline: none;
-      background: #fff;
+      background: var(--paper);
       transition: border-color .2s;
       margin-bottom: 12px;
     }
@@ -1338,6 +1338,36 @@
     const el = document.getElementById('navProfile')
     if (el) el.textContent = '/ ' + profileName
   }
+
+  // Swap hero collage images per theme
+  ;(function() {
+    const theme = document.documentElement.getAttribute('data-theme') || 'cmbyn'
+    const collageImgs = {
+      cmbyn: [
+        'https://images.unsplash.com/photo-1516483638261-f4dbaf036963?w=800&q=80&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1533104816931-20fa691ff6ca?w=600&q=75&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=75&auto=format&fit=crop',
+      ],
+      noir: [
+        'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=800&q=80&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=600&q=75&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=600&q=75&auto=format&fit=crop',
+      ],
+      forest: [
+        'https://images.unsplash.com/photo-1448375240586-882707db888b?w=800&q=80&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=600&q=75&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07?w=600&q=75&auto=format&fit=crop',
+      ],
+      ocean: [
+        'https://images.unsplash.com/photo-1505118380757-91f5f5632de0?w=800&q=80&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&q=75&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1513125370-3460ebe3401b?w=600&q=75&auto=format&fit=crop',
+      ],
+    }
+    const srcs = collageImgs[theme] || collageImgs.cmbyn
+    const imgs = document.querySelectorAll('.collage-img img')
+    imgs.forEach((img, i) => { if (srcs[i]) img.src = srcs[i] })
+  })()
 
   // Pre-fill settings if already saved
   const savedGs = getGsUrl()
