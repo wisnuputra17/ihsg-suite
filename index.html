@@ -7,11 +7,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
+  <!-- IHSG Suite v2 — search-based flat feature list -->
 
   <style>
-    /* =========================================================
-       CSS VARIABLES — ubah di sini untuk ganti tema
-       ========================================================= */
     :root {
       --bg:          #0a0a0a;
       --bg-card:     #111111;
@@ -23,18 +21,8 @@
       --text-muted:     #3a3a3a;
       --accent:      #e8e8e8;
       --accent-dim:  #444444;
-
-      /* Status warna */
       --open:   #4ade80;
       --close:  #f87171;
-      --unknown:#666666;
-
-      /* Per-card accent (untuk garis tipis di kiri) */
-      --defence-color: #60a5fa;
-      --cacing-color:  #34d399;
-      --scalping-color:#f59e0b;
-      --lab-color:     #a78bfa;
-
       --font-mono: 'DM Mono', monospace;
       --font-sans: 'DM Sans', sans-serif;
       --radius: 2px;
@@ -231,42 +219,81 @@
     .token-status.error { color: var(--close); }
 
     /* =========================================================
-       CARD GRID
+       SEARCH
        ========================================================= */
-    .main {
-      padding: 32px 0;
+    .search-wrap {
+      padding: 20px 0 0;
+      position: relative;
     }
+    .search-icon {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      pointer-events: none;
+      margin-top: 10px;
+    }
+    #searchInput {
+      width: 100%;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 12px 10px 36px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--text-primary);
+      outline: none;
+      transition: border-color var(--transition);
+    }
+    #searchInput::placeholder { color: var(--text-muted); }
+    #searchInput:focus { border-color: var(--accent-dim); }
 
+    /* =========================================================
+       FITUR LIST
+       ========================================================= */
+    .main { padding: 24px 0; }
+
+    .list-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
     .section-label {
       font-family: var(--font-mono);
       font-size: 10px;
       letter-spacing: 0.2em;
       text-transform: uppercase;
       color: var(--text-muted);
-      margin-bottom: 16px;
+    }
+    .feature-count {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
     }
 
-    .card-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 1px;
-      background: var(--border);
+    .feature-list {
       border: 1px solid var(--border);
     }
 
-    /* Card */
-    .card {
-      background: var(--bg-card);
-      padding: 28px 24px;
+    .feature-item {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 14px 16px;
       text-decoration: none;
-      display: block;
-      position: relative;
+      color: inherit;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-card);
       transition: background var(--transition);
-      overflow: hidden;
-      cursor: pointer;
+      position: relative;
     }
+    .feature-item:last-child { border-bottom: none; }
+    .feature-item:hover { background: var(--bg-card-hover); }
+    .feature-item.hidden { display: none; }
 
-    .card::before {
+    .feature-item::before {
       content: '';
       position: absolute;
       top: 0; left: 0;
@@ -275,83 +302,64 @@
       opacity: 0;
       transition: opacity var(--transition);
     }
+    .feature-item:hover::before { opacity: 1; }
+    .feature-item[data-cat="scalping"]::before   { background: #f59e0b; }
+    .feature-item[data-cat="pre-opening"]::before { background: #60a5fa; }
+    .feature-item[data-cat="intraday"]::before   { background: #34d399; }
+    .feature-item[data-cat="swing"]::before      { background: #a78bfa; }
+    .feature-item[data-cat="watchlist"]::before  { background: #f472b6; }
+    .feature-item[data-cat="lab"]::before        { background: #94a3b8; }
 
-    .card:hover { background: var(--bg-card-hover); }
-    .card:hover::before { opacity: 1; }
-
-    /* Card accent lines */
-    .card[data-module="defence"]::before { background: var(--defence-color); }
-    .card[data-module="cacing"]::before  { background: var(--cacing-color); }
-    .card[data-module="scalping"]::before{ background: var(--scalping-color); }
-    .card[data-module="lab"]::before     { background: var(--lab-color); }
-
-    .card-index {
+    .feature-num {
       font-family: var(--font-mono);
       font-size: 10px;
       color: var(--text-muted);
-      margin-bottom: 20px;
-      letter-spacing: 0.1em;
+      width: 24px;
+      flex-shrink: 0;
+      text-align: right;
     }
-
-    .card-title {
+    .feature-name {
       font-family: var(--font-mono);
-      font-size: 18px;
-      font-weight: 400;
+      font-size: 13px;
       color: var(--text-primary);
-      letter-spacing: -0.01em;
-      margin-bottom: 8px;
-      line-height: 1.2;
+      min-width: 160px;
+      flex-shrink: 0;
     }
-
-    .card-subtitle {
+    .feature-desc {
       font-size: 12px;
       color: var(--text-secondary);
-      margin-bottom: 20px;
-      line-height: 1.5;
+      flex: 1;
+      line-height: 1.4;
     }
-
-    .card-tags {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
-
-    .tag {
+    .feature-tag {
       font-family: var(--font-mono);
       font-size: 10px;
-      letter-spacing: 0.08em;
-      padding: 3px 8px;
+      padding: 2px 8px;
       border: 1px solid var(--border);
       color: var(--text-muted);
       border-radius: var(--radius);
+      white-space: nowrap;
+      flex-shrink: 0;
     }
-
-    .card:hover .tag {
-      border-color: var(--border-hover);
-      color: var(--text-secondary);
-    }
-
-    .card-arrow {
-      position: absolute;
-      bottom: 24px;
-      right: 24px;
-      font-family: var(--font-mono);
-      font-size: 16px;
+    .feature-arrow {
+      font-size: 12px;
       color: var(--text-muted);
+      flex-shrink: 0;
       transition: all var(--transition);
-      line-height: 1;
     }
-
-    .card:hover .card-arrow {
+    .feature-item:hover .feature-arrow {
       color: var(--text-secondary);
       transform: translate(2px, -2px);
     }
 
-    /* Stagger animation untuk card */
-    .card:nth-child(1) { animation: fadeUp 400ms 160ms ease both; }
-    .card:nth-child(2) { animation: fadeUp 400ms 220ms ease both; }
-    .card:nth-child(3) { animation: fadeUp 400ms 280ms ease both; }
-    .card:nth-child(4) { animation: fadeUp 400ms 340ms ease both; }
+    .empty-state {
+      padding: 48px 0;
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-muted);
+      display: none;
+    }
 
     /* =========================================================
        FOOTER
@@ -485,67 +493,100 @@
       <button class="btn" id="btnToggle">Lihat</button>
     </div>
     <div class="token-status" id="tokenStatus"></div>
+
+    <!-- SEARCH -->
+    <div class="search-wrap">
+      <svg class="search-icon" width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398l3.85 3.85a1 1 0 0 0 1.415-1.415l-3.868-3.833zm-5.242 1.156a5 5 0 1 1 0-10 5 5 0 0 1 0 10z"/>
+      </svg>
+      <input id="searchInput" type="text" placeholder="Cari fitur..." autocomplete="off" />
+    </div>
   </div>
 
-  <!-- MAIN — CARD GRID -->
+  <!-- MAIN — FEATURE LIST -->
   <main class="main">
-    <div class="section-label">Pilih Modul</div>
-    <div class="card-grid">
+    <div class="list-header">
+      <div class="section-label">Fitur</div>
+      <div class="feature-count" id="featureCount"></div>
+    </div>
 
-      <!-- DEFENCE -->
-      <a class="card" href="defence/index.html" data-module="defence">
-        <div class="card-index">01</div>
-        <div class="card-title">Defence</div>
-        <div class="card-subtitle">Conviction play jangka panjang.<br>Monitor thesis & entry 250 juta.</div>
-        <div class="card-tags">
-          <span class="tag">Watchlist</span>
-          <span class="tag">Thesis Tracker</span>
-          <span class="tag">Alert</span>
-        </div>
-        <div class="card-arrow">↗</div>
+    <div class="feature-list" id="featureList">
+
+      <a class="feature-item" href="features/haka/index.html" data-cat="scalping" data-search="haka beli besar">
+        <span class="feature-num">01</span>
+        <span class="feature-name">HAKA</span>
+        <span class="feature-desc">Deteksi transaksi beli besar real-time dari running trade</span>
+        <span class="feature-tag">scalping</span>
+        <span class="feature-arrow">↗</span>
       </a>
 
-      <!-- CACING / NAGA -->
-      <a class="card" href="cacing/index.html" data-module="cacing">
-        <div class="card-index">02</div>
-        <div class="card-title">Cacing / Naga</div>
-        <div class="card-subtitle">Small cap dengan probabilitas meledak.<br>Backdoor, turnaround, akuisisi.</div>
-        <div class="card-tags">
-          <span class="tag">Screening</span>
-          <span class="tag">Catalyst Notes</span>
-          <span class="tag">Corporate Action</span>
-        </div>
-        <div class="card-arrow">↗</div>
+      <a class="feature-item" href="features/hakahaki/index.html" data-cat="scalping" data-search="haka haki beli jual besar posisi">
+        <span class="feature-num">02</span>
+        <span class="feature-name">HAKA+HAKI</span>
+        <span class="feature-desc">Monitor posisi aktif — deteksi aksi beli & jual besar sekaligus</span>
+        <span class="feature-tag">scalping</span>
+        <span class="feature-arrow">↗</span>
       </a>
 
-      <!-- SCALPING -->
-      <a class="card" href="scalping/index.html" data-module="scalping">
-        <div class="card-index">03</div>
-        <div class="card-title">Scalping</div>
-        <div class="card-subtitle">Full matematis. Backtesting probabilitas,<br>win rate, dan scanner real-time.</div>
-        <div class="card-tags">
-          <span class="tag">Chart</span>
-          <span class="tag">Win Rate</span>
-          <span class="tag">Broker Analysis</span>
-          <span class="tag">IEP Scanner</span>
-        </div>
-        <div class="card-arrow">↗</div>
+      <a class="feature-item" href="features/iep-scanner/index.html" data-cat="pre-opening" data-search="iep scanner pre-opening surge volume">
+        <span class="feature-num">03</span>
+        <span class="feature-name">IEP Scanner</span>
+        <span class="feature-desc">Scan harga & volume IEP pre-opening, deteksi volume surge</span>
+        <span class="feature-tag">pre-opening</span>
+        <span class="feature-arrow">↗</span>
       </a>
 
-      <!-- LAB -->
-      <a class="card" href="lab/index.html" data-module="lab">
-        <div class="card-index">04</div>
-        <div class="card-title">Lab</div>
-        <div class="card-subtitle">Eksperimen bebas. Analisa abstrak,<br>logic baru, data eksplorasi.</div>
-        <div class="card-tags">
-          <span class="tag">Eksperimen</span>
-          <span class="tag">Export Data</span>
-          <span class="tag">Analisa Bebas</span>
-        </div>
-        <div class="card-arrow">↗</div>
+      <a class="feature-item" href="features/lpm/index.html" data-cat="intraday" data-search="lpm liquidity pressure tekanan jual beli">
+        <span class="feature-num">04</span>
+        <span class="feature-name">LPM</span>
+        <span class="feature-desc">Liquidity Pressure Model — visualisasi tekanan jual vs beli per emiten</span>
+        <span class="feature-tag">intraday</span>
+        <span class="feature-arrow">↗</span>
+      </a>
+
+      <a class="feature-item" href="features/absorption/index.html" data-cat="intraday" data-search="absorption net buy sell menit dominan">
+        <span class="feature-num">05</span>
+        <span class="feature-name">Absorption</span>
+        <span class="feature-desc">Grafik net buy/sell per menit — lihat siapa yang dominan</span>
+        <span class="feature-tag">intraday</span>
+        <span class="feature-arrow">↗</span>
+      </a>
+
+      <a class="feature-item" href="features/defence-tracker/index.html" data-cat="swing" data-search="defence tracker swing posisi average down">
+        <span class="feature-num">06</span>
+        <span class="feature-name">Defence Tracker</span>
+        <span class="feature-desc">Pantau posisi swing — average down, target, cut loss</span>
+        <span class="feature-tag">swing</span>
+        <span class="feature-arrow">↗</span>
+      </a>
+
+      <a class="feature-item" href="features/cacing-watchlist/index.html" data-cat="watchlist" data-search="cacing watchlist small cap alert">
+        <span class="feature-num">07</span>
+        <span class="feature-name">Cacing Watchlist</span>
+        <span class="feature-desc">Watchlist saham cacing dengan alert otomatis</span>
+        <span class="feature-tag">watchlist</span>
+        <span class="feature-arrow">↗</span>
+      </a>
+
+      <a class="feature-item" href="features/lab-chart/index.html" data-cat="lab" data-search="lab chart eksperimen indikator">
+        <span class="feature-num">08</span>
+        <span class="feature-name">Lab Chart</span>
+        <span class="feature-desc">Chart eksperimen dengan indikator kustom</span>
+        <span class="feature-tag">lab</span>
+        <span class="feature-arrow">↗</span>
+      </a>
+
+      <a class="feature-item" href="features/lab-console/index.html" data-cat="lab" data-search="lab console playground api test">
+        <span class="feature-num">09</span>
+        <span class="feature-name">Lab Console</span>
+        <span class="feature-desc">Playground untuk test API & indikator langsung di browser</span>
+        <span class="feature-tag">lab</span>
+        <span class="feature-arrow">↗</span>
       </a>
 
     </div>
+
+    <div class="empty-state" id="emptyState">Tidak ada hasil untuk "<span id="emptyQuery"></span>"</div>
   </main>
 
   <!-- FOOTER -->
@@ -747,7 +788,39 @@
   })
 
   // ============================================================
-  // SEKSI 5: INIT
+  // SEKSI 5: SEARCH
+  // ============================================================
+
+  const searchInput   = document.getElementById('searchInput')
+  const featureItems  = document.querySelectorAll('.feature-item')
+  const featureCount  = document.getElementById('featureCount')
+  const emptyState    = document.getElementById('emptyState')
+  const emptyQuery    = document.getElementById('emptyQuery')
+
+  function _updateFeatureCount(n) {
+    featureCount.textContent = n + ' fitur'
+  }
+
+  _updateFeatureCount(featureItems.length)
+
+  searchInput.addEventListener('input', () => {
+    const q = searchInput.value.trim().toLowerCase()
+    let visible = 0
+    featureItems.forEach(item => {
+      const name   = item.querySelector('.feature-name').textContent.toLowerCase()
+      const desc   = item.querySelector('.feature-desc').textContent.toLowerCase()
+      const extra  = (item.dataset.search || '').toLowerCase()
+      const match  = !q || name.includes(q) || desc.includes(q) || extra.includes(q)
+      item.classList.toggle('hidden', !match)
+      if (match) visible++
+    })
+    emptyState.style.display = visible === 0 ? 'block' : 'none'
+    emptyQuery.textContent   = searchInput.value.trim()
+    _updateFeatureCount(visible)
+  })
+
+  // ============================================================
+  // SEKSI 6: INIT
   // ============================================================
 
   function init() {
@@ -755,7 +828,6 @@
     _fetchMarketStatus()
     _updateTime()
     setInterval(_updateTime, 1000)
-    // Refresh status pasar tiap 60 detik
     setInterval(_fetchMarketStatus, 60_000)
   }
 
