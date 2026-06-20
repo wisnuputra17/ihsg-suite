@@ -1,0 +1,272 @@
+/**
+ * shared/ui.css
+ * =============
+ * Design tokens + komponen dasar — dipakai SEMUA halaman (landing + tiap fitur).
+ * Satu sumber kebenaran visual. Ubah di sini, semua halaman ikut berubah.
+ *
+ * Konsep: "Terminal Fosfor" — terinspirasi monitor trading lama (amber CRT),
+ * bukan hijau neon generik. Hitam hangat, bukan hitam pekat.
+ *
+ * Cara pakai di tiap features/<nama>/index.html:
+ *   <link rel="stylesheet" href="../../shared/ui.css">
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap');
+
+:root {
+  /* ── Warna — "Terminal Fosfor" ── */
+  --ink:      #0a0908;   /* bg utama — hitam hangat, bukan #000 pekat */
+  --panel:    #131210;   /* bg card/panel */
+  --panel-hi: #1a1815;   /* bg card saat hover */
+  --line:     #232019;   /* border default */
+  --line-hi:  #343025;   /* border saat hover/aktif */
+
+  --paper:    #ece7de;   /* teks utama — krem pudar, bukan putih pekat */
+  --dim:      #6b6557;   /* teks sekunder */
+  --ghost:    #38352c;   /* teks paling pudar / placeholder */
+
+  --phosphor:     #d98e2b;          /* aksen utama — amber fosfor */
+  --phosphor-dim: rgba(217,142,43,0.12);
+  --phosphor-line:rgba(217,142,43,0.35);
+
+  /* Warna fungsional status (bukan brand, hanya makna: aktif/tutup/bahaya) */
+  --live: #4ade80;
+  --down: #f0635c;
+  --wait: #e0b341;
+
+  /* ── Tipografi ── */
+  --f-mono: 'DM Mono', monospace;
+  --f-sans: 'DM Sans', sans-serif;
+
+  /* ── Lainnya ── */
+  --radius: 3px;
+  --ease:   200ms cubic-bezier(.4,0,.2,1);
+}
+
+/* ============================================================
+   RESET
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--f-sans);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; }
+.hidden { display: none !important; }
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--line); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--line-hi); }
+
+:focus-visible {
+  outline: 1px solid var(--phosphor);
+  outline-offset: 2px;
+}
+
+/* ============================================================
+   LAYOUT DASAR
+   ============================================================ */
+.page {
+  min-height: 100vh;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* ============================================================
+   HEADER — dipakai semua halaman fitur (back link + nama + clock)
+   ============================================================ */
+.app-header {
+  padding: 24px 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+
+.app-header-left { display: flex; align-items: center; gap: 16px; }
+
+.back-link {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  color: var(--ghost);
+  text-decoration: none;
+  letter-spacing: 0.1em;
+  transition: color var(--ease);
+}
+.back-link:hover { color: var(--dim); }
+
+.header-divider { width: 1px; height: 16px; background: var(--line); }
+
+.app-name {
+  font-family: var(--f-mono);
+  font-size: 13px;
+  color: var(--phosphor);
+  letter-spacing: 0.05em;
+}
+
+.app-clock {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  color: var(--ghost);
+  letter-spacing: 0.08em;
+}
+
+/* ============================================================
+   TYPOGRAPHY UTILITAS
+   ============================================================ */
+.section-label {
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ghost);
+  margin: 20px 0 12px;
+}
+.section-label:first-child { margin-top: 0; }
+
+/* ============================================================
+   STATUS DOT — makna nyata (aktif/tutup), dipakai di banyak tempat
+   ============================================================ */
+.status-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--ghost);
+  flex-shrink: 0;
+  transition: background var(--ease);
+}
+.status-dot.live  { background: var(--live); box-shadow: 0 0 6px var(--live); }
+.status-dot.down  { background: var(--down); }
+.status-dot.wait  { background: var(--wait); animation: pulse 1.6s infinite; }
+
+@keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:.35 } }
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+.btn {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  padding: 7px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--dim);
+  cursor: pointer;
+  transition: all var(--ease);
+  white-space: nowrap;
+}
+.btn:hover { border-color: var(--line-hi); color: var(--paper); }
+
+.btn-primary { border-color: var(--phosphor-line); color: var(--phosphor); }
+.btn-primary:hover { background: var(--phosphor-dim); }
+
+.btn-danger { border-color: var(--down) !important; color: var(--down) !important; }
+.btn-danger:hover { background: rgba(240,99,92,0.08) !important; }
+
+.btn-sm { padding: 5px 10px; font-size: 10px; }
+
+/* Pill (filter / threshold selector) */
+.pill {
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ghost);
+  cursor: pointer;
+  transition: all var(--ease);
+}
+.pill:hover { border-color: var(--line-hi); color: var(--dim); }
+.pill.active { border-color: var(--phosphor-line); color: var(--phosphor); background: var(--phosphor-dim); }
+
+/* ============================================================
+   INPUTS
+   ============================================================ */
+.input {
+  width: 100%;
+  background: #0f0e0c;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 7px 10px;
+  font-family: var(--f-mono);
+  font-size: 12px;
+  color: var(--paper);
+  outline: none;
+  transition: border-color var(--ease);
+}
+.input::placeholder { color: var(--ghost); }
+.input:focus { border-color: var(--line-hi); }
+
+textarea.input { resize: vertical; min-height: 50px; font-family: var(--f-sans); }
+
+/* ============================================================
+   CHIPS (watchlist tags)
+   ============================================================ */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--f-mono);
+  font-size: 11px;
+  padding: 4px 8px 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--dim);
+  background: var(--panel);
+}
+.chip-remove {
+  background: none; border: none; color: var(--ghost);
+  cursor: pointer; font-size: 13px; line-height: 1; padding: 0 2px;
+  transition: color var(--ease);
+}
+.chip-remove:hover { color: var(--down); }
+
+/* ============================================================
+   TABLE
+   ============================================================ */
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); }
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.data-table th {
+  font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--ghost); padding: 10px 12px; text-align: left;
+  background: var(--panel); border-bottom: 1px solid var(--line); white-space: nowrap;
+}
+.data-table td { padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td { background: var(--panel); }
+
+.sym-cell { font-family: var(--f-mono); font-size: 12px; font-weight: 500; }
+.num-cell { font-family: var(--f-mono); font-size: 12px; text-align: right; }
+.dim-cell { font-family: var(--f-mono); font-size: 11px; color: var(--ghost); }
+
+.text-live { color: var(--live); }
+.text-down { color: var(--down); }
+.text-wait { color: var(--wait); }
+
+/* ============================================================
+   EMPTY STATE
+   ============================================================ */
+.empty-state {
+  padding: 40px 0; text-align: center;
+  font-family: var(--f-mono); font-size: 12px; color: var(--ghost); letter-spacing: 0.05em;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 600px) {
+  .app-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+}
