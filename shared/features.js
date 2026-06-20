@@ -20,7 +20,7 @@ export const FEATURES = [
     name:   'HAKA & HAKI',
     desc:   'Monitor transaksi agresif real-time — BUY (HAKA) dan SELL (HAKI) di atas threshold.',
     tags:   ['running trade', 'akumulasi', 'distribusi', 'alert', 'monitor'],
-    status: 'soon'
+    status: 'ready'
   },
   {
     id:     'iep-scanner',

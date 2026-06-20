@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HAKA & HAKI · IHSG Suite</title>
+  <link rel="stylesheet" href="../../shared/ui.css">
+
+  <style>
+    /* =========================================================
+       Khusus halaman ini — di luar token shared/ui.css
+       ========================================================= */
+    .page { max-width: 1100px; }
+
+    .token-bar {
+      padding: 10px 0; border-bottom: 1px solid var(--line);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .token-bar-label {
+      font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.12em;
+      text-transform: uppercase; color: var(--down); white-space: nowrap;
+    }
+
+    .tabs { display: flex; border-bottom: 1px solid var(--line); padding-top: 4px; }
+    .tab-btn {
+      font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+      padding: 12px 20px; background: transparent; border: none; border-bottom: 2px solid transparent;
+      color: var(--ghost); cursor: pointer; transition: all var(--ease); margin-bottom: -1px;
+    }
+    .tab-btn:hover { color: var(--dim); }
+    .tab-btn.active { color: var(--phosphor); border-bottom-color: var(--phosphor); }
+
+    .panels { padding: 24px 0; }
+
+    .toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+    .sym-input { width: 100px; text-transform: uppercase; }
+
+    .watchlist-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; min-height: 30px; }
+    .chip-count { font-family: var(--f-mono); font-size: 10px; color: var(--ghost); align-self: center; }
+
+    .named-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .named-select {
+      background: #0f0e0c; border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 7px 10px; font-family: var(--f-mono); font-size: 12px; color: var(--paper); outline: none;
+    }
+
+    .monitor-row { display: flex; align-items: center; gap: 12px; margin: 16px 0; }
+    .monitor-status { font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.08em; }
+
+    .alert-feed { display: flex; flex-direction: column; gap: 6px; max-height: 560px; overflow-y: auto; }
+    .alert-card {
+      display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 12px;
+      padding: 10px 14px; border: 1px solid var(--line); border-radius: var(--radius);
+      background: var(--panel); animation: slideIn 200ms ease both;
+    }
+    @keyframes slideIn { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:translateY(0); } }
+    .alert-card.is-buy  { border-left: 2px solid var(--live); }
+    .alert-card.is-sell { border-left: 2px solid var(--down); }
+    .alert-sym { font-family: var(--f-mono); font-size: 13px; font-weight: 500; min-width: 56px; }
+    .alert-type { font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.1em; }
+    .is-buy  .alert-type { color: var(--live); }
+    .is-sell .alert-type { color: var(--down); }
+    .alert-val { font-family: var(--f-mono); font-size: 13px; font-weight: 500; text-align: right; }
+    .is-buy  .alert-val { color: var(--live); }
+    .is-sell .alert-val { color: var(--down); }
+    .alert-detail { font-family: var(--f-mono); font-size: 11px; color: var(--dim); text-align: right; }
+    .alert-time { font-family: var(--f-mono); font-size: 10px; color: var(--ghost); white-space: nowrap; }
+  </style>
+</head>
+<body>
+
+<div class="page">
+
+  <header class="app-header">
+    <div class="app-header-left">
+      <a class="back-link" href="../../index.html">← Suite</a>
+      <div class="header-divider"></div>
+      <span class="app-name">HAKA & HAKI</span>
+    </div>
+    <div class="app-clock" id="clock">––:––:––</div>
+  </header>
+
+  <div class="token-bar hidden" id="tokenBar">
+    <span class="token-bar-label">Token belum diisi</span>
+    <input type="password" class="input" id="tokenInput" placeholder="Bearer token Stockbit..." style="flex:1; max-width:320px;">
+    <button class="btn btn-primary btn-sm" id="tokenSave">Simpan</button>
+  </div>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="haka">HAKA — Alert Entry</button>
+    <button class="tab-btn" data-tab="hakahaki">HAKA & HAKI — Posisi Aktif</button>
+  </nav>
+
+  <div class="panels">
+
+    <!-- =================== TAB: HAKA =================== -->
+    <div data-panel="haka">
+
+      <div class="section-label">Watchlist (maks 100)</div>
+      <div class="toolbar">
+        <input type="text" class="input sym-input" id="haka-sym-input" placeholder="BBCA" maxlength="10">
+        <button class="btn btn-primary btn-sm" id="haka-sym-add">+ Tambah</button>
+      </div>
+      <div class="watchlist-row" id="haka-watchlist"></div>
+
+      <div class="section-label">Watchlist Tersimpan</div>
+      <div class="named-row">
+        <select class="named-select" id="haka-named-select"><option value="">— pilih —</option></select>
+        <button class="btn btn-sm" id="haka-named-load">Muat</button>
+        <button class="btn btn-sm" id="haka-named-save">Simpan sbg baru</button>
+        <button class="btn btn-sm" id="haka-named-update">Perbarui</button>
+        <button class="btn btn-sm" id="haka-named-rename">Ganti nama</button>
+        <button class="btn btn-sm btn-danger" id="haka-named-delete">Hapus</button>
+      </div>
+
+      <div class="section-label">Threshold</div>
+      <div class="toolbar" data-threshold-group="haka">
+        <button class="pill" data-threshold="100000000">100 jt</button>
+        <button class="pill" data-threshold="250000000">250 jt</button>
+        <button class="pill active" data-threshold="500000000">500 jt ★</button>
+        <button class="pill" data-threshold="1000000000">1 M</button>
+        <button class="pill" data-threshold="5000000000">5 M</button>
+      </div>
+
+      <div class="monitor-row">
+        <button class="btn btn-primary" id="haka-btn-start" data-running="0">Start Monitor</button>
+        <span class="monitor-status" id="haka-status">○ Idle</span>
+        <button class="btn btn-sm" id="haka-btn-clear">Bersihkan feed</button>
+      </div>
+
+      <div class="section-label">Alert Feed — BUY Agresif</div>
+      <div class="alert-feed" id="haka-feed">
+        <div class="empty-state">Belum ada alert. Jalankan monitor.</div>
+      </div>
+
+    </div>
+
+    <!-- =================== TAB: HAKA & HAKI =================== -->
+    <div data-panel="hakahaki" class="hidden">
+
+      <div class="section-label">Watchlist Posisi Aktif (maks 20)</div>
+      <div class="toolbar">
+        <input type="text" class="input sym-input" id="hakahaki-sym-input" placeholder="BBCA" maxlength="10">
+        <button class="btn btn-primary btn-sm" id="hakahaki-sym-add">+ Tambah</button>
+      </div>
+      <div class="watchlist-row" id="hakahaki-watchlist"></div>
+
+      <div class="section-label">Watchlist Tersimpan</div>
+      <div class="named-row">
+        <select class="named-select" id="hakahaki-named-select"><option value="">— pilih —</option></select>
+        <button class="btn btn-sm" id="hakahaki-named-load">Muat</button>
+        <button class="btn btn-sm" id="hakahaki-named-save">Simpan sbg baru</button>
+        <button class="btn btn-sm" id="hakahaki-named-update">Perbarui</button>
+        <button class="btn btn-sm" id="hakahaki-named-rename">Ganti nama</button>
+        <button class="btn btn-sm btn-danger" id="hakahaki-named-delete">Hapus</button>
+      </div>
+
+      <div class="section-label">Threshold</div>
+      <div class="toolbar" data-threshold-group="hakahaki">
+        <button class="pill" data-threshold="100000000">100 jt</button>
+        <button class="pill" data-threshold="250000000">250 jt</button>
+        <button class="pill active" data-threshold="500000000">500 jt ★</button>
+        <button class="pill" data-threshold="1000000000">1 M</button>
+        <button class="pill" data-threshold="5000000000">5 M</button>
+      </div>
+
+      <div class="monitor-row">
+        <button class="btn btn-primary" id="hakahaki-btn-start" data-running="0">Start Monitor</button>
+        <span class="monitor-status" id="hakahaki-status">○ Idle</span>
+        <button class="btn btn-sm" id="hakahaki-btn-clear">Bersihkan feed</button>
+      </div>
+
+      <div class="section-label">Alert Feed — BUY & SELL Agresif</div>
+      <div class="alert-feed" id="hakahaki-feed">
+        <div class="empty-state">Belum ada alert. Jalankan monitor.</div>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+<script type="module">
+  import { TOKEN } from '../../shared/store.js'
+  import { createMonitor } from './poll.js'
+  import {
+    DB, loadAll,
+    watchlistAdd, watchlistRemove, watchlistSet,
+    hakahakiWatchlistAdd, hakahakiWatchlistRemove, hakahakiWatchlistSet,
+    setThreshold,
+    namedListSave, namedListDelete, namedListRename,
+    alertAdd, hakahakiAlertAdd, clearAlerts
+  } from './db.js'
+
+  // ============================================================
+  // SEKSI 1: STATE HALAMAN (bukan data domain — UI saja)
+  // ============================================================
+  let _tab = 'haka'
+  const hakaMonitor     = createMonitor('buy')
+  const hakahakiMonitor = createMonitor('both')
+
+  // ============================================================
+  // SEKSI 2: INIT
+  // ============================================================
+  async function init() {
+    _renderTokenBar()
+    _bindTokenInput()
+    _bindTabs()
+    _bindWatchlistInputs()
+    _bindNamedListControls()
+    _bindThresholdPills()
+    _bindMonitorButtons()
+    _startClock()
+
+    hakaMonitor.init({
+      onAlert:    (a) => { alertAdd(a); _renderAlerts('haka') },
+      onError:    handleError
+    })
+    hakahakiMonitor.init({
+      onAlert:    (a) => { hakahakiAlertAdd(a); _renderAlerts('hakahaki') },
+      onError:    handleError
+    })
+
+    await loadAll()
+    _renderWatchlist('haka')
+    _renderWatchlist('hakahaki')
+    _renderNamedSelect('haka')
+    _renderNamedSelect('hakahaki')
+    _renderThresholdPills()
+  }
+
+  // ============================================================
+  // SEKSI 3: TOKEN
+  // ============================================================
+  function _renderTokenBar() {
+    document.getElementById('tokenBar').classList.toggle('hidden', TOKEN.isSet())
+  }
+  function _bindTokenInput() {
+    document.getElementById('tokenSave').addEventListener('click', () => {
+      const v = document.getElementById('tokenInput').value.trim()
+      if (!v) return
+      TOKEN.set(v)
+      _renderTokenBar()
+    })
+  }
+
+  // ============================================================
+  // SEKSI 4: TAB
+  // ============================================================
+  function _bindTabs() {
+    document.querySelectorAll('[data-tab]').forEach(el => {
+      el.addEventListener('click', () => {
+        _tab = el.dataset.tab
+        document.querySelectorAll('[data-tab]').forEach(e => e.classList.toggle('active', e.dataset.tab === _tab))
+        document.querySelectorAll('[data-panel]').forEach(e => e.classList.toggle('hidden', e.dataset.panel !== _tab))
+      })
+    })
+  }
+
+  // ============================================================
+  // SEKSI 5: WATCHLIST AKTIF (chips, add, remove)
+  // ============================================================
+  function _bindWatchlistInputs() {
+    _bindAdd('haka',      watchlistAdd,      100)
+    _bindAdd('hakahaki',  hakahakiWatchlistAdd, 20)
+
+    document.getElementById('haka-watchlist').addEventListener('click', e => {
+      if (e.target.dataset.removeSym) { watchlistRemove(e.target.dataset.removeSym); _renderWatchlist('haka') }
+    })
+    document.getElementById('hakahaki-watchlist').addEventListener('click', e => {
+      if (e.target.dataset.removeSym) { hakahakiWatchlistRemove(e.target.dataset.removeSym); _renderWatchlist('hakahaki') }
+    })
+  }
+
+  function _bindAdd(prefix, addFn, max) {
+    const input  = document.getElementById(`${prefix}-sym-input`)
+    const addBtn = document.getElementById(`${prefix}-sym-add`)
+    const _add = () => {
+      const sym = input.value.trim().toUpperCase()
+      if (!sym) return
+      const ok = addFn(sym)
+      if (ok) { input.value = ''; _renderWatchlist(prefix) }
+      input.focus()
+    }
+    addBtn.addEventListener('click', _add)
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') _add() })
+  }
+
+  function _renderWatchlist(prefix) {
+    const list = prefix === 'haka' ? DB.watchlist : DB.hakahakiWatchlist
+    const max  = prefix === 'haka' ? 100 : 20
+    const el   = document.getElementById(`${prefix}-watchlist`)
+    el.innerHTML = list.map(sym => `
+      <span class="chip">${sym}<button class="chip-remove" data-remove-sym="${sym}">×</button></span>
+    `).join('') + `<span class="chip-count">${list.length}/${max}</span>`
+  }
+
+  // ============================================================
+  // SEKSI 6: NAMED LISTS
+  // ============================================================
+  function _renderNamedSelect(prefix) {
+    const sel = document.getElementById(`${prefix}-named-select`)
+    const names = Object.keys(DB.namedLists)
+    sel.innerHTML = `<option value="">— pilih —</option>` +
+      names.map(n => `<option value="${n}">${n} (${DB.namedLists[n].length})</option>`).join('')
+  }
+
+  function _bindNamedListControls() {
+    ;['haka', 'hakahaki'].forEach(prefix => {
+      const sel       = document.getElementById(`${prefix}-named-select`)
+      const setFn     = prefix === 'haka' ? watchlistSet     : hakahakiWatchlistSet
+      const getActive = prefix === 'haka' ? () => DB.watchlist : () => DB.hakahakiWatchlist
+
+      document.getElementById(`${prefix}-named-load`).addEventListener('click', () => {
+        const name = sel.value
+        if (!name || !DB.namedLists[name]) return
+        setFn(DB.namedLists[name])
+        _renderWatchlist(prefix)
+      })
+
+      document.getElementById(`${prefix}-named-save`).addEventListener('click', () => {
+        const name = prompt('Nama watchlist baru:')
+        if (!name) return
+        if (DB.namedLists[name]) { alert('Nama sudah dipakai.'); return }
+        namedListSave(name, getActive())
+        _renderNamedSelect(prefix)
+        sel.value = name
+      })
+
+      document.getElementById(`${prefix}-named-update`).addEventListener('click', () => {
+        const name = sel.value
+        if (!name) { alert('Pilih watchlist dulu.'); return }
+        namedListSave(name, getActive())
+        _renderNamedSelect(prefix)
+        sel.value = name
+      })
+
+      document.getElementById(`${prefix}-named-rename`).addEventListener('click', () => {
+        const name = sel.value
+        if (!name) { alert('Pilih watchlist dulu.'); return }
+        const newName = prompt('Nama baru:', name)
+        if (!newName || newName === name) return
+        const ok = namedListRename(name, newName)
+        if (!ok) { alert('Nama baru sudah dipakai.'); return }
+        _renderNamedSelect(prefix)
+        sel.value = newName
+      })
+
+      document.getElementById(`${prefix}-named-delete`).addEventListener('click', () => {
+        const name = sel.value
+        if (!name) return
+        if (!confirm(`Hapus watchlist "${name}"?`)) return
+        namedListDelete(name)
+        _renderNamedSelect(prefix)
+      })
+    })
+  }
+
+  // ============================================================
+  // SEKSI 7: THRESHOLD
+  // ============================================================
+  function _bindThresholdPills() {
+    document.querySelectorAll('[data-threshold]').forEach(el => {
+      el.addEventListener('click', () => {
+        setThreshold(parseFloat(el.dataset.threshold))
+        _renderThresholdPills()
+        // Restart monitor yang sedang jalan supaya pakai threshold baru
+        if (hakaMonitor.isRunning())     { hakaMonitor.stop();     _startMonitor('haka') }
+        if (hakahakiMonitor.isRunning()) { hakahakiMonitor.stop(); _startMonitor('hakahaki') }
+      })
+    })
+  }
+  function _renderThresholdPills() {
+    document.querySelectorAll('[data-threshold]').forEach(el => {
+      el.classList.toggle('active', parseFloat(el.dataset.threshold) === DB.threshold)
+    })
+  }
+
+  // ============================================================
+  // SEKSI 8: MONITOR START/STOP
+  // ============================================================
+  function _bindMonitorButtons() {
+    document.getElementById('haka-btn-start').addEventListener('click', () => _toggleMonitor('haka'))
+    document.getElementById('hakahaki-btn-start').addEventListener('click', () => _toggleMonitor('hakahaki'))
+    document.getElementById('haka-btn-clear').addEventListener('click', () => { clearAlerts('haka'); _renderAlerts('haka') })
+    document.getElementById('hakahaki-btn-clear').addEventListener('click', () => { clearAlerts('hakahaki'); _renderAlerts('hakahaki') })
+  }
+
+  function _toggleMonitor(prefix) {
+    const monitor = prefix === 'haka' ? hakaMonitor : hakahakiMonitor
+    if (monitor.isRunning()) { monitor.stop(); _renderMonitorStatus(prefix, false) }
+    else                     { _startMonitor(prefix) }
+  }
+
+  function _startMonitor(prefix) {
+    const monitor = prefix === 'haka' ? hakaMonitor : hakahakiMonitor
+    const list    = prefix === 'haka' ? DB.watchlist : DB.hakahakiWatchlist
+    if (!list.length) { alert('Watchlist masih kosong.'); return }
+    monitor.start(list, DB.threshold)
+    _renderMonitorStatus(prefix, true)
+  }
+
+  function _renderMonitorStatus(prefix, running) {
+    const btn    = document.getElementById(`${prefix}-btn-start`)
+    const status = document.getElementById(`${prefix}-status`)
+    btn.textContent     = running ? 'Stop Monitor' : 'Start Monitor'
+    btn.dataset.running = running ? '1' : '0'
+    btn.classList.toggle('btn-danger', running)
+    status.textContent  = running ? '● Memantau...' : '○ Idle'
+    status.style.color  = running ? 'var(--live)' : 'var(--ghost)'
+  }
+
+  // ============================================================
+  // SEKSI 9: RENDER ALERT FEED
+  // ============================================================
+  function _renderAlerts(prefix) {
+    const list = prefix === 'haka' ? DB.alerts : DB.hakahakiAlerts
+    const el   = document.getElementById(`${prefix}-feed`)
+    if (!list.length) { el.innerHTML = '<div class="empty-state">Belum ada alert.</div>'; return }
+    el.innerHTML = list.map(a => `
+      <div class="alert-card ${a.action === 'buy' ? 'is-buy' : 'is-sell'}">
+        <div class="alert-sym">${a.sym}</div>
+        <div class="alert-type">${a.type === 'HAKA' ? '▲ HAKA' : '▼ HAKI'}</div>
+        <div class="alert-val">${_fmtRp(a.value)}</div>
+        <div class="alert-detail">${_fmtNum(a.lot)} lot × ${_fmtNum(a.price)}<br><span class="alert-time">${a.time}</span></div>
+      </div>
+    `).join('')
+  }
+
+  // ============================================================
+  // SEKSI 10: ERROR HANDLING
+  // ============================================================
+  function handleError(e) {
+    if (e.code === 'TOKEN_EXPIRED' || e.code === 'TOKEN_NOT_SET') {
+      if (e.code === 'TOKEN_EXPIRED') TOKEN.clear()
+      _renderTokenBar()
+      _renderMonitorStatus('haka', false)
+      _renderMonitorStatus('hakahaki', false)
+    }
+    console.error('[haka] error:', e.message)
+  }
+
+  // ============================================================
+  // SEKSI 11: HELPER FORMAT
+  // ============================================================
+  function _fmtRp(v) {
+    if (v >= 1e9) return (v/1e9).toFixed(1) + ' M'
+    if (v >= 1e6) return (v/1e6).toFixed(0) + ' jt'
+    return new Intl.NumberFormat('id-ID').format(Math.round(v))
+  }
+  function _fmtNum(v) { return new Intl.NumberFormat('id-ID').format(Math.round(v)) }
+
+  function _startClock() {
+    const el = document.getElementById('clock')
+    function tick() {
+      el.textContent = new Date().toLocaleTimeString('id-ID',
+        { timeZone:'Asia/Jakarta', hour:'2-digit', minute:'2-digit', second:'2-digit' }) + ' WIB'
+    }
+    tick(); setInterval(tick, 1000)
+  }
+
+  init()
+  window._haka = { DB, hakaMonitor, hakahakiMonitor }
+</script>
+
+</body>
+</html>
