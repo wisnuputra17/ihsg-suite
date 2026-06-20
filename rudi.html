@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html class="dark" lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IHSG Suite — Rudi</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500;600;700;800&family=Source+Sans+3:wght@300;400;600;700&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@300,0&display=swap" rel="stylesheet">
+  <style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+      vertical-align: middle;
+      line-height: 1;
+    }
+
+    :root {
+      --bronze: linear-gradient(135deg, #955200 0%, #ffd7a3 50%, #6c3a00 100%);
+      --stone:  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect width='4' height='4' fill='%23221f1d'/%3E%3Crect width='1' height='1' fill='%231a1715' opacity='0.5'/%3E%3C/svg%3E");
+    }
+
+    body { background: #161311; color: #e9e1dd; font-family: 'Source Sans 3', sans-serif; overflow-x: hidden; }
+
+    .cinematic-bg {
+      position: fixed; inset: 0; z-index: 0;
+      background-image: url('https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=1800&q=80&auto=format&fit=crop');
+      background-size: cover; background-position: center 30%;
+      filter: blur(8px) brightness(0.45) saturate(0.7);
+      transform: scale(1.08);
+    }
+
+    .bg-overlay { position: fixed; inset: 0; z-index: 0; background: rgba(0,0,0,0.45); }
+
+    .limestone {
+      background: rgba(34,31,29,0.88);
+      border: 1px solid rgba(56,52,50,0.5);
+      box-shadow: inset 0 0 20px rgba(0,0,0,0.4);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    .bronze-border { border: 2px solid; border-image: var(--bronze) 1; }
+
+    .chiseled { text-shadow: 2px 2px 4px rgba(0,0,0,0.9), -1px -1px 0 rgba(255,255,255,0.07); }
+
+    .roman-divider {
+      height: 3px;
+      background: repeating-linear-gradient(90deg, #955200, #955200 8px, transparent 8px, transparent 16px);
+      opacity: 0.35;
+    }
+
+    .gladius-btn {
+      background: linear-gradient(to bottom, #8e1616, #410002);
+      border: 1px solid #7a4000;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 4px 8px rgba(0,0,0,0.5);
+      transition: filter .2s, transform .15s;
+    }
+    .gladius-btn:hover { filter: brightness(1.25); transform: translateY(-1px); }
+    .gladius-btn:active { transform: scale(0.98); }
+
+    @keyframes pulse-blood {
+      0%   { box-shadow: 0 0 0 0 rgba(142,22,22,0.6); }
+      70%  { box-shadow: 0 0 0 18px rgba(142,22,22,0); }
+      100% { box-shadow: 0 0 0 0 rgba(142,22,22,0); }
+    }
+    .blood-pulse { animation: pulse-blood 2s infinite; }
+
+    /* ── SIDEBAR NAV ── */
+    .sidebar-link {
+      display: flex; align-items: center; gap: 14px;
+      padding: 12px 16px;
+      border-radius: 6px;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+      color: rgba(233,225,221,0.55);
+      text-decoration: none;
+      transition: background .2s, color .2s;
+    }
+    .sidebar-link:hover { background: rgba(56,52,50,0.6); color: #ffb4ab; }
+    .sidebar-link.active {
+      background: rgba(142,22,22,0.35);
+      border-left: 3px solid #ffb4ab;
+      color: #ffb4ab;
+      padding-left: 13px;
+    }
+    .sidebar-link .material-symbols-outlined { font-size: 20px; }
+
+    /* ── CHART ── */
+    .chart-grid {
+      background-image:
+        linear-gradient(rgba(89,65,62,0.12) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(89,65,62,0.12) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+
+    /* ── TOKEN STATUS ── */
+    .token-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 3px 10px; border-radius: 20px;
+      font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+    }
+    .token-badge.valid   { background: rgba(124,166,90,0.15); color: #9abe72; border: 1px solid rgba(124,166,90,0.3); }
+    .token-badge.invalid { background: rgba(186,26,26,0.15);  color: #ffb4ab; border: 1px solid rgba(186,26,26,0.3); }
+    .token-badge.pending { background: rgba(149,82,0,0.15);   color: #ffb779; border: 1px solid rgba(149,82,0,0.3); }
+
+    .status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  </style>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            'surface':    '#161311',
+            'surface-c':  '#221f1d',
+            'surface-ch': '#2d2927',
+            'surface-low':'#1e1b19',
+            'primary':    '#ffb4ab',
+            'primary-c':  '#8e1616',
+            'secondary':  '#ffb779',
+            'secondary-c':'#955200',
+            'tertiary':   '#d5c5a7',
+            'outline':    '#a88a86',
+            'outline-v':  '#59413e',
+            'on-surface': '#e9e1dd',
+            'on-muted':   '#a89590',
+            'error':      '#ffb4ab',
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body>
+
+<div class="cinematic-bg"></div>
+<div class="bg-overlay"></div>
+
+<!-- ══ SIDEBAR ══ -->
+<aside class="fixed left-0 top-0 h-full w-64 flex flex-col z-40 hidden md:flex" style="background:rgba(16,14,12,0.92);border-right:1px solid rgba(56,52,50,0.6);backdrop-filter:blur(16px);">
+
+  <!-- Brand -->
+  <div class="px-6 pt-8 pb-6 border-b border-outline-v/40">
+    <a href="profiles.html" class="flex items-center gap-2 mb-5 opacity-40 hover:opacity-70 transition-opacity text-on-muted" style="font-size:12px;letter-spacing:0.1em;text-decoration:none;">
+      <span class="material-symbols-outlined" style="font-size:16px;">arrow_back</span>
+      Ganti Profil
+    </a>
+    <div class="font-['EB_Garamond'] text-2xl font-bold uppercase tracking-widest text-primary chiseled" style="letter-spacing:0.08em;">LEGIO SHADOW</div>
+    <div style="font-size:10px;letter-spacing:0.22em;font-weight:700;color:#955200;margin-top:4px;">VINCIT QUI SE VINCIT</div>
+  </div>
+
+  <!-- Profile pill -->
+  <div class="px-6 py-4 flex items-center gap-3 border-b border-outline-v/30">
+    <div style="width:36px;height:36px;border-radius:50%;overflow:hidden;border:2px solid #955200;flex-shrink:0;">
+      <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&q=80&auto=format&fit=crop&crop=face" style="width:100%;height:100%;object-fit:cover;" alt="Rudi">
+    </div>
+    <div>
+      <div style="font-weight:700;font-size:14px;color:#e9e1dd;">Rudi</div>
+      <div id="sidebarTokenBadge" class="token-badge pending">
+        <span class="status-dot"></span>
+        Belum Terautentikasi
+      </div>
+    </div>
+  </div>
+
+  <!-- Nav -->
+  <nav class="flex-1 px-3 py-4 flex flex-col gap-1 overflow-y-auto">
+
+    <div style="font-size:10px;letter-spacing:0.18em;font-weight:700;color:#59413e;padding:8px 12px 4px;text-transform:uppercase;">Overview</div>
+    <a class="sidebar-link active" href="rudi.html">
+      <span class="material-symbols-outlined">shield</span>
+      Command Center
+    </a>
+
+    <div style="font-size:10px;letter-spacing:0.18em;font-weight:700;color:#59413e;padding:12px 12px 4px;text-transform:uppercase;">Pre-Market</div>
+    <a class="sidebar-link" href="features/iep-scanner/">
+      <span class="material-symbols-outlined">radar</span>
+      IEP Scanner
+    </a>
+
+    <div style="font-size:10px;letter-spacing:0.18em;font-weight:700;color:#59413e;padding:12px 12px 4px;text-transform:uppercase;">Broker Flow</div>
+    <a class="sidebar-link" href="features/haka/">
+      <span class="material-symbols-outlined">account_balance</span>
+      HAKA Flow
+    </a>
+    <a class="sidebar-link" href="features/hakahaki/">
+      <span class="material-symbols-outlined">compare_arrows</span>
+      HAKA + HAKI
+    </a>
+
+    <div style="font-size:10px;letter-spacing:0.18em;font-weight:700;color:#59413e;padding:12px 12px 4px;text-transform:uppercase;">Intraday</div>
+    <a class="sidebar-link" href="features/lpm/">
+      <span class="material-symbols-outlined">water</span>
+      Liquidity Pressure
+    </a>
+    <a class="sidebar-link" href="features/absorption/">
+      <span class="material-symbols-outlined">bubble_chart</span>
+      Absorption
+    </a>
+    <a class="sidebar-link" href="features/defence-tracker/">
+      <span class="material-symbols-outlined">fort</span>
+      Defence Tracker
+    </a>
+
+    <div style="font-size:10px;letter-spacing:0.18em;font-weight:700;color:#59413e;padding:12px 12px 4px;text-transform:uppercase;">Personal</div>
+    <a class="sidebar-link" href="features/cacing-watchlist/">
+      <span class="material-symbols-outlined">bookmark</span>
+      Watchlist
+    </a>
+    <a class="sidebar-link" href="features/lab-chart/">
+      <span class="material-symbols-outlined">science</span>
+      Lab Chart
+    </a>
+    <a class="sidebar-link" href="features/lab-console/">
+      <span class="material-symbols-outlined">terminal</span>
+      Lab Console
+    </a>
+
+  </nav>
+
+  <!-- Bottom status -->
+  <div class="px-6 py-4 border-t border-outline-v/40">
+    <div class="flex items-center gap-2">
+      <div id="bottomStatusDot" style="width:7px;height:7px;border-radius:50%;background:#59413e;"></div>
+      <span id="bottomStatusText" style="font-size:10px;letter-spacing:0.14em;font-weight:700;text-transform:uppercase;color:#59413e;">Menunggu Token</span>
+    </div>
+  </div>
+</aside>
+
+<!-- ══ TOPBAR ══ -->
+<header class="fixed top-0 left-0 md:left-64 right-0 h-[72px] z-30 flex items-center justify-between px-8" style="background:rgba(22,19,17,0.9);backdrop-filter:blur(12px);border-bottom:1px solid rgba(56,52,50,0.5);">
+
+  <div>
+    <h1 class="font-['EB_Garamond'] text-2xl font-bold uppercase tracking-widest text-primary chiseled" style="letter-spacing:0.1em;">Thracian Defiance</h1>
+    <p style="font-size:11px;letter-spacing:0.15em;font-weight:700;color:#955200;text-transform:uppercase;">Rudi's Command Interface</p>
+  </div>
+
+  <div class="flex items-center gap-4">
+    <!-- Market status pill -->
+    <div id="marketPill" class="token-badge pending">
+      <span class="status-dot"></span>
+      <span id="marketText">Pasar —</span>
+    </div>
+    <!-- Token status indicator -->
+    <div id="topTokenBadge" class="token-badge pending hidden md:inline-flex">
+      <span class="status-dot"></span>
+      <span id="topTokenText">No Token</span>
+    </div>
+    <a href="profiles.html" title="Ganti profil" style="color:#59413e;font-size:14px;text-decoration:none;transition:color .2s;" onmouseover="this.style.color='#ffb4ab'" onmouseout="this.style.color='#59413e'">
+      <span class="material-symbols-outlined" style="font-size:22px;">logout</span>
+    </a>
+  </div>
+</header>
+
+<!-- ══ MAIN ══ -->
+<main class="relative z-10 md:ml-64 pt-[72px] pb-12 min-h-screen">
+<div class="max-w-6xl mx-auto px-6 py-8 space-y-8">
+
+  <!-- ── ROW 1: IHSG Chart + Auth ── -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- IHSG Chart -->
+    <div class="lg:col-span-2 limestone rounded-xl overflow-hidden">
+      <div class="flex justify-between items-start p-6 pb-3">
+        <div>
+          <div style="font-size:11px;letter-spacing:0.2em;font-weight:700;text-transform:uppercase;color:#a88a86;margin-bottom:6px;">Indeks Harga Saham Gabungan</div>
+          <h2 class="font-['EB_Garamond'] text-3xl font-bold text-primary chiseled uppercase tracking-wide">IHSG Index</h2>
+        </div>
+        <div class="text-right">
+          <div id="ihsgPrice" class="font-['EB_Garamond'] text-4xl font-bold text-secondary" style="letter-spacing:-0.01em;">—</div>
+          <div id="ihsgChange" style="font-size:11px;font-weight:700;letter-spacing:0.1em;color:#59413e;text-transform:uppercase;">Memuat…</div>
+        </div>
+      </div>
+      <div class="roman-divider mx-6"></div>
+      <!-- Chart canvas -->
+      <div class="chart-grid mx-6 my-4 rounded-lg overflow-hidden" style="height:220px;position:relative;background:#100e0c;border:1px solid rgba(89,65,62,0.3);">
+        <svg id="ihsgChart" style="position:absolute;inset:0;width:100%;height:100%;" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="lineGrad" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stop-color="#8e1616" stop-opacity="0.45"/>
+              <stop offset="100%" stop-color="#8e1616" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <!-- Static placeholder path — replaced by JS when token valid -->
+          <path id="chartFill" d="" fill="url(#lineGrad)"/>
+          <path id="chartLine" d="" fill="none" stroke="#ffb4ab" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div id="chartPlaceholder" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:#59413e;">
+          <span class="material-symbols-outlined" style="font-size:40px;">show_chart</span>
+          <span style="font-size:11px;letter-spacing:0.14em;font-weight:700;text-transform:uppercase;">Masukkan Token untuk Memuat Chart</span>
+        </div>
+      </div>
+      <div class="flex gap-4 px-6 pb-5">
+        <button onclick="setChartPeriod('1w')"  id="p1w"  class="chart-period active-period" style="font-size:10px;letter-spacing:0.12em;font-weight:700;text-transform:uppercase;padding:4px 12px;border-radius:4px;border:1px solid rgba(89,65,62,0.4);color:#a88a86;background:transparent;cursor:pointer;transition:all .2s;">1M</button>
+        <button onclick="setChartPeriod('1m')"  id="p1m"  class="chart-period" style="font-size:10px;letter-spacing:0.12em;font-weight:700;text-transform:uppercase;padding:4px 12px;border-radius:4px;border:1px solid transparent;color:#59413e;background:transparent;cursor:pointer;transition:all .2s;">1B</button>
+        <button onclick="setChartPeriod('3m')"  id="p3m"  class="chart-period" style="font-size:10px;letter-spacing:0.12em;font-weight:700;text-transform:uppercase;padding:4px 12px;border-radius:4px;border:1px solid transparent;color:#59413e;background:transparent;cursor:pointer;transition:all .2s;">3B</button>
+        <button onclick="setChartPeriod('1y')"  id="p1y"  class="chart-period" style="font-size:10px;letter-spacing:0.12em;font-weight:700;text-transform:uppercase;padding:4px 12px;border-radius:4px;border:1px solid transparent;color:#59413e;background:transparent;cursor:pointer;transition:all .2s;">1T</button>
+      </div>
+    </div>
+
+    <!-- Auth card -->
+    <div class="limestone rounded-xl p-6 bronze-border flex flex-col gap-5">
+      <div class="flex items-center justify-between">
+        <h3 class="font-['EB_Garamond'] text-xl font-bold text-primary uppercase tracking-wide chiseled">Vestibulum</h3>
+        <span class="material-symbols-outlined text-secondary">key</span>
+      </div>
+      <div style="font-size:10px;letter-spacing:0.14em;font-weight:700;text-transform:uppercase;color:#59413e;">Stockbit Bearer Token</div>
+
+      <div class="relative">
+        <input id="tokenInput" type="password" placeholder="••••••••••••••••••"
+          style="width:100%;background:#100e0c;border:0;border-bottom:2px solid #955200;padding:10px 36px 10px 10px;color:#ffb779;font-family:'DM Mono',monospace;font-size:13px;outline:none;letter-spacing:0.04em;"
+          oninput="clearTokenStatus()">
+        <button onclick="toggleTokenVis()" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#59413e;" id="eyeBtn">
+          <span class="material-symbols-outlined" id="eyeIcon" style="font-size:18px;">visibility_off</span>
+        </button>
+      </div>
+
+      <!-- Status -->
+      <div id="tokenStatus" style="min-height:50px;">
+        <div style="font-size:11px;color:#59413e;letter-spacing:0.06em;">Token tersimpan di browser lokal,<br>tidak dikirim ke server manapun.</div>
+      </div>
+
+      <button onclick="verifyToken()" class="gladius-btn text-white py-3 rounded uppercase tracking-widest" style="font-size:12px;font-weight:700;letter-spacing:0.18em;">
+        Override Enkripsi
+      </button>
+
+      <div class="roman-divider"></div>
+
+      <!-- GS URL quick access -->
+      <div style="font-size:10px;letter-spacing:0.14em;font-weight:700;text-transform:uppercase;color:#59413e;margin-top:4px;">Google Sheets Sync</div>
+      <div style="display:flex;gap:8px;">
+        <input id="gsInput" type="text" placeholder="https://script.google.com/…"
+          style="flex:1;background:#100e0c;border:0;border-bottom:1px solid #3a3230;padding:8px;color:#e9e1dd;font-family:'DM Mono',monospace;font-size:11px;outline:none;">
+        <button onclick="pingGs()" style="background:#222;border:1px solid #3a3230;color:#a88a86;padding:8px 12px;font-size:10px;letter-spacing:0.1em;cursor:pointer;border-radius:4px;text-transform:uppercase;font-weight:700;transition:background .2s;" onmouseover="this.style.background='#2d2927'" onmouseout="this.style.background='#222'">Ping</button>
+      </div>
+      <div id="gsStatus" style="font-size:11px;min-height:16px;color:#59413e;"></div>
+    </div>
+  </div>
+
+  <!-- ── ROW 2: Feature Cards ── -->
+  <div>
+    <div class="roman-divider mb-6"></div>
+    <div style="font-size:11px;letter-spacing:0.22em;font-weight:700;text-transform:uppercase;color:#955200;margin-bottom:20px;">Modul Taktis</div>
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+
+      <a href="features/iep-scanner/" class="limestone rounded-lg p-5 border-t-4 border-t-secondary hover:-translate-y-2 transition-all duration-300 cursor-pointer no-underline block" style="text-decoration:none;">
+        <div class="flex justify-between items-start mb-3">
+          <span class="material-symbols-outlined text-secondary" style="font-size:32px;">radar</span>
+          <div style="text-align:right;font-size:11px;letter-spacing:0.1em;color:#59413e;font-weight:700;text-transform:uppercase;">Pre-Open</div>
+        </div>
+        <div class="font-['EB_Garamond'] text-lg font-bold text-primary mb-1">IEP Scanner</div>
+        <div style="font-size:12px;color:#a89590;line-height:1.5;">Harga ekuilibrium pre-opening 08:45–08:59</div>
+      </a>
+
+      <a href="features/haka/" class="limestone rounded-lg p-5 border-t-4 border-t-primary hover:-translate-y-2 transition-all duration-300 cursor-pointer no-underline block" style="text-decoration:none;">
+        <div class="flex justify-between items-start mb-3">
+          <span class="material-symbols-outlined text-primary" style="font-size:32px;">account_balance</span>
+          <div style="text-align:right;font-size:11px;letter-spacing:0.1em;color:#59413e;font-weight:700;text-transform:uppercase;">Broker</div>
+        </div>
+        <div class="font-['EB_Garamond'] text-lg font-bold text-primary mb-1">HAKA Flow</div>
+        <div style="font-size:12px;color:#a89590;line-height:1.5;">Aliran dana broker harian per emiten</div>
+      </a>
+
+      <a href="features/lpm/" class="limestone rounded-lg p-5 border-t-4 border-t-tertiary hover:-translate-y-2 transition-all duration-300 cursor-pointer no-underline block" style="text-decoration:none;">
+        <div class="flex justify-between items-start mb-3">
+          <span class="material-symbols-outlined text-tertiary" style="font-size:32px;">water</span>
+          <div style="text-align:right;font-size:11px;letter-spacing:0.1em;color:#59413e;font-weight:700;text-transform:uppercase;">Intraday</div>
+        </div>
+        <div class="font-['EB_Garamond'] text-lg font-bold text-primary mb-1">Liquidity Pressure</div>
+        <div style="font-size:12px;color:#a89590;line-height:1.5;">Model tekanan beli vs jual per menit</div>
+      </a>
+
+      <a href="features/absorption/" class="limestone rounded-lg p-5 border-t-4 border-t-outline hover:-translate-y-2 transition-all duration-300 cursor-pointer no-underline block" style="text-decoration:none;">
+        <div class="flex justify-between items-start mb-3">
+          <span class="material-symbols-outlined text-outline" style="font-size:32px;">bubble_chart</span>
+          <div style="text-align:right;font-size:11px;letter-spacing:0.1em;color:#59413e;font-weight:700;text-transform:uppercase;">Big Money</div>
+        </div>
+        <div class="font-['EB_Garamond'] text-lg font-bold text-primary mb-1">Absorption</div>
+        <div style="font-size:12px;color:#a89590;line-height:1.5;">Serapan dana besar per menit</div>
+      </a>
+
+      <a href="features/hakahaki/" class="limestone rounded-lg p-5 border-t-4 border-t-secondary hover:-translate-y-2 transition-all duration-300 cursor-pointer no-underline block" style="text-decoration:none;">
+        <div class="flex justify-between items-start mb-3">
+          <span class="material-symbols-outlined text-secondary" style="font-size:32px;">compare_arrows</span>
+          <div style="text-align:right;font-size:11px;letter-spacing:0.1em;color:#59413e;font-weight:700;text-transform:uppercase;">Komparasi</div>
+        </div>
+        <div class="font-['EB_Garamond'] text-lg font-bold text-primary mb-1">HAKA + HAKI</div>
+        <div style="font-size:12px;color:#a89590;line-height:1.5;">Dua emiten berdampingan</div>
+      </a>
+
+      <a href="features/defence-tracker/" class="limestone rounded-lg p-5 border-t-4 border-t-primary hover:-translate-y-2 transition-all duration-300 cursor-pointer no-underline block" style="text-decoration:none;">
+        <div class="flex justify-between items-start mb-3">
+          <span class="material-symbols-outlined text-primary" style="font-size:32px;">fort</span>
+          <div style="text-align:right;font-size:11px;letter-spacing:0.1em;color:#59413e;font-weight:700;text-transform:uppercase;">Support</div>
+        </div>
+        <div class="font-['EB_Garamond'] text-lg font-bold text-primary mb-1">Defence Tracker</div>
+        <div style="font-size:12px;color:#a89590;line-height:1.5;">Level harga yang dijaga broker</div>
+      </a>
+
+      <a href="features/cacing-watchlist/" class="limestone rounded-lg p-5 border-t-4 border-t-tertiary hover:-translate-y-2 transition-all duration-300 cursor-pointer no-underline block" style="text-decoration:none;">
+        <div class="flex justify-between items-start mb-3">
+          <span class="material-symbols-outlined text-tertiary" style="font-size:32px;">bookmark</span>
+          <div style="text-align:right;font-size:11px;letter-spacing:0.1em;color:#59413e;font-weight:700;text-transform:uppercase;">Personal</div>
+        </div>
+        <div class="font-['EB_Garamond'] text-lg font-bold text-primary mb-1">Watchlist</div>
+        <div style="font-size:12px;color:#a89590;line-height:1.5;">Daftar pantau sinkron Sheets</div>
+      </a>
+
+      <a href="features/lab-console/" class="limestone rounded-lg p-5 border-t-4 border-t-outline hover:-translate-y-2 transition-all duration-300 cursor-pointer no-underline block" style="text-decoration:none;">
+        <div class="flex justify-between items-start mb-3">
+          <span class="material-symbols-outlined text-outline" style="font-size:32px;">terminal</span>
+          <div style="text-align:right;font-size:11px;letter-spacing:0.1em;color:#59413e;font-weight:700;text-transform:uppercase;">Lab</div>
+        </div>
+        <div class="font-['EB_Garamond'] text-lg font-bold text-primary mb-1">Lab Console</div>
+        <div style="font-size:12px;color:#a89590;line-height:1.5;">Raw API debug terminal</div>
+      </a>
+
+    </div>
+  </div>
+
+  <!-- ── ROW 3: Signal Banner ── -->
+  <div class="limestone rounded-xl p-8 blood-pulse bronze-border flex flex-col md:flex-row items-center justify-between gap-6">
+    <div>
+      <div class="flex items-center gap-3 mb-2">
+        <span class="material-symbols-outlined text-primary" style="font-size:28px;">warning</span>
+        <h3 class="font-['EB_Garamond'] text-3xl font-bold text-primary uppercase tracking-widest chiseled">Signal Rebellion</h3>
+      </div>
+      <p style="font-size:13px;letter-spacing:0.15em;font-weight:700;text-transform:uppercase;color:#955200;">Protocol: Liberation</p>
+      <p style="font-size:13px;color:#a89590;margin-top:6px;" id="signalDesc">Masukkan token untuk mengaktifkan sinyal pasar real-time.</p>
+    </div>
+    <button onclick="location.href='features/iep-scanner/'" class="gladius-btn text-white px-10 py-4 rounded font-['EB_Garamond'] text-xl uppercase tracking-widest" style="white-space:nowrap;">
+      Mulai Pindai
+    </button>
+  </div>
+
+</div>
+</main>
+
+<!-- ══ STATUS BAR ══ -->
+<footer class="fixed bottom-0 left-0 md:left-64 right-0 h-9 z-30 flex items-center justify-between px-6" style="background:rgba(16,14,12,0.95);border-top:1px solid rgba(56,52,50,0.5);">
+  <div class="flex items-center gap-6">
+    <div class="flex items-center gap-2">
+      <div id="footerDot" style="width:6px;height:6px;border-radius:50%;background:#59413e;"></div>
+      <span id="footerStatus" style="font-size:10px;letter-spacing:0.16em;font-weight:700;text-transform:uppercase;color:#59413e;">Tidak Aktif</span>
+    </div>
+    <span id="footerTime" style="font-size:10px;letter-spacing:0.1em;color:#3a3230;font-family:'DM Mono',monospace;"></span>
+  </div>
+  <div style="font-size:10px;letter-spacing:0.12em;color:#3a3230;font-family:'DM Mono',monospace;">
+    IHSG Suite · Rudi's Legio Shadow · <span style="color:#59413e;">SYS: Standby</span>
+  </div>
+</footer>
+
+<script type="module">
+  import { TOKEN }              from './shared/store.js'
+  import { setGsUrl, getGsUrl, gsPing } from './shared/sheets.js'
+  import { fetchMarketStatus, fetchDaily } from './shared/api.js'
+
+  // ── Init: restore saved values ──
+  const savedToken = TOKEN.get()
+  const inp = document.getElementById('tokenInput')
+  if (savedToken) {
+    inp.value = '••••••••••••••••••'
+    inp.dataset.filled = '1'
+  }
+
+  const savedGs = getGsUrl()
+  if (savedGs) document.getElementById('gsInput').value = savedGs
+
+  // ── Footer clock ──
+  function tick() {
+    const now = new Date()
+    document.getElementById('footerTime').textContent =
+      now.toLocaleDateString('id-ID',{weekday:'short',day:'2-digit',month:'short'}) + ' · ' +
+      now.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'})
+  }
+  tick(); setInterval(tick, 1000)
+
+  // ── Token visibility toggle ──
+  let visible = false
+  window.toggleTokenVis = () => {
+    visible = !visible
+    inp.type = visible ? 'text' : 'password'
+    document.getElementById('eyeIcon').textContent = visible ? 'visibility' : 'visibility_off'
+  }
+
+  window.clearTokenStatus = () => {
+    inp.dataset.filled = ''
+    if (inp.value.startsWith('•')) inp.value = ''
+  }
+
+  // ── Set status helpers ──
+  function setTokenUI(state, msg, detail = '') {
+    const badges = ['sidebarTokenBadge','topTokenBadge']
+    badges.forEach(id => {
+      const el = document.getElementById(id)
+      el.className = 'token-badge ' + state
+      el.innerHTML = `<span class="status-dot"></span>${msg}`
+    })
+    document.getElementById('topTokenBadge').classList.remove('hidden')
+
+    const dot  = document.getElementById('footerDot')
+    const stat = document.getElementById('footerStatus')
+    const sdot = document.getElementById('bottomStatusDot')
+    const stxt = document.getElementById('bottomStatusText')
+
+    if (state === 'valid') {
+      dot.style.background = '#7abe4e'; stat.style.color = '#7abe4e'; stat.textContent = 'Token Aktif'
+      sdot.style.background = '#7abe4e'; stxt.style.color = '#7abe4e'; stxt.textContent = 'Token Aktif'
+      document.getElementById('signalDesc').textContent = 'Semua modul siap. Pilih fitur dari sidebar untuk mulai analisis.'
+    } else if (state === 'invalid') {
+      dot.style.background = '#ffb4ab'; stat.style.color = '#ffb4ab'; stat.textContent = 'Token Gagal'
+      sdot.style.background = '#ffb4ab'; stxt.style.color = '#ffb4ab'; stxt.textContent = 'Token Gagal'
+    } else {
+      dot.style.background = '#59413e'; stat.style.color = '#59413e'; stat.textContent = 'Tidak Aktif'
+      sdot.style.background = '#59413e'; stxt.style.color = '#59413e'; stxt.textContent = 'Menunggu Token'
+    }
+
+    document.getElementById('tokenStatus').innerHTML =
+      `<div class="token-badge ${state}" style="display:inline-flex;margin-bottom:6px;"><span class="status-dot"></span>${msg}</div>` +
+      (detail ? `<div style="font-size:11px;color:#a89590;margin-top:4px;">${detail}</div>` : '')
+  }
+
+  // ── Verify token ──
+  window.verifyToken = async () => {
+    const raw = inp.value.trim()
+    const val = (raw && !raw.startsWith('•')) ? raw : TOKEN.get()
+    if (!val) { setTokenUI('invalid', 'Token Kosong', 'Paste token Stockbit terlebih dahulu.'); return }
+
+    TOKEN.set(val)
+    if (!raw.startsWith('•')) inp.value = '••••••••••••••••••'
+
+    setTokenUI('pending', 'Memverifikasi…')
+    document.querySelector('.gladius-btn').textContent = '…'
+
+    try {
+      const status = await fetchMarketStatus()
+      const marketLabel = status.market === 'open' ? 'Pasar BUKA' : 'Pasar TUTUP'
+      const marketState = status.market === 'open' ? 'valid' : 'pending'
+
+      // Market pill
+      const pill = document.getElementById('marketPill')
+      pill.className = 'token-badge ' + (status.market === 'open' ? 'valid' : 'invalid')
+      pill.innerHTML = `<span class="status-dot"></span><span id="marketText">${marketLabel}</span>`
+
+      setTokenUI('valid', 'Token Valid', `Status: ${marketLabel}`)
+      document.querySelector('.gladius-btn').textContent = '✓ Terautentikasi'
+
+      // Load IHSG chart
+      await loadIHSG()
+    } catch (e) {
+      const msg = e.code === 'TOKEN_EXPIRED' ? 'Token Kadaluarsa' : 'Verifikasi Gagal'
+      setTokenUI('invalid', msg, e.code || e.message)
+      document.querySelector('.gladius-btn').textContent = 'Override Enkripsi'
+    }
+  }
+
+  // ── IHSG chart ──
+  let currentPeriod = '1w'
+
+  async function loadIHSG() {
+    const today = new Date().toISOString().slice(0,10)
+    const periods = { '1w':7, '1m':30, '3m':90, '1y':365 }
+    const days = periods[currentPeriod] || 30
+    const from = today
+    const to   = new Date(Date.now() - days*86400000).toISOString().slice(0,10)
+
+    try {
+      const candles = await fetchDaily('IHSG', from, to)
+      if (!candles.length) return
+
+      const closes = candles.map(c => c.close).reverse()
+      const last   = closes[closes.length - 1]
+      const first  = closes[0]
+      const chg    = ((last - first) / first * 100).toFixed(2)
+      const up     = last >= first
+
+      document.getElementById('ihsgPrice').textContent = last.toLocaleString('id-ID')
+      const chgEl = document.getElementById('ihsgChange')
+      chgEl.textContent = (up ? '▲ ' : '▼ ') + Math.abs(chg) + '%'
+      chgEl.style.color = up ? '#7abe4e' : '#ffb4ab'
+
+      // Draw SVG
+      const min = Math.min(...closes)
+      const max = Math.max(...closes)
+      const W = 1000, H = 200, pad = 12
+      const pts = closes.map((v,i) => {
+        const x = pad + (i / (closes.length - 1)) * (W - pad*2)
+        const y = pad + (1 - (v - min) / (max - min + 0.001)) * (H - pad*2)
+        return [x, y]
+      })
+      const d = 'M' + pts.map(p => p.join(',')).join(' L')
+      const fill = d + ` L${pts[pts.length-1][0]},${H} L${pts[0][0]},${H} Z`
+
+      document.getElementById('chartLine').setAttribute('d', d)
+      document.getElementById('chartFill').setAttribute('d', fill)
+      document.getElementById('chartLine').setAttribute('stroke', up ? '#7abe4e' : '#ffb4ab')
+      document.getElementById('chartFill').setAttribute('fill', `url(#lineGrad)`)
+      document.getElementById('chartPlaceholder').style.display = 'none'
+
+    } catch(e) {
+      console.warn('IHSG chart:', e.code)
+    }
+  }
+
+  window.setChartPeriod = async (p) => {
+    currentPeriod = p
+    document.querySelectorAll('.chart-period').forEach(btn => {
+      btn.style.color = '#59413e'
+      btn.style.borderColor = 'transparent'
+      btn.style.background = 'transparent'
+    })
+    const active = document.getElementById('p'+p)
+    if (active) {
+      active.style.color = '#ffb4ab'
+      active.style.borderColor = 'rgba(89,65,62,0.6)'
+      active.style.background = 'rgba(56,52,50,0.4)'
+    }
+    if (TOKEN.get()) await loadIHSG()
+  }
+  // Set initial active style
+  window.setChartPeriod('1w')
+
+  // ── GS Ping ──
+  window.pingGs = async () => {
+    const url = document.getElementById('gsInput').value.trim()
+    if (!url) return
+    setGsUrl(url)
+    const st = document.getElementById('gsStatus')
+    st.style.color = '#ffb779'; st.textContent = '⟳ Menghubungi…'
+    try {
+      const res = await gsPing()
+      st.style.color = '#7abe4e'
+      st.textContent = `✓ Terhubung · ${res.sheets?.length ?? 0} sheet`
+    } catch(e) {
+      st.style.color = '#ffb4ab'
+      st.textContent = '✕ ' + (e.code || e.message)
+    }
+  }
+
+  // ── Auto-verify if token already saved ──
+  if (TOKEN.isSet()) {
+    setTimeout(window.verifyToken, 600)
+  }
+</script>
+</body>
+</html>
