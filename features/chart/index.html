@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Chart · IHSG Suite</title>
   <link rel="stylesheet" href="../../shared/ui.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/lightweight-charts/5.0.7/lightweight-charts.standalone.production.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@5.2.0/dist/lightweight-charts.standalone.production.js"></script>
 
   <style>
     .page { max-width: 1100px; }
@@ -23,26 +23,25 @@
 
     .toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
     .sym-input { width: 100px; text-transform: uppercase; }
-    .num-input { width: 64px; }
-    .date-input {
-      background: #0f0e0c; border: 1px solid var(--line); border-radius: var(--radius);
-      padding: 7px 10px; font-family: var(--f-mono); font-size: 12px; color: var(--paper); outline: none;
-    }
+    .num-input { width: 56px; }
 
     .ind-row { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
     .ind-toggle {
       display: flex; align-items: center; gap: 6px; font-family: var(--f-mono); font-size: 11px;
       color: var(--dim); cursor: pointer; user-select: none;
     }
-    .ind-toggle input { accent-color: var(--phosphor); cursor: pointer; }
+    .ind-toggle input[type=checkbox] { accent-color: var(--phosphor); cursor: pointer; }
     .ind-toggle.active { color: var(--phosphor); }
 
-    .chart-wrap { border: 1px solid var(--line); margin-bottom: 1px; }
-    #chart-main   { height: 320px; }
-    #chart-volume { height: 100px; }
-    #chart-rsi    { height: 120px; }
-    #chart-macd   { height: 120px; }
-    #chart-lpm    { height: 120px; }
+    .mode-select {
+      background: #0f0e0c; border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 4px 6px; font-family: var(--f-mono); font-size: 10px; color: var(--paper); outline: none;
+    }
+
+    .chart-wrap { border: 1px solid var(--line); margin-bottom: 4px; }
+    #chart-main { height: 300px; transition: height 200ms ease; }
+
+    .lpm-status { font-family: var(--f-mono); font-size: 10px; color: var(--ghost); margin-bottom: 4px; }
   </style>
 </head>
 <body>
@@ -82,33 +81,34 @@
       <label class="ind-toggle"><input type="checkbox" id="ind-macd">MACD</label>
       <label class="ind-toggle">
         <input type="checkbox" id="ind-lpm">LPM
-        <select class="date-input" id="lpm-mode" style="margin-left:4px;">
+        <select class="mode-select" id="lpm-mode">
           <option value="bar">Bar</option>
           <option value="line">Garis %</option>
         </select>
       </label>
     </div>
 
+    <div class="lpm-status" id="lpm-status"></div>
     <div class="chart-wrap"><div id="chart-main"></div></div>
-    <div class="chart-wrap hidden" id="wrap-volume"><div id="chart-volume"></div></div>
-    <div class="chart-wrap hidden" id="wrap-rsi"><div id="chart-rsi"></div></div>
-    <div class="chart-wrap hidden" id="wrap-macd"><div id="chart-macd"></div></div>
-    <div class="chart-wrap hidden" id="wrap-lpm">
-      <div id="lpm-status" class="dim-cell" style="padding:6px 12px; font-family:var(--f-mono); font-size:10px; color:var(--ghost);"></div>
-      <div id="chart-lpm"></div>
-    </div>
 
   </div>
 </div>
 
 <script type="module">
-  import { TOKEN }                       from '../../shared/store.js'
+  import { TOKEN }            from '../../shared/store.js'
   import { fetchDaily, fetchAbsorption } from '../../shared/api.js'
   import { calcSMA, calcRSI, calcMACD, calcBollinger } from '../../shared/indicators.js'
-  import { DB, savePrefs, loadPrefs }    from './db.js'
+  import { DB, savePrefs, loadPrefs } from './db.js'
 
   let _loading = false
-  const charts = {} // simpan instance chart aktif untuk di-destroy saat reload
+  let chart = null
+
+  // Registry indikator aktif — {key: {series:[], overlay:bool}}
+  // overlay:true = pane 0 (nempel di candle), false = pane sendiri
+  const ACTIVE = {}
+
+  const PANE_HEIGHT_MAIN = 280
+  const PANE_HEIGHT_IND  = 110
 
   // ============================================================
   // SEKSI 1: INIT
@@ -167,21 +167,32 @@
     document.getElementById('btn-load').addEventListener('click', _loadSym)
     document.getElementById('sym-input').addEventListener('keydown', e => { if (e.key === 'Enter') _loadSym() })
 
-    ;['ind-ma','ind-bollinger','ind-volume','ind-rsi','ind-macd','ind-lpm','ma-period'].forEach(id => {
-      document.getElementById(id).addEventListener('change', () => {
-        _savePrefsNow()
-        if (DB.daily.length) _renderMainCharts()
-      })
+    document.getElementById('ind-ma').addEventListener('change', e => _toggleIndicator('ma', e.target.checked))
+    document.getElementById('ma-period').addEventListener('change', () => {
+      _savePrefsNow()
+      if (ACTIVE.ma) { _removeIndicator('ma'); _addIndicator('ma') }
     })
+    document.getElementById('ind-bollinger').addEventListener('change', e => _toggleIndicator('bollinger', e.target.checked))
+    document.getElementById('ind-volume').addEventListener('change', e => _toggleIndicator('volume', e.target.checked))
+    document.getElementById('ind-rsi').addEventListener('change', e => _toggleIndicator('rsi', e.target.checked))
+    document.getElementById('ind-macd').addEventListener('change', e => _toggleIndicator('macd', e.target.checked))
+    document.getElementById('ind-lpm').addEventListener('change', e => _toggleIndicator('lpm', e.target.checked))
 
     document.getElementById('lpm-mode').addEventListener('change', () => {
       _savePrefsNow()
-      _renderLpmFromCache() // ganti tampilan tanpa fetch ulang
+      if (ACTIVE.lpm) { _removeIndicator('lpm'); _addIndicator('lpm') }
     })
   }
 
+  function _toggleIndicator(key, checked) {
+    _savePrefsNow()
+    if (!DB.daily.length) return
+    if (checked) _addIndicator(key)
+    else         _removeIndicator(key)
+  }
+
   // ============================================================
-  // SEKSI 4: LOAD DAILY
+  // SEKSI 4: LOAD DAILY — bikin chart baru dari nol (data berubah total)
   // ============================================================
   async function _loadSym() {
     if (_loading) return
@@ -195,12 +206,11 @@
 
     try {
       const raw = await fetchDaily(sym)
-      // Urutkan lama → baru untuk chart
-      DB.sym   = sym
-      DB.daily = [...raw].sort((a, b) => a.date.localeCompare(b.date))
-      DB.lpmCache = {} // ganti saham → cache LPM lama tidak relevan
+      DB.sym      = sym
+      DB.daily    = [...raw].sort((a, b) => a.date.localeCompare(b.date)) // lama → baru
+      DB.lpmCache = {} // ganti saham → cache lama tidak relevan
       status.textContent = `${sym} · ${DB.daily.length} hari`
-      _renderMainCharts()
+      _rebuildChart()
     } catch (e) {
       status.textContent = e.code === 'TOKEN_EXPIRED' ? 'Token expired' : 'Error: ' + e.message
       if (e.code === 'TOKEN_EXPIRED') { TOKEN.clear(); _renderTokenBar() }
@@ -210,133 +220,148 @@
   }
 
   // ============================================================
-  // SEKSI 5: RENDER CHART UTAMA (rebuild total tiap kali toggle berubah)
+  // SEKSI 5: CHART — 1 instance, banyak pane, indikator add/remove individual
   // ============================================================
-  function _destroyChart(key) {
-    if (charts[key]) { charts[key].remove(); charts[key] = null }
-  }
 
-  function _renderMainCharts() {
-    const days = DB.daily
-    if (!days.length) return
+  /**
+   * Bangun ulang chart dari nol — hanya dipanggil saat ganti saham
+   * (time axis berubah total, tidak masuk akal pertahankan instance lama).
+   */
+  function _rebuildChart() {
+    if (chart) { chart.remove(); chart = null }
+    Object.keys(ACTIVE).forEach(k => delete ACTIVE[k])
 
-    const showMA    = document.getElementById('ind-ma').checked
-    const showBoll  = document.getElementById('ind-bollinger').checked
-    const showVol   = document.getElementById('ind-volume').checked
-    const showRsi   = document.getElementById('ind-rsi').checked
-    const showMacd  = document.getElementById('ind-macd').checked
-    const showLpm   = document.getElementById('ind-lpm').checked
-    const maPeriod  = parseInt(document.getElementById('ma-period').value) || 20
-
-    document.getElementById('wrap-volume').classList.toggle('hidden', !showVol)
-    document.getElementById('wrap-rsi').classList.toggle('hidden', !showRsi)
-    document.getElementById('wrap-macd').classList.toggle('hidden', !showMacd)
-    document.getElementById('wrap-lpm').classList.toggle('hidden', !showLpm)
-
-    ;['main','volume','rsi','macd','lpm'].forEach(_destroyChart)
-
-    const opts = {
+    chart = LightweightCharts.createChart(document.getElementById('chart-main'), {
       autoSize: true,
       layout:    { background: { color: '#0a0908' }, textColor: '#6b6557' },
       grid:      { vertLines: { color: '#1a1815' }, horzLines: { color: '#1a1815' } },
-      timeScale: { timeVisible: false }
-    }
+      timeScale: { timeVisible: false, rightOffset: 4 }
+    })
 
-    const closes = days.map(d => d.close)
-
-    // ── Pane utama: candlestick + overlay MA/Bollinger ──
-    const mainChart = LightweightCharts.createChart(document.getElementById('chart-main'), opts)
-    charts.main = mainChart
-
-    const candleSeries = mainChart.addSeries(LightweightCharts.CandlestickSeries, {
+    const candleSeries = chart.addSeries(LightweightCharts.CandlestickSeries, {
       upColor: '#4ade80', downColor: '#f0635c', borderVisible: false,
       wickUpColor: '#4ade80', wickDownColor: '#f0635c'
     })
-    candleSeries.setData(days.map(d => ({ time: d.date, open: d.open, high: d.high, low: d.low, close: d.close })))
+    candleSeries.setData(DB.daily.map(d => ({ time: d.date, open: d.open, high: d.high, low: d.low, close: d.close })))
+    ACTIVE._candle = { series: [candleSeries], overlay: true }
 
-    if (showMA) {
-      const ma = calcSMA(closes, maPeriod)
-      const maSeries = mainChart.addSeries(LightweightCharts.LineSeries, { color: '#d98e2b', lineWidth: 1.5 })
-      maSeries.setData(days.map((d, i) => ma[i] !== null ? { time: d.date, value: ma[i] } : null).filter(Boolean))
-    }
+    // Tambahkan kembali indikator yang sedang dicentang
+    ;['ma','bollinger','volume','rsi','macd','lpm'].forEach(key => {
+      if (document.getElementById(`ind-${key}`).checked) _addIndicator(key)
+    })
 
-    if (showBoll) {
-      const { upper, middle, lower } = calcBollinger(closes, 20, 2)
-      const mkLine = (arr, color) => {
-        const s = mainChart.addSeries(LightweightCharts.LineSeries, { color, lineWidth: 1 })
-        s.setData(days.map((d, i) => arr[i] !== null ? { time: d.date, value: arr[i] } : null).filter(Boolean))
-      }
-      mkLine(upper,  'rgba(217,142,43,0.5)')
-      mkLine(middle, 'rgba(217,142,43,0.8)')
-      mkLine(lower,  'rgba(217,142,43,0.5)')
-    }
-
-    mainChart.timeScale().fitContent()
-
-    // ── Pane volume ──
-    if (showVol) {
-      const volChart = LightweightCharts.createChart(document.getElementById('chart-volume'), opts)
-      charts.volume = volChart
-      const volSeries = volChart.addSeries(LightweightCharts.HistogramSeries, { priceFormat: { type: 'volume' } })
-      volSeries.setData(days.map(d => ({ time: d.date, value: d.volume, color: d.close >= d.open ? '#4ade8066' : '#f0635c66' })))
-      volChart.timeScale().fitContent()
-      _syncTimeScale(mainChart, volChart)
-    }
-
-    // ── Pane RSI ──
-    if (showRsi) {
-      const rsiChart = LightweightCharts.createChart(document.getElementById('chart-rsi'), opts)
-      charts.rsi = rsiChart
-      const rsi = calcRSI(closes, 14)
-      const rsiSeries = rsiChart.addSeries(LightweightCharts.LineSeries, { color: '#ece7de', lineWidth: 1.5 })
-      rsiSeries.setData(days.map((d, i) => rsi[i] !== null ? { time: d.date, value: rsi[i] } : null).filter(Boolean))
-      rsiChart.timeScale().fitContent()
-      _syncTimeScale(mainChart, rsiChart)
-    }
-
-    // ── Pane MACD ──
-    if (showMacd) {
-      const macdChart = LightweightCharts.createChart(document.getElementById('chart-macd'), opts)
-      charts.macd = macdChart
-      const { macd, signal, hist } = calcMACD(closes)
-      const histSeries = macdChart.addSeries(LightweightCharts.HistogramSeries, {})
-      histSeries.setData(days.map((d, i) => hist[i] !== null ? { time: d.date, value: hist[i], color: hist[i] >= 0 ? '#4ade8066' : '#f0635c66' } : null).filter(Boolean))
-      const macdSeries = macdChart.addSeries(LightweightCharts.LineSeries, { color: '#60a5fa', lineWidth: 1 })
-      macdSeries.setData(days.map((d, i) => macd[i] !== null ? { time: d.date, value: macd[i] } : null).filter(Boolean))
-      const sigSeries = macdChart.addSeries(LightweightCharts.LineSeries, { color: '#d98e2b', lineWidth: 1 })
-      sigSeries.setData(days.map((d, i) => signal[i] !== null ? { time: d.date, value: signal[i] } : null).filter(Boolean))
-      macdChart.timeScale().fitContent()
-      _syncTimeScale(mainChart, macdChart)
-    }
-
-    // ── Pane LPM ──
-    if (showLpm) {
-      const lpmChart = LightweightCharts.createChart(document.getElementById('chart-lpm'), opts)
-      charts.lpm = lpmChart
-      _syncTimeScale(mainChart, lpmChart)
-
-      // Tiap kali viewport candlestick berubah (pan/zoom) → update rentang LPM
-      mainChart.timeScale().subscribeVisibleLogicalRangeChange(() => _debouncedLpmUpdate())
-      _updateLpmForVisibleRange() // load awal untuk rentang yang langsung terlihat
-    }
+    chart.timeScale().fitContent()
   }
 
-  function _syncTimeScale(a, b) {
-    a.timeScale().subscribeVisibleLogicalRangeChange(r => { if (r) b.timeScale().setVisibleLogicalRange(r) })
-    b.timeScale().subscribeVisibleLogicalRangeChange(r => { if (r) a.timeScale().setVisibleLogicalRange(r) })
+  /**
+   * Hitung pane index untuk 1 indikator non-overlay.
+   * Pane 0 = candle. Indikator non-overlay dapat pane berurutan sesuai
+   * urutan tetap (volume, rsi, macd, lpm) — bukan urutan diklik, supaya
+   * posisi pane konsisten walau toggle dibuka-tutup berkali-kali.
+   */
+  const PANE_ORDER = ['volume', 'rsi', 'macd', 'lpm']
+  function _paneIndexFor(key) {
+    const activeNonOverlay = PANE_ORDER.filter(k => ACTIVE[k])
+    const idx = activeNonOverlay.indexOf(key)
+    return idx >= 0 ? idx + 1 : activeNonOverlay.length + 1
+  }
+
+  /**
+   * Tambah 1 indikator — hanya bikin series baru, TIDAK sentuh indikator lain.
+   * Mempertahankan posisi zoom/scroll yang sedang dilihat.
+   */
+  function _addIndicator(key) {
+    if (ACTIVE[key]) return // sudah aktif
+    const days   = DB.daily
+    const closes = days.map(d => d.close)
+
+    if (key === 'ma') {
+      const period = parseInt(document.getElementById('ma-period').value) || 20
+      const ma = calcSMA(closes, period)
+      const s = chart.addSeries(LightweightCharts.LineSeries, { color: '#d98e2b', lineWidth: 1.5, priceLineVisible: false, lastValueVisible: false, title: 'MA' + period })
+      s.setData(_align(days, ma))
+      ACTIVE.ma = { series: [s], overlay: true }
+    }
+
+    else if (key === 'bollinger') {
+      const { upper, middle, lower } = calcBollinger(closes, 20, 2)
+      const mid = chart.addSeries(LightweightCharts.LineSeries, { color: 'rgba(217,142,43,0.8)', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, title: 'BB' })
+      const up  = chart.addSeries(LightweightCharts.LineSeries, { color: 'rgba(217,142,43,0.4)', lineWidth: 1, priceLineVisible: false, lastValueVisible: false })
+      const lo  = chart.addSeries(LightweightCharts.LineSeries, { color: 'rgba(217,142,43,0.4)', lineWidth: 1, priceLineVisible: false, lastValueVisible: false })
+      mid.setData(_align(days, middle)); up.setData(_align(days, upper)); lo.setData(_align(days, lower))
+      ACTIVE.bollinger = { series: [mid, up, lo], overlay: true }
+    }
+
+    else if (key === 'volume') {
+      const pIdx = _paneIndexFor('volume')
+      const s = chart.addSeries(LightweightCharts.HistogramSeries, { priceFormat: { type: 'volume' }, priceLineVisible: false, lastValueVisible: true, title: 'Vol' }, pIdx)
+      s.setData(days.map(d => ({ time: d.date, value: d.volume, color: d.close >= d.open ? 'rgba(74,222,128,0.5)' : 'rgba(240,99,92,0.5)' })))
+      ACTIVE.volume = { series: [s], overlay: false }
+    }
+
+    else if (key === 'rsi') {
+      const pIdx = _paneIndexFor('rsi')
+      const rsi = calcRSI(closes, 14)
+      const s = chart.addSeries(LightweightCharts.LineSeries, { color: '#ece7de', lineWidth: 1.5, priceLineVisible: false, lastValueVisible: true, title: 'RSI' }, pIdx)
+      s.setData(_align(days, rsi))
+      ACTIVE.rsi = { series: [s], overlay: false }
+    }
+
+    else if (key === 'macd') {
+      const pIdx = _paneIndexFor('macd')
+      const { macd, signal, hist } = calcMACD(closes)
+      const macdLine = chart.addSeries(LightweightCharts.LineSeries, { color: '#60a5fa', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, title: 'MACD' }, pIdx)
+      const sigLine  = chart.addSeries(LightweightCharts.LineSeries, { color: '#d98e2b', lineWidth: 1, priceLineVisible: false, lastValueVisible: false }, pIdx)
+      const histS    = chart.addSeries(LightweightCharts.HistogramSeries, { priceLineVisible: false, lastValueVisible: false }, pIdx)
+      macdLine.setData(_align(days, macd))
+      sigLine.setData(_align(days, signal))
+      histS.setData(days.map((d, i) => hist[i] !== null ? { time: d.date, value: hist[i], color: hist[i] >= 0 ? 'rgba(74,222,128,0.5)' : 'rgba(240,99,92,0.5)' } : null).filter(Boolean))
+      ACTIVE.macd = { series: [macdLine, sigLine, histS], overlay: false }
+    }
+
+    else if (key === 'lpm') {
+      const pIdx = _paneIndexFor('lpm')
+      ACTIVE.lpm = { series: [], overlay: false, paneIdx: pIdx }
+      chart.timeScale().subscribeVisibleLogicalRangeChange(_debouncedLpmUpdate)
+      _updateLpmForVisibleRange()
+    }
+
+    _layoutPanes()
+  }
+
+  /** Hapus 1 indikator — series-nya saja, chart & indikator lain tetap utuh. */
+  function _removeIndicator(key) {
+    const ind = ACTIVE[key]
+    if (!ind) return
+    ind.series.forEach(s => { try { chart.removeSeries(s) } catch (_) {} })
+    delete ACTIVE[key]
+    _layoutPanes()
+  }
+
+  /** Selaraskan {time, value} dengan array hasil indikator yang bisa berisi null (warmup). */
+  function _align(days, arr) {
+    return days.map((d, i) => arr[i] !== null && arr[i] !== undefined ? { time: d.date, value: arr[i] } : null).filter(Boolean)
+  }
+
+  /** Atur proporsi tinggi tiap pane + tinggi total container. */
+  function _layoutPanes() {
+    if (!chart) return
+    const panes = chart.panes()
+    const nInd  = panes.length - 1
+    const totalHeight = PANE_HEIGHT_MAIN + nInd * PANE_HEIGHT_IND
+    document.getElementById('chart-main').style.height = totalHeight + 'px'
+    try { panes[0].setHeight(PANE_HEIGHT_MAIN) } catch (_) {}
+    panes.slice(1).forEach(p => { try { p.setHeight(PANE_HEIGHT_IND) } catch (_) {} })
   }
 
   // ============================================================
   // SEKSI 6: LPM — Liquidity Pressure Model
   // ============================================================
-  // Net agresif (buy-sell) per HARI. Sumber data sama dengan endpoint
-  // trade-book/chart (per-tanggal, 1 request = 1 hari) — TIDAK ADA endpoint
-  // yang bisa kasih banyak hari sekaligus untuk data ini, beda dari fetchDaily.
-  // Strategi: ikuti rentang yang TERLIHAT di viewport candlestick, cache hasil
-  // per tanggal supaya pan/zoom berulang tidak fetch ulang, dan batasi maksimal
-  // LPM_MAX_DAYS sekali jalan supaya tidak membanjiri API.
+  // Net agresif (buy-sell) per HARI. Endpoint trade-book/chart hanya bisa
+  // 1 tanggal per request (beda dari fetchDaily yang sekali ambil semua hari)
+  // — jadi LPM ikut rentang yang TERLIHAT di viewport, di-cache per tanggal.
 
-  const LPM_MAX_DAYS   = 90
+  const LPM_MAX_DAYS    = 90
   const LPM_BATCH_SIZE  = 5
   const LPM_BATCH_DELAY = 400
 
@@ -346,14 +371,10 @@
     _lpmDebounceTimer = setTimeout(_updateLpmForVisibleRange, 300)
   }
 
-  /**
-   * Tentukan rentang tanggal yang sedang terlihat di chart utama,
-   * fetch yang belum ada di cache, lalu render.
-   */
   async function _updateLpmForVisibleRange() {
-    if (!charts.main || !DB.daily.length) return
+    if (!chart || !DB.daily.length || !ACTIVE.lpm) return
 
-    const range = charts.main.timeScale().getVisibleLogicalRange()
+    const range = chart.timeScale().getVisibleLogicalRange()
     if (!range) return
 
     const fromIdx = Math.max(0, Math.floor(range.from))
@@ -362,12 +383,11 @@
 
     const visibleDates = DB.daily.slice(fromIdx, toIdx + 1).map(d => d.date)
     const missing = visibleDates.filter(d => !(d in DB.lpmCache))
-
     const statusEl = document.getElementById('lpm-status')
 
     if (missing.length > LPM_MAX_DAYS) {
-      statusEl.textContent = `Rentang ${visibleDates.length} hari terlalu lebar — perbesar (zoom in) untuk melihat LPM (maks ${LPM_MAX_DAYS} hari sekaligus)`
-      _renderLpmFromCache() // tetap render yang sudah ada di cache
+      statusEl.textContent = `Rentang ${visibleDates.length} hari terlalu lebar — perbesar (zoom in) untuk lihat LPM (maks ${LPM_MAX_DAYS} hari sekaligus)`
+      _renderLpmFromCache()
       return
     }
 
@@ -379,10 +399,6 @@
     _renderLpmFromCache()
   }
 
-  /**
-   * Fetch LPM untuk daftar tanggal yang belum ada di cache, batch kecil + delay
-   * supaya tidak membanjiri API (pola sama dengan IEP Scanner versi lab).
-   */
   async function _fetchLpmDates(dates) {
     const batches = []
     for (let i = 0; i < dates.length; i += LPM_BATCH_SIZE) batches.push(dates.slice(i, i + LPM_BATCH_SIZE))
@@ -391,50 +407,41 @@
       await Promise.allSettled(batch.map(async date => {
         try {
           const data = await fetchAbsorption(DB.sym, date)
-          // buy[]/sell[] kumulatif — nilai TERAKHIR = total agresif sepanjang hari itu
           const buyTotal  = data.buy.length  ? data.buy[data.buy.length - 1].value   : 0
           const sellTotal = data.sell.length ? data.sell[data.sell.length - 1].value : 0
           DB.lpmCache[date] = { buy: buyTotal, sell: sellTotal, net: buyTotal - sellTotal }
-        } catch (e) {
-          DB.lpmCache[date] = null // tandai sudah dicoba, gagal — jangan retry terus tiap render
+        } catch (_) {
+          DB.lpmCache[date] = null
         }
       }))
-      if (batches.length > 1) await _sleep(LPM_BATCH_DELAY)
+      if (batches.length > 1) await new Promise(r => setTimeout(r, LPM_BATCH_DELAY))
     }
   }
 
-  function _sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
-
-  /**
-   * Render pane LPM dari DB.lpmCache — tidak fetch apapun, murni render.
-   * Dipanggil setelah fetch selesai, atau saat ganti mode tampilan (bar/garis%).
-   */
+  /** Render ulang series LPM dari cache — tanpa fetch, dipakai juga saat ganti mode tampilan. */
   function _renderLpmFromCache() {
-    if (!charts.lpm || !DB.daily.length) return
+    if (!chart || !ACTIVE.lpm) return
     const mode = document.getElementById('lpm-mode').value
 
-    const points = DB.daily
-      .map(d => ({ date: d.date, lpm: DB.lpmCache[d.date] }))
-      .filter(p => p.lpm)
+    ACTIVE.lpm.series.forEach(s => { try { chart.removeSeries(s) } catch (_) {} })
+    ACTIVE.lpm.series = []
 
-    try { if (charts._lpmSeries) charts.lpm.removeSeries(charts._lpmSeries) } catch (_) {}
-    charts._lpmSeries = null
+    const points = DB.daily.map(d => ({ date: d.date, lpm: DB.lpmCache[d.date] })).filter(p => p.lpm)
+    const pIdx = ACTIVE.lpm.paneIdx
 
     if (mode === 'bar') {
-      const s = charts.lpm.addSeries(LightweightCharts.HistogramSeries, { priceFormat: { type: 'volume' } })
+      const s = chart.addSeries(LightweightCharts.HistogramSeries, { priceFormat: { type: 'volume' }, title: 'LPM' }, pIdx)
       s.setData(points.map(p => ({ time: p.date, value: p.lpm.net, color: p.lpm.net >= 0 ? '#4ade80' : '#f0635c' })))
-      charts._lpmSeries = s
+      ACTIVE.lpm.series.push(s)
     } else {
-      const s = charts.lpm.addSeries(LightweightCharts.LineSeries, { color: '#d98e2b', lineWidth: 1.5 })
+      const s = chart.addSeries(LightweightCharts.LineSeries, { color: '#d98e2b', lineWidth: 1.5, title: 'LPM %' }, pIdx)
       s.setData(points.map(p => {
         const total = p.lpm.buy + p.lpm.sell
-        const pct   = total > 0 ? (p.lpm.buy / total) * 100 : 50
-        return { time: p.date, value: pct }
+        return { time: p.date, value: total > 0 ? (p.lpm.buy / total) * 100 : 50 }
       }))
-      charts._lpmSeries = s
+      ACTIVE.lpm.series.push(s)
     }
   }
-
 
   // ============================================================
   // SEKSI 7: CLOCK
@@ -449,7 +456,7 @@
   }
 
   init()
-  window._chart = { DB }
+  window._chart = { DB, chart: () => chart, ACTIVE }
 </script>
 
 </body>
