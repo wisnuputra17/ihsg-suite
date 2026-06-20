@@ -42,15 +42,7 @@
     #chart-volume { height: 100px; }
     #chart-rsi    { height: 120px; }
     #chart-macd   { height: 120px; }
-
-    .abs-section { margin-top: 28px; padding-top: 8px; border-top: 1px solid var(--line); }
-    #abs-chart-price { height: 180px; }
-    #abs-chart-flow  { height: 220px; }
-
-    .legend-row { display: flex; gap: 16px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
-    .legend-item { display: flex; align-items: center; gap: 6px; font-family: var(--f-mono); font-size: 11px; color: var(--dim); }
-    .legend-dot { width: 8px; height: 8px; border-radius: 2px; }
-    .legend-line { width: 12px; height: 2px; }
+    #chart-lpm    { height: 120px; }
   </style>
 </head>
 <body>
@@ -88,31 +80,22 @@
       <label class="ind-toggle"><input type="checkbox" id="ind-volume" checked>Volume</label>
       <label class="ind-toggle"><input type="checkbox" id="ind-rsi">RSI</label>
       <label class="ind-toggle"><input type="checkbox" id="ind-macd">MACD</label>
-      <label class="ind-toggle"><input type="checkbox" id="ind-absorption">Absorption</label>
+      <label class="ind-toggle">
+        <input type="checkbox" id="ind-lpm">LPM
+        <select class="date-input" id="lpm-mode" style="margin-left:4px;">
+          <option value="bar">Bar</option>
+          <option value="line">Garis %</option>
+        </select>
+      </label>
     </div>
 
     <div class="chart-wrap"><div id="chart-main"></div></div>
     <div class="chart-wrap hidden" id="wrap-volume"><div id="chart-volume"></div></div>
     <div class="chart-wrap hidden" id="wrap-rsi"><div id="chart-rsi"></div></div>
     <div class="chart-wrap hidden" id="wrap-macd"><div id="chart-macd"></div></div>
-
-    <!-- ABSORPTION — section terpisah, granularitas per-menit 1 hari -->
-    <div class="abs-section hidden" id="abs-section">
-      <div class="section-label">Absorption — Net Order Flow per Menit</div>
-      <div class="toolbar">
-        <input type="date" class="date-input" id="abs-date">
-        <button class="btn btn-sm" id="abs-load">Load Hari Ini</button>
-        <span class="section-label" id="abs-status" style="margin:0;"></span>
-      </div>
-      <div class="legend-row">
-        <span class="legend-item"><span class="legend-dot" style="background:var(--live)"></span>Net Buy</span>
-        <span class="legend-item"><span class="legend-dot" style="background:var(--down)"></span>Net Sell</span>
-        <span class="legend-item"><span class="legend-line" style="background:var(--phosphor)"></span>Net Kumulatif</span>
-      </div>
-      <div class="section-label" style="margin-top:0;">Harga</div>
-      <div class="chart-wrap"><div id="abs-chart-price"></div></div>
-      <div class="section-label">Net Flow</div>
-      <div class="chart-wrap"><div id="abs-chart-flow"></div></div>
+    <div class="chart-wrap hidden" id="wrap-lpm">
+      <div id="lpm-status" class="dim-cell" style="padding:6px 12px; font-family:var(--f-mono); font-size:10px; color:var(--ghost);"></div>
+      <div id="chart-lpm"></div>
     </div>
 
   </div>
@@ -144,7 +127,8 @@
     if (p.volume !== undefined) document.getElementById('ind-volume').checked = p.volume
     if (p.rsi)        document.getElementById('ind-rsi').checked = true
     if (p.macd)       document.getElementById('ind-macd').checked = true
-    if (p.absorption) document.getElementById('ind-absorption').checked = true
+    if (p.lpm)        document.getElementById('ind-lpm').checked = true
+    if (p.lpmMode)    document.getElementById('lpm-mode').value = p.lpmMode
     if (p.maPeriod)   document.getElementById('ma-period').value = p.maPeriod
   }
 
@@ -155,7 +139,8 @@
       volume:     document.getElementById('ind-volume').checked,
       rsi:        document.getElementById('ind-rsi').checked,
       macd:       document.getElementById('ind-macd').checked,
-      absorption: document.getElementById('ind-absorption').checked,
+      lpm:        document.getElementById('ind-lpm').checked,
+      lpmMode:    document.getElementById('lpm-mode').value,
       maPeriod:   document.getElementById('ma-period').value
     })
   }
@@ -182,24 +167,17 @@
     document.getElementById('btn-load').addEventListener('click', _loadSym)
     document.getElementById('sym-input').addEventListener('keydown', e => { if (e.key === 'Enter') _loadSym() })
 
-    ;['ind-ma','ind-bollinger','ind-volume','ind-rsi','ind-macd','ma-period'].forEach(id => {
+    ;['ind-ma','ind-bollinger','ind-volume','ind-rsi','ind-macd','ind-lpm','ma-period'].forEach(id => {
       document.getElementById(id).addEventListener('change', () => {
         _savePrefsNow()
         if (DB.daily.length) _renderMainCharts()
       })
     })
 
-    document.getElementById('ind-absorption').addEventListener('change', e => {
+    document.getElementById('lpm-mode').addEventListener('change', () => {
       _savePrefsNow()
-      document.getElementById('abs-section').classList.toggle('hidden', !e.target.checked)
-      if (e.target.checked && DB.sym) {
-        document.getElementById('abs-date').value =
-          DB.daily.length ? DB.daily[DB.daily.length - 1].date : new Date().toISOString().slice(0,10)
-        _loadAbsorption()
-      }
+      _renderLpmFromCache() // ganti tampilan tanpa fetch ulang
     })
-
-    document.getElementById('abs-load').addEventListener('click', _loadAbsorption)
   }
 
   // ============================================================
@@ -220,13 +198,9 @@
       // Urutkan lama → baru untuk chart
       DB.sym   = sym
       DB.daily = [...raw].sort((a, b) => a.date.localeCompare(b.date))
+      DB.lpmCache = {} // ganti saham → cache LPM lama tidak relevan
       status.textContent = `${sym} · ${DB.daily.length} hari`
       _renderMainCharts()
-
-      if (document.getElementById('ind-absorption').checked) {
-        document.getElementById('abs-date').value = DB.daily[DB.daily.length - 1].date
-        _loadAbsorption()
-      }
     } catch (e) {
       status.textContent = e.code === 'TOKEN_EXPIRED' ? 'Token expired' : 'Error: ' + e.message
       if (e.code === 'TOKEN_EXPIRED') { TOKEN.clear(); _renderTokenBar() }
@@ -251,13 +225,15 @@
     const showVol   = document.getElementById('ind-volume').checked
     const showRsi   = document.getElementById('ind-rsi').checked
     const showMacd  = document.getElementById('ind-macd').checked
+    const showLpm   = document.getElementById('ind-lpm').checked
     const maPeriod  = parseInt(document.getElementById('ma-period').value) || 20
 
     document.getElementById('wrap-volume').classList.toggle('hidden', !showVol)
     document.getElementById('wrap-rsi').classList.toggle('hidden', !showRsi)
     document.getElementById('wrap-macd').classList.toggle('hidden', !showMacd)
+    document.getElementById('wrap-lpm').classList.toggle('hidden', !showLpm)
 
-    ;['main','volume','rsi','macd'].forEach(_destroyChart)
+    ;['main','volume','rsi','macd','lpm'].forEach(_destroyChart)
 
     const opts = {
       autoSize: true,
@@ -332,6 +308,17 @@
       macdChart.timeScale().fitContent()
       _syncTimeScale(mainChart, macdChart)
     }
+
+    // ── Pane LPM ──
+    if (showLpm) {
+      const lpmChart = LightweightCharts.createChart(document.getElementById('chart-lpm'), opts)
+      charts.lpm = lpmChart
+      _syncTimeScale(mainChart, lpmChart)
+
+      // Tiap kali viewport candlestick berubah (pan/zoom) → update rentang LPM
+      mainChart.timeScale().subscribeVisibleLogicalRangeChange(() => _debouncedLpmUpdate())
+      _updateLpmForVisibleRange() // load awal untuk rentang yang langsung terlihat
+    }
   }
 
   function _syncTimeScale(a, b) {
@@ -340,57 +327,114 @@
   }
 
   // ============================================================
-  // SEKSI 6: ABSORPTION (section terpisah, per-menit 1 hari)
+  // SEKSI 6: LPM — Liquidity Pressure Model
   // ============================================================
-  async function _loadAbsorption() {
-    const date = document.getElementById('abs-date').value
-    const status = document.getElementById('abs-status')
-    if (!DB.sym) { status.textContent = 'Load saham dulu di atas'; return }
-    if (!date)   { status.textContent = 'Pilih tanggal dulu'; return }
+  // Net agresif (buy-sell) per HARI. Sumber data sama dengan endpoint
+  // trade-book/chart (per-tanggal, 1 request = 1 hari) — TIDAK ADA endpoint
+  // yang bisa kasih banyak hari sekaligus untuk data ini, beda dari fetchDaily.
+  // Strategi: ikuti rentang yang TERLIHAT di viewport candlestick, cache hasil
+  // per tanggal supaya pan/zoom berulang tidak fetch ulang, dan batasi maksimal
+  // LPM_MAX_DAYS sekali jalan supaya tidak membanjiri API.
 
-    status.textContent = 'Memuat...'
-    try {
-      const data = await fetchAbsorption(DB.sym, date)
-      DB.absorption = { date, ...data }
-      if (!data.net.length) {
-        status.textContent = `Tidak ada data untuk ${date}`
-        _destroyChart('absPrice'); _destroyChart('absFlow')
-        return
-      }
-      status.textContent = `${DB.sym} · ${date} · ${data.net.length} menit`
-      _renderAbsorptionCharts(data)
-    } catch (e) {
-      status.textContent = 'Error: ' + e.message
+  const LPM_MAX_DAYS   = 90
+  const LPM_BATCH_SIZE  = 5
+  const LPM_BATCH_DELAY = 400
+
+  let _lpmDebounceTimer = null
+  function _debouncedLpmUpdate() {
+    clearTimeout(_lpmDebounceTimer)
+    _lpmDebounceTimer = setTimeout(_updateLpmForVisibleRange, 300)
+  }
+
+  /**
+   * Tentukan rentang tanggal yang sedang terlihat di chart utama,
+   * fetch yang belum ada di cache, lalu render.
+   */
+  async function _updateLpmForVisibleRange() {
+    if (!charts.main || !DB.daily.length) return
+
+    const range = charts.main.timeScale().getVisibleLogicalRange()
+    if (!range) return
+
+    const fromIdx = Math.max(0, Math.floor(range.from))
+    const toIdx   = Math.min(DB.daily.length - 1, Math.ceil(range.to))
+    if (fromIdx > toIdx) return
+
+    const visibleDates = DB.daily.slice(fromIdx, toIdx + 1).map(d => d.date)
+    const missing = visibleDates.filter(d => !(d in DB.lpmCache))
+
+    const statusEl = document.getElementById('lpm-status')
+
+    if (missing.length > LPM_MAX_DAYS) {
+      statusEl.textContent = `Rentang ${visibleDates.length} hari terlalu lebar — perbesar (zoom in) untuk melihat LPM (maks ${LPM_MAX_DAYS} hari sekaligus)`
+      _renderLpmFromCache() // tetap render yang sudah ada di cache
+      return
+    }
+
+    if (missing.length) {
+      statusEl.textContent = `Memuat LPM ${missing.length} hari...`
+      await _fetchLpmDates(missing)
+    }
+    statusEl.textContent = ''
+    _renderLpmFromCache()
+  }
+
+  /**
+   * Fetch LPM untuk daftar tanggal yang belum ada di cache, batch kecil + delay
+   * supaya tidak membanjiri API (pola sama dengan IEP Scanner versi lab).
+   */
+  async function _fetchLpmDates(dates) {
+    const batches = []
+    for (let i = 0; i < dates.length; i += LPM_BATCH_SIZE) batches.push(dates.slice(i, i + LPM_BATCH_SIZE))
+
+    for (const batch of batches) {
+      await Promise.allSettled(batch.map(async date => {
+        try {
+          const data = await fetchAbsorption(DB.sym, date)
+          // buy[]/sell[] kumulatif — nilai TERAKHIR = total agresif sepanjang hari itu
+          const buyTotal  = data.buy.length  ? data.buy[data.buy.length - 1].value   : 0
+          const sellTotal = data.sell.length ? data.sell[data.sell.length - 1].value : 0
+          DB.lpmCache[date] = { buy: buyTotal, sell: sellTotal, net: buyTotal - sellTotal }
+        } catch (e) {
+          DB.lpmCache[date] = null // tandai sudah dicoba, gagal — jangan retry terus tiap render
+        }
+      }))
+      if (batches.length > 1) await _sleep(LPM_BATCH_DELAY)
     }
   }
 
-  function _renderAbsorptionCharts(data) {
-    ;['absPrice','absFlow'].forEach(_destroyChart)
+  function _sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
 
-    const opts = {
-      autoSize: true,
-      layout:    { background: { color: '#0a0908' }, textColor: '#6b6557' },
-      grid:      { vertLines: { color: '#1a1815' }, horzLines: { color: '#1a1815' } },
-      timeScale: { timeVisible: true, secondsVisible: false }
+  /**
+   * Render pane LPM dari DB.lpmCache — tidak fetch apapun, murni render.
+   * Dipanggil setelah fetch selesai, atau saat ganti mode tampilan (bar/garis%).
+   */
+  function _renderLpmFromCache() {
+    if (!charts.lpm || !DB.daily.length) return
+    const mode = document.getElementById('lpm-mode').value
+
+    const points = DB.daily
+      .map(d => ({ date: d.date, lpm: DB.lpmCache[d.date] }))
+      .filter(p => p.lpm)
+
+    try { if (charts._lpmSeries) charts.lpm.removeSeries(charts._lpmSeries) } catch (_) {}
+    charts._lpmSeries = null
+
+    if (mode === 'bar') {
+      const s = charts.lpm.addSeries(LightweightCharts.HistogramSeries, { priceFormat: { type: 'volume' } })
+      s.setData(points.map(p => ({ time: p.date, value: p.lpm.net, color: p.lpm.net >= 0 ? '#4ade80' : '#f0635c' })))
+      charts._lpmSeries = s
+    } else {
+      const s = charts.lpm.addSeries(LightweightCharts.LineSeries, { color: '#d98e2b', lineWidth: 1.5 })
+      s.setData(points.map(p => {
+        const total = p.lpm.buy + p.lpm.sell
+        const pct   = total > 0 ? (p.lpm.buy / total) * 100 : 50
+        return { time: p.date, value: pct }
+      }))
+      charts._lpmSeries = s
     }
-
-    const priceChart = LightweightCharts.createChart(document.getElementById('abs-chart-price'), opts)
-    charts.absPrice = priceChart
-    const priceSeries = priceChart.addSeries(LightweightCharts.LineSeries, { color: '#ece7de', lineWidth: 1.5 })
-    priceSeries.setData(data.prices.map(d => ({ time: d.time, value: d.value })))
-    priceChart.timeScale().fitContent()
-
-    const flowChart = LightweightCharts.createChart(document.getElementById('abs-chart-flow'), opts)
-    charts.absFlow = flowChart
-    const histSeries = flowChart.addSeries(LightweightCharts.HistogramSeries, { priceFormat: { type: 'volume' } })
-    histSeries.setData(data.net.map(d => ({ time: d.time, value: d.value, color: d.value >= 0 ? '#4ade80' : '#f0635c' })))
-    let cum = 0
-    const cumSeries = flowChart.addSeries(LightweightCharts.LineSeries, { color: '#d98e2b', lineWidth: 1.5 })
-    cumSeries.setData(data.net.map(d => { cum += d.value; return { time: d.time, value: cum } }))
-    flowChart.timeScale().fitContent()
-
-    _syncTimeScale(priceChart, flowChart)
   }
+
 
   // ============================================================
   // SEKSI 7: CLOCK

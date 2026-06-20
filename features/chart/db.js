@@ -10,7 +10,8 @@
 export const DB = {
   sym:    null,
   daily:  [],     // array OHLCV harian, urut lama → baru
-  absorption: null // { date, net, buy, sell, prices } — hasil fetch terakhir
+  absorption: null, // { date, net, buy, sell, prices } — hasil fetch terakhir
+  lpmCache: {}    // {date: {buy, sell, net}} — cache LPM per tanggal, hindari fetch ulang
 }
 
 const PREF_KEY = 'chart_indicator_prefs'

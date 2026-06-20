@@ -46,8 +46,8 @@ export const FEATURES = [
   {
     id:     'chart',
     name:   'Chart',
-    desc:   'Candlestick harian dengan indikator pilihan — MA, RSI, MACD, Bollinger, Volume, Absorption.',
-    tags:   ['candlestick', 'indikator', 'teknikal', 'ma', 'rsi', 'macd', 'bollinger', 'absorption', 'order flow'],
+    desc:   'Candlestick harian dengan indikator pilihan — MA, RSI, MACD, Bollinger, Volume, LPM.',
+    tags:   ['candlestick', 'indikator', 'teknikal', 'ma', 'rsi', 'macd', 'bollinger', 'lpm', 'liquidity pressure'],
     status: 'ready'
   },
   {
