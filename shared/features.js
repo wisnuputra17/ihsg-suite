@@ -44,10 +44,10 @@ export const FEATURES = [
     status: 'soon'
   },
   {
-    id:     'absorption',
-    name:   'Absorption',
-    desc:   'Net order flow per menit dari trade book — lihat siapa menyerap di harga berapa.',
-    tags:   ['order flow', 'trade book', 'net buy', 'net sell', 'intraday'],
+    id:     'chart',
+    name:   'Chart',
+    desc:   'Candlestick harian dengan indikator pilihan — MA, RSI, MACD, Bollinger, Volume, Absorption.',
+    tags:   ['candlestick', 'indikator', 'teknikal', 'ma', 'rsi', 'macd', 'bollinger', 'absorption', 'order flow'],
     status: 'ready'
   },
   {

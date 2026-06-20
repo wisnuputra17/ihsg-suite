@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chart · IHSG Suite</title>
+  <link rel="stylesheet" href="../../shared/ui.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lightweight-charts/5.0.7/lightweight-charts.standalone.production.js"></script>
+
+  <style>
+    .page { max-width: 1100px; }
+
+    .token-bar {
+      padding: 10px 0; border-bottom: 1px solid var(--line);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .token-bar-label {
+      font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.12em;
+      text-transform: uppercase; color: var(--down); white-space: nowrap;
+    }
+
+    .panel { padding: 24px 0; }
+
+    .toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+    .sym-input { width: 100px; text-transform: uppercase; }
+    .num-input { width: 64px; }
+    .date-input {
+      background: #0f0e0c; border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 7px 10px; font-family: var(--f-mono); font-size: 12px; color: var(--paper); outline: none;
+    }
+
+    .ind-row { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
+    .ind-toggle {
+      display: flex; align-items: center; gap: 6px; font-family: var(--f-mono); font-size: 11px;
+      color: var(--dim); cursor: pointer; user-select: none;
+    }
+    .ind-toggle input { accent-color: var(--phosphor); cursor: pointer; }
+    .ind-toggle.active { color: var(--phosphor); }
+
+    .chart-wrap { border: 1px solid var(--line); margin-bottom: 1px; }
+    #chart-main   { height: 320px; }
+    #chart-volume { height: 100px; }
+    #chart-rsi    { height: 120px; }
+    #chart-macd   { height: 120px; }
+
+    .abs-section { margin-top: 28px; padding-top: 8px; border-top: 1px solid var(--line); }
+    #abs-chart-price { height: 180px; }
+    #abs-chart-flow  { height: 220px; }
+
+    .legend-row { display: flex; gap: 16px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+    .legend-item { display: flex; align-items: center; gap: 6px; font-family: var(--f-mono); font-size: 11px; color: var(--dim); }
+    .legend-dot { width: 8px; height: 8px; border-radius: 2px; }
+    .legend-line { width: 12px; height: 2px; }
+  </style>
+</head>
+<body>
+
+<div class="page">
+
+  <header class="app-header">
+    <div class="app-header-left">
+      <a class="back-link" href="../../index.html">← Suite</a>
+      <div class="header-divider"></div>
+      <span class="app-name">Chart</span>
+    </div>
+    <div class="app-clock" id="clock">––:––:––</div>
+  </header>
+
+  <div class="token-bar hidden" id="tokenBar">
+    <span class="token-bar-label">Token belum diisi</span>
+    <input type="password" class="input" id="tokenInput" placeholder="Bearer token Stockbit..." style="flex:1; max-width:320px;">
+    <button class="btn btn-primary btn-sm" id="tokenSave">Simpan</button>
+  </div>
+
+  <div class="panel">
+
+    <div class="section-label">Saham</div>
+    <div class="toolbar">
+      <input type="text" class="input sym-input" id="sym-input" placeholder="BBCA" maxlength="10">
+      <button class="btn btn-primary" id="btn-load">Load</button>
+      <span class="section-label" id="status" style="margin:0;"></span>
+    </div>
+
+    <div class="section-label">Indikator</div>
+    <div class="ind-row">
+      <label class="ind-toggle"><input type="checkbox" id="ind-ma">MA <input type="number" class="input num-input" id="ma-period" value="20" min="2" max="200"></label>
+      <label class="ind-toggle"><input type="checkbox" id="ind-bollinger">Bollinger</label>
+      <label class="ind-toggle"><input type="checkbox" id="ind-volume" checked>Volume</label>
+      <label class="ind-toggle"><input type="checkbox" id="ind-rsi">RSI</label>
+      <label class="ind-toggle"><input type="checkbox" id="ind-macd">MACD</label>
+      <label class="ind-toggle"><input type="checkbox" id="ind-absorption">Absorption</label>
+    </div>
+
+    <div class="chart-wrap"><div id="chart-main"></div></div>
+    <div class="chart-wrap hidden" id="wrap-volume"><div id="chart-volume"></div></div>
+    <div class="chart-wrap hidden" id="wrap-rsi"><div id="chart-rsi"></div></div>
+    <div class="chart-wrap hidden" id="wrap-macd"><div id="chart-macd"></div></div>
+
+    <!-- ABSORPTION — section terpisah, granularitas per-menit 1 hari -->
+    <div class="abs-section hidden" id="abs-section">
+      <div class="section-label">Absorption — Net Order Flow per Menit</div>
+      <div class="toolbar">
+        <input type="date" class="date-input" id="abs-date">
+        <button class="btn btn-sm" id="abs-load">Load Hari Ini</button>
+        <span class="section-label" id="abs-status" style="margin:0;"></span>
+      </div>
+      <div class="legend-row">
+        <span class="legend-item"><span class="legend-dot" style="background:var(--live)"></span>Net Buy</span>
+        <span class="legend-item"><span class="legend-dot" style="background:var(--down)"></span>Net Sell</span>
+        <span class="legend-item"><span class="legend-line" style="background:var(--phosphor)"></span>Net Kumulatif</span>
+      </div>
+      <div class="section-label" style="margin-top:0;">Harga</div>
+      <div class="chart-wrap"><div id="abs-chart-price"></div></div>
+      <div class="section-label">Net Flow</div>
+      <div class="chart-wrap"><div id="abs-chart-flow"></div></div>
+    </div>
+
+  </div>
+</div>
+
+<script type="module">
+  import { TOKEN }                       from '../../shared/store.js'
+  import { fetchDaily, fetchAbsorption } from '../../shared/api.js'
+  import { calcSMA, calcRSI, calcMACD, calcBollinger } from '../../shared/indicators.js'
+  import { DB, savePrefs, loadPrefs }    from './db.js'
+
+  let _loading = false
+  const charts = {} // simpan instance chart aktif untuk di-destroy saat reload
+
+  // ============================================================
+  // SEKSI 1: INIT
+  // ============================================================
+  function init() {
+    _renderTokenBar()
+    _bindTokenInput()
+    _bindControls()
+    _startClock()
+    _applyPrefs(loadPrefs())
+  }
+
+  function _applyPrefs(p) {
+    if (p.ma)         document.getElementById('ind-ma').checked = true
+    if (p.bollinger)  document.getElementById('ind-bollinger').checked = true
+    if (p.volume !== undefined) document.getElementById('ind-volume').checked = p.volume
+    if (p.rsi)        document.getElementById('ind-rsi').checked = true
+    if (p.macd)       document.getElementById('ind-macd').checked = true
+    if (p.absorption) document.getElementById('ind-absorption').checked = true
+    if (p.maPeriod)   document.getElementById('ma-period').value = p.maPeriod
+  }
+
+  function _savePrefsNow() {
+    savePrefs({
+      ma:         document.getElementById('ind-ma').checked,
+      bollinger:  document.getElementById('ind-bollinger').checked,
+      volume:     document.getElementById('ind-volume').checked,
+      rsi:        document.getElementById('ind-rsi').checked,
+      macd:       document.getElementById('ind-macd').checked,
+      absorption: document.getElementById('ind-absorption').checked,
+      maPeriod:   document.getElementById('ma-period').value
+    })
+  }
+
+  // ============================================================
+  // SEKSI 2: TOKEN
+  // ============================================================
+  function _renderTokenBar() {
+    document.getElementById('tokenBar').classList.toggle('hidden', TOKEN.isSet())
+  }
+  function _bindTokenInput() {
+    document.getElementById('tokenSave').addEventListener('click', () => {
+      const v = document.getElementById('tokenInput').value.trim()
+      if (!v) return
+      TOKEN.set(v)
+      _renderTokenBar()
+    })
+  }
+
+  // ============================================================
+  // SEKSI 3: CONTROLS
+  // ============================================================
+  function _bindControls() {
+    document.getElementById('btn-load').addEventListener('click', _loadSym)
+    document.getElementById('sym-input').addEventListener('keydown', e => { if (e.key === 'Enter') _loadSym() })
+
+    ;['ind-ma','ind-bollinger','ind-volume','ind-rsi','ind-macd','ma-period'].forEach(id => {
+      document.getElementById(id).addEventListener('change', () => {
+        _savePrefsNow()
+        if (DB.daily.length) _renderMainCharts()
+      })
+    })
+
+    document.getElementById('ind-absorption').addEventListener('change', e => {
+      _savePrefsNow()
+      document.getElementById('abs-section').classList.toggle('hidden', !e.target.checked)
+      if (e.target.checked && DB.sym) {
+        document.getElementById('abs-date').value =
+          DB.daily.length ? DB.daily[DB.daily.length - 1].date : new Date().toISOString().slice(0,10)
+        _loadAbsorption()
+      }
+    })
+
+    document.getElementById('abs-load').addEventListener('click', _loadAbsorption)
+  }
+
+  // ============================================================
+  // SEKSI 4: LOAD DAILY
+  // ============================================================
+  async function _loadSym() {
+    if (_loading) return
+    const sym = document.getElementById('sym-input').value.trim().toUpperCase()
+    const status = document.getElementById('status')
+    if (!sym) { status.textContent = 'Isi kode saham dulu'; return }
+    if (!TOKEN.isSet()) { _renderTokenBar(); return }
+
+    _loading = true
+    status.textContent = 'Memuat...'
+
+    try {
+      const raw = await fetchDaily(sym)
+      // Urutkan lama → baru untuk chart
+      DB.sym   = sym
+      DB.daily = [...raw].sort((a, b) => a.date.localeCompare(b.date))
+      status.textContent = `${sym} · ${DB.daily.length} hari`
+      _renderMainCharts()
+
+      if (document.getElementById('ind-absorption').checked) {
+        document.getElementById('abs-date').value = DB.daily[DB.daily.length - 1].date
+        _loadAbsorption()
+      }
+    } catch (e) {
+      status.textContent = e.code === 'TOKEN_EXPIRED' ? 'Token expired' : 'Error: ' + e.message
+      if (e.code === 'TOKEN_EXPIRED') { TOKEN.clear(); _renderTokenBar() }
+    } finally {
+      _loading = false
+    }
+  }
+
+  // ============================================================
+  // SEKSI 5: RENDER CHART UTAMA (rebuild total tiap kali toggle berubah)
+  // ============================================================
+  function _destroyChart(key) {
+    if (charts[key]) { charts[key].remove(); charts[key] = null }
+  }
+
+  function _renderMainCharts() {
+    const days = DB.daily
+    if (!days.length) return
+
+    const showMA    = document.getElementById('ind-ma').checked
+    const showBoll  = document.getElementById('ind-bollinger').checked
+    const showVol   = document.getElementById('ind-volume').checked
+    const showRsi   = document.getElementById('ind-rsi').checked
+    const showMacd  = document.getElementById('ind-macd').checked
+    const maPeriod  = parseInt(document.getElementById('ma-period').value) || 20
+
+    document.getElementById('wrap-volume').classList.toggle('hidden', !showVol)
+    document.getElementById('wrap-rsi').classList.toggle('hidden', !showRsi)
+    document.getElementById('wrap-macd').classList.toggle('hidden', !showMacd)
+
+    ;['main','volume','rsi','macd'].forEach(_destroyChart)
+
+    const opts = {
+      autoSize: true,
+      layout:    { background: { color: '#0a0908' }, textColor: '#6b6557' },
+      grid:      { vertLines: { color: '#1a1815' }, horzLines: { color: '#1a1815' } },
+      timeScale: { timeVisible: false }
+    }
+
+    const closes = days.map(d => d.close)
+
+    // ── Pane utama: candlestick + overlay MA/Bollinger ──
+    const mainChart = LightweightCharts.createChart(document.getElementById('chart-main'), opts)
+    charts.main = mainChart
+
+    const candleSeries = mainChart.addSeries(LightweightCharts.CandlestickSeries, {
+      upColor: '#4ade80', downColor: '#f0635c', borderVisible: false,
+      wickUpColor: '#4ade80', wickDownColor: '#f0635c'
+    })
+    candleSeries.setData(days.map(d => ({ time: d.date, open: d.open, high: d.high, low: d.low, close: d.close })))
+
+    if (showMA) {
+      const ma = calcSMA(closes, maPeriod)
+      const maSeries = mainChart.addSeries(LightweightCharts.LineSeries, { color: '#d98e2b', lineWidth: 1.5 })
+      maSeries.setData(days.map((d, i) => ma[i] !== null ? { time: d.date, value: ma[i] } : null).filter(Boolean))
+    }
+
+    if (showBoll) {
+      const { upper, middle, lower } = calcBollinger(closes, 20, 2)
+      const mkLine = (arr, color) => {
+        const s = mainChart.addSeries(LightweightCharts.LineSeries, { color, lineWidth: 1 })
+        s.setData(days.map((d, i) => arr[i] !== null ? { time: d.date, value: arr[i] } : null).filter(Boolean))
+      }
+      mkLine(upper,  'rgba(217,142,43,0.5)')
+      mkLine(middle, 'rgba(217,142,43,0.8)')
+      mkLine(lower,  'rgba(217,142,43,0.5)')
+    }
+
+    mainChart.timeScale().fitContent()
+
+    // ── Pane volume ──
+    if (showVol) {
+      const volChart = LightweightCharts.createChart(document.getElementById('chart-volume'), opts)
+      charts.volume = volChart
+      const volSeries = volChart.addSeries(LightweightCharts.HistogramSeries, { priceFormat: { type: 'volume' } })
+      volSeries.setData(days.map(d => ({ time: d.date, value: d.volume, color: d.close >= d.open ? '#4ade8066' : '#f0635c66' })))
+      volChart.timeScale().fitContent()
+      _syncTimeScale(mainChart, volChart)
+    }
+
+    // ── Pane RSI ──
+    if (showRsi) {
+      const rsiChart = LightweightCharts.createChart(document.getElementById('chart-rsi'), opts)
+      charts.rsi = rsiChart
+      const rsi = calcRSI(closes, 14)
+      const rsiSeries = rsiChart.addSeries(LightweightCharts.LineSeries, { color: '#ece7de', lineWidth: 1.5 })
+      rsiSeries.setData(days.map((d, i) => rsi[i] !== null ? { time: d.date, value: rsi[i] } : null).filter(Boolean))
+      rsiChart.timeScale().fitContent()
+      _syncTimeScale(mainChart, rsiChart)
+    }
+
+    // ── Pane MACD ──
+    if (showMacd) {
+      const macdChart = LightweightCharts.createChart(document.getElementById('chart-macd'), opts)
+      charts.macd = macdChart
+      const { macd, signal, hist } = calcMACD(closes)
+      const histSeries = macdChart.addSeries(LightweightCharts.HistogramSeries, {})
+      histSeries.setData(days.map((d, i) => hist[i] !== null ? { time: d.date, value: hist[i], color: hist[i] >= 0 ? '#4ade8066' : '#f0635c66' } : null).filter(Boolean))
+      const macdSeries = macdChart.addSeries(LightweightCharts.LineSeries, { color: '#60a5fa', lineWidth: 1 })
+      macdSeries.setData(days.map((d, i) => macd[i] !== null ? { time: d.date, value: macd[i] } : null).filter(Boolean))
+      const sigSeries = macdChart.addSeries(LightweightCharts.LineSeries, { color: '#d98e2b', lineWidth: 1 })
+      sigSeries.setData(days.map((d, i) => signal[i] !== null ? { time: d.date, value: signal[i] } : null).filter(Boolean))
+      macdChart.timeScale().fitContent()
+      _syncTimeScale(mainChart, macdChart)
+    }
+  }
+
+  function _syncTimeScale(a, b) {
+    a.timeScale().subscribeVisibleLogicalRangeChange(r => { if (r) b.timeScale().setVisibleLogicalRange(r) })
+    b.timeScale().subscribeVisibleLogicalRangeChange(r => { if (r) a.timeScale().setVisibleLogicalRange(r) })
+  }
+
+  // ============================================================
+  // SEKSI 6: ABSORPTION (section terpisah, per-menit 1 hari)
+  // ============================================================
+  async function _loadAbsorption() {
+    const date = document.getElementById('abs-date').value
+    const status = document.getElementById('abs-status')
+    if (!DB.sym) { status.textContent = 'Load saham dulu di atas'; return }
+    if (!date)   { status.textContent = 'Pilih tanggal dulu'; return }
+
+    status.textContent = 'Memuat...'
+    try {
+      const data = await fetchAbsorption(DB.sym, date)
+      DB.absorption = { date, ...data }
+      if (!data.net.length) {
+        status.textContent = `Tidak ada data untuk ${date}`
+        _destroyChart('absPrice'); _destroyChart('absFlow')
+        return
+      }
+      status.textContent = `${DB.sym} · ${date} · ${data.net.length} menit`
+      _renderAbsorptionCharts(data)
+    } catch (e) {
+      status.textContent = 'Error: ' + e.message
+    }
+  }
+
+  function _renderAbsorptionCharts(data) {
+    ;['absPrice','absFlow'].forEach(_destroyChart)
+
+    const opts = {
+      autoSize: true,
+      layout:    { background: { color: '#0a0908' }, textColor: '#6b6557' },
+      grid:      { vertLines: { color: '#1a1815' }, horzLines: { color: '#1a1815' } },
+      timeScale: { timeVisible: true, secondsVisible: false }
+    }
+
+    const priceChart = LightweightCharts.createChart(document.getElementById('abs-chart-price'), opts)
+    charts.absPrice = priceChart
+    const priceSeries = priceChart.addSeries(LightweightCharts.LineSeries, { color: '#ece7de', lineWidth: 1.5 })
+    priceSeries.setData(data.prices.map(d => ({ time: d.time, value: d.value })))
+    priceChart.timeScale().fitContent()
+
+    const flowChart = LightweightCharts.createChart(document.getElementById('abs-chart-flow'), opts)
+    charts.absFlow = flowChart
+    const histSeries = flowChart.addSeries(LightweightCharts.HistogramSeries, { priceFormat: { type: 'volume' } })
+    histSeries.setData(data.net.map(d => ({ time: d.time, value: d.value, color: d.value >= 0 ? '#4ade80' : '#f0635c' })))
+    let cum = 0
+    const cumSeries = flowChart.addSeries(LightweightCharts.LineSeries, { color: '#d98e2b', lineWidth: 1.5 })
+    cumSeries.setData(data.net.map(d => { cum += d.value; return { time: d.time, value: cum } }))
+    flowChart.timeScale().fitContent()
+
+    _syncTimeScale(priceChart, flowChart)
+  }
+
+  // ============================================================
+  // SEKSI 7: CLOCK
+  // ============================================================
+  function _startClock() {
+    const el = document.getElementById('clock')
+    function tick() {
+      el.textContent = new Date().toLocaleTimeString('id-ID',
+        { timeZone:'Asia/Jakarta', hour:'2-digit', minute:'2-digit', second:'2-digit' }) + ' WIB'
+    }
+    tick(); setInterval(tick, 1000)
+  }
+
+  init()
+  window._chart = { DB }
+</script>
+
+</body>
+</html>
