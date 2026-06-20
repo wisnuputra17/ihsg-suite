@@ -30,13 +30,6 @@ export const FEATURES = [
     status: 'soon'
   },
   {
-    id:     'lpm',
-    name:   'LPM',
-    desc:   'Liquidity Pressure Model — belum dispesifikasikan.',
-    tags:   ['liquidity', 'likuiditas', 'pressure', 'order book'],
-    status: 'soon'
-  },
-  {
     id:     'defence-tracker',
     name:   'Defence Tracker',
     desc:   'Catat thesis, entry, target, dan stop loss untuk posisi conviction jangka panjang.',
