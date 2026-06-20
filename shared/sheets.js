@@ -68,9 +68,14 @@ async function _fetch(url, options = {}) {
 }
 
 async function _post(action, sheet, data) {
+  // PENTING: Content-Type 'text/plain' (BUKAN 'application/json') —
+  // application/json memicu CORS preflight (OPTIONS) yang gagal karena
+  // Apps Script tidak punya handler doOptions(). text/plain dianggap
+  // "simple request" oleh browser, tidak perlu preflight.
+  // Apps Script tetap bisa JSON.parse(e.postData.contents) seperti biasa.
   return _fetch(GS_URL, {
     method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'text/plain' },
     body:    JSON.stringify({ action, sheet, data })
   })
 }
