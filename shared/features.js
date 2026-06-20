@@ -48,7 +48,7 @@ export const FEATURES = [
     name:   'Absorption',
     desc:   'Net order flow per menit dari trade book — lihat siapa menyerap di harga berapa.',
     tags:   ['order flow', 'trade book', 'net buy', 'net sell', 'intraday'],
-    status: 'soon'
+    status: 'ready'
   },
   {
     id:     'win-rate',

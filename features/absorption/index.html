@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Absorption · IHSG Suite</title>
+  <link rel="stylesheet" href="../../shared/ui.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lightweight-charts/5.0.7/lightweight-charts.standalone.production.js"></script>
+
+  <style>
+    .page { max-width: 1100px; }
+
+    .token-bar {
+      padding: 10px 0; border-bottom: 1px solid var(--line);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .token-bar-label {
+      font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.12em;
+      text-transform: uppercase; color: var(--down); white-space: nowrap;
+    }
+
+    .panel { padding: 24px 0; }
+
+    .toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+    .sym-input { width: 100px; text-transform: uppercase; }
+    .date-input {
+      background: #0f0e0c; border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 7px 10px; font-family: var(--f-mono); font-size: 12px; color: var(--paper); outline: none;
+    }
+
+    .legend-row { display: flex; gap: 16px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+    .legend-item { display: flex; align-items: center; gap: 6px; font-family: var(--f-mono); font-size: 11px; color: var(--dim); }
+    .legend-dot { width: 8px; height: 8px; border-radius: 2px; }
+
+    .chart-wrap { border: 1px solid var(--line); margin-bottom: 4px; }
+    #chart-price { height: 220px; }
+    #chart-flow  { height: 280px; }
+
+    .summary-row { display: flex; gap: 24px; flex-wrap: wrap; margin-top: 16px; }
+    .summary-item { font-family: var(--f-mono); }
+    .summary-label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ghost); margin-bottom: 4px; }
+    .summary-val { font-size: 16px; color: var(--paper); }
+  </style>
+</head>
+<body>
+
+<div class="page">
+
+  <header class="app-header">
+    <div class="app-header-left">
+      <a class="back-link" href="../../index.html">← Suite</a>
+      <div class="header-divider"></div>
+      <span class="app-name">Absorption</span>
+    </div>
+    <div class="app-clock" id="clock">––:––:––</div>
+  </header>
+
+  <div class="token-bar hidden" id="tokenBar">
+    <span class="token-bar-label">Token belum diisi</span>
+    <input type="password" class="input" id="tokenInput" placeholder="Bearer token Stockbit..." style="flex:1; max-width:320px;">
+    <button class="btn btn-primary btn-sm" id="tokenSave">Simpan</button>
+  </div>
+
+  <div class="panel">
+
+    <div class="section-label">Saham & Tanggal</div>
+    <div class="toolbar">
+      <input type="text" class="input sym-input" id="sym-input" placeholder="BBCA" maxlength="10">
+      <input type="date" class="date-input" id="date-input">
+      <button class="btn btn-sm" id="btn-yesterday">Kemarin</button>
+      <button class="btn btn-primary" id="btn-load">Load</button>
+      <span class="section-label" id="status" style="margin:0;"></span>
+    </div>
+
+    <div class="section-label">Harga</div>
+    <div class="chart-wrap"><div id="chart-price"></div></div>
+
+    <div class="section-label">Net Order Flow per Menit</div>
+    <div class="legend-row">
+      <span class="legend-item"><span class="legend-dot" style="background:var(--live)"></span>Net Buy</span>
+      <span class="legend-item"><span class="legend-dot" style="background:var(--down)"></span>Net Sell</span>
+      <span class="legend-item"><span class="legend-dot" style="background:var(--phosphor)"></span>Net Kumulatif</span>
+    </div>
+    <div class="chart-wrap"><div id="chart-flow"></div></div>
+
+    <div class="summary-row" id="summary"></div>
+
+  </div>
+</div>
+
+<script type="module">
+  import { TOKEN }            from '../../shared/store.js'
+  import { fetchAbsorption }  from '../../shared/api.js'
+  import { DB, setCurrent }   from './db.js'
+
+  let priceChart, flowChart
+  let _loading = false
+
+  // ============================================================
+  // SEKSI 1: INIT
+  // ============================================================
+  function init() {
+    _renderTokenBar()
+    _bindTokenInput()
+    _bindControls()
+    _startClock()
+
+    // Default tanggal = hari ini
+    document.getElementById('date-input').value = new Date().toISOString().slice(0, 10)
+  }
+
+  // ============================================================
+  // SEKSI 2: TOKEN
+  // ============================================================
+  function _renderTokenBar() {
+    document.getElementById('tokenBar').classList.toggle('hidden', TOKEN.isSet())
+  }
+  function _bindTokenInput() {
+    document.getElementById('tokenSave').addEventListener('click', () => {
+      const v = document.getElementById('tokenInput').value.trim()
+      if (!v) return
+      TOKEN.set(v)
+      _renderTokenBar()
+    })
+  }
+
+  // ============================================================
+  // SEKSI 3: CONTROLS
+  // ============================================================
+  function _bindControls() {
+    document.getElementById('btn-load').addEventListener('click', _load)
+    document.getElementById('btn-yesterday').addEventListener('click', () => {
+      const d = new Date()
+      d.setDate(d.getDate() - 1)
+      document.getElementById('date-input').value = d.toISOString().slice(0, 10)
+      _load()
+    })
+    document.getElementById('sym-input').addEventListener('keydown', e => { if (e.key === 'Enter') _load() })
+  }
+
+  // ============================================================
+  // SEKSI 4: LOAD DATA
+  // ============================================================
+  async function _load() {
+    if (_loading) return
+    const sym  = document.getElementById('sym-input').value.trim().toUpperCase()
+    const date = document.getElementById('date-input').value
+    const status = document.getElementById('status')
+
+    if (!sym)  { status.textContent = 'Isi kode saham dulu'; return }
+    if (!date) { status.textContent = 'Pilih tanggal dulu'; return }
+    if (!TOKEN.isSet()) { _renderTokenBar(); return }
+
+    _loading = true
+    status.textContent = 'Memuat...'
+
+    try {
+      const data = await fetchAbsorption(sym, date)
+      setCurrent({ sym, date, ...data })
+
+      if (!data.net.length) {
+        status.textContent = `${sym} · ${date} — tidak ada data (coba hari lain / cek jam pasar)`
+        _clearCharts()
+      } else {
+        status.textContent = `${sym} · ${date} · ${data.net.length} menit`
+        _renderCharts(data)
+        _renderSummary(data)
+      }
+    } catch (e) {
+      status.textContent = e.code === 'TOKEN_EXPIRED' ? 'Token expired' : 'Error: ' + e.message
+      if (e.code === 'TOKEN_EXPIRED') { TOKEN.clear(); _renderTokenBar() }
+    } finally {
+      _loading = false
+    }
+  }
+
+  // ============================================================
+  // SEKSI 5: RENDER CHART
+  // ============================================================
+  function _clearCharts() {
+    document.getElementById('chart-price').innerHTML = ''
+    document.getElementById('chart-flow').innerHTML  = ''
+    document.getElementById('summary').innerHTML     = ''
+  }
+
+  function _renderCharts(data) {
+    _clearCharts()
+
+    const chartOpts = {
+      autoSize: true,
+      layout:    { background: { color: '#0a0908' }, textColor: '#6b6557' },
+      grid:      { vertLines: { color: '#1a1815' }, horzLines: { color: '#1a1815' } },
+      timeScale: { timeVisible: true, secondsVisible: false }
+    }
+
+    // ── Pane harga ──
+    priceChart = LightweightCharts.createChart(document.getElementById('chart-price'), chartOpts)
+    const priceSeries = priceChart.addSeries(LightweightCharts.LineSeries, {
+      color: '#ece7de', lineWidth: 1.5
+    })
+    priceSeries.setData(data.prices.map(d => ({ time: d.time, value: d.value })))
+    priceChart.timeScale().fitContent()
+
+    // ── Pane net flow: histogram + garis kumulatif ──
+    flowChart = LightweightCharts.createChart(document.getElementById('chart-flow'), chartOpts)
+
+    const histSeries = flowChart.addSeries(LightweightCharts.HistogramSeries, {
+      priceFormat: { type: 'volume' }
+    })
+    histSeries.setData(data.net.map(d => ({
+      time:  d.time,
+      value: d.value,
+      color: d.value >= 0 ? '#4ade80' : '#f0635c'
+    })))
+
+    // Garis kumulatif — running sum dari net per menit
+    let cum = 0
+    const cumLine = data.net.map(d => { cum += d.value; return { time: d.time, value: cum } })
+    const cumSeries = flowChart.addSeries(LightweightCharts.LineSeries, {
+      color: '#d98e2b', lineWidth: 1.5
+    })
+    cumSeries.setData(cumLine)
+
+    flowChart.timeScale().fitContent()
+
+    // Sinkronkan scroll/zoom antar 2 chart
+    priceChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+      if (range) flowChart.timeScale().setVisibleLogicalRange(range)
+    })
+    flowChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+      if (range) priceChart.timeScale().setVisibleLogicalRange(range)
+    })
+  }
+
+  // ============================================================
+  // SEKSI 6: SUMMARY
+  // ============================================================
+  function _renderSummary(data) {
+    const totalBuy  = data.buy.reduce((s, d) => s + d.value, 0)
+    const totalSell = data.sell.reduce((s, d) => s + d.value, 0)
+    const totalNet  = data.net.reduce((s, d) => s + d.value, 0)
+    const lastPrice = data.prices.length ? data.prices[data.prices.length - 1].value : null
+
+    const items = [
+      { label: 'Total Buy',  val: _fmtRp(totalBuy),  color: 'var(--live)' },
+      { label: 'Total Sell', val: _fmtRp(totalSell), color: 'var(--down)' },
+      { label: 'Net Total',  val: _fmtRp(totalNet),  color: totalNet >= 0 ? 'var(--live)' : 'var(--down)' },
+      { label: 'Harga Akhir', val: lastPrice !== null ? _fmtNum(lastPrice) : '–', color: 'var(--paper)' }
+    ]
+
+    document.getElementById('summary').innerHTML = items.map(it => `
+      <div class="summary-item">
+        <div class="summary-label">${it.label}</div>
+        <div class="summary-val" style="color:${it.color}">${it.val}</div>
+      </div>
+    `).join('')
+  }
+
+  // ============================================================
+  // SEKSI 7: HELPER FORMAT
+  // ============================================================
+  function _fmtRp(v) {
+    const sign = v < 0 ? '-' : ''
+    const abs  = Math.abs(v)
+    if (abs >= 1e9) return sign + (abs/1e9).toFixed(2) + ' M'
+    if (abs >= 1e6) return sign + (abs/1e6).toFixed(0) + ' jt'
+    return sign + new Intl.NumberFormat('id-ID').format(Math.round(abs))
+  }
+  function _fmtNum(v) { return new Intl.NumberFormat('id-ID').format(Math.round(v)) }
+
+  function _startClock() {
+    const el = document.getElementById('clock')
+    function tick() {
+      el.textContent = new Date().toLocaleTimeString('id-ID',
+        { timeZone:'Asia/Jakarta', hour:'2-digit', minute:'2-digit', second:'2-digit' }) + ' WIB'
+    }
+    tick(); setInterval(tick, 1000)
+  }
+
+  init()
+  window._abs = { DB }
+</script>
+
+</body>
+</html>
