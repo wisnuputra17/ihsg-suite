@@ -123,10 +123,10 @@
     }
 
     .glass-card {
-      background: var(--surface-glass);
-      backdrop-filter: blur(18px);
-      -webkit-backdrop-filter: blur(18px);
-      border: 1px solid rgba(255,255,255,0.45);
+      background: rgba(20,16,12,0.55);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255,255,255,0.12);
       border-radius: 20px;
       padding: 56px 64px;
       width: 100%;
@@ -146,7 +146,7 @@
       font-weight: 600;
       letter-spacing: 0.2em;
       text-transform: uppercase;
-      color: var(--outline);
+      color: rgba(245,237,224,0.4);
       margin-bottom: 14px;
     }
     .card-title {
@@ -154,15 +154,14 @@
       font-size: clamp(40px, 5vw, 60px);
       font-weight: 400;
       line-height: 1.1;
-      color: var(--on-surface);
+      color: #f5ede0;
       margin-bottom: 10px;
     }
     .card-sub {
       font-family: 'EB Garamond', Georgia, serif;
       font-size: 18px;
       font-style: italic;
-      color: var(--on-surface-muted);
-      opacity: 0.75;
+      color: rgba(245,237,224,0.55);
       margin-bottom: 52px;
     }
 
@@ -191,8 +190,6 @@
     }
     .profile-card:hover {
       transform: translateY(-14px);
-      box-shadow: 0 24px 48px -8px rgba(146,70,40,0.22);
-      border-color: rgba(255,255,255,0.9);
     }
 
     .profile-img-wrap {
@@ -228,11 +225,94 @@
     }
     .profile-card:hover .profile-theme-dot { opacity: 1; }
 
-    /* Per-profile theme dots */
-    .theme-cmbyn     { background: #c4663a; }
-    .theme-noir      { background: #1a1208; }
-    .theme-forest    { background: #546040; }
-    .theme-ocean     { background: #3e6265; }
+    /* ── Per-profile distinct card themes ── */
+
+    /* Rudi — Thracian Defiance (dark blood red) */
+    .card-rudi {
+      background: rgba(22,10,8,0.72);
+      border: 1px solid rgba(142,22,22,0.5);
+    }
+    .card-rudi:hover {
+      box-shadow: 0 24px 48px -8px rgba(142,22,22,0.45);
+      border-color: rgba(255,180,171,0.5);
+    }
+    .card-rudi .profile-name { color: #ffb4ab; }
+    .card-rudi:hover .profile-name { color: #fff; }
+    .card-rudi .profile-img-wrap::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(to top, rgba(142,22,22,0.55) 0%, transparent 50%);
+    }
+    .card-rudi .theme-label { color: #ffb4ab; }
+
+    /* Fajar — Noir Gold (dark ink + amber) */
+    .card-fajar {
+      background: rgba(16,13,6,0.72);
+      border: 1px solid rgba(149,82,0,0.45);
+    }
+    .card-fajar:hover {
+      box-shadow: 0 24px 48px -8px rgba(149,82,0,0.40);
+      border-color: rgba(255,183,121,0.5);
+    }
+    .card-fajar .profile-name { color: #ffb779; }
+    .card-fajar:hover .profile-name { color: #fff; }
+    .card-fajar .profile-img-wrap::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(to top, rgba(100,54,0,0.60) 0%, transparent 50%);
+    }
+    .card-fajar .theme-label { color: #ffb779; }
+
+    /* Muhajir — Forest (deep green) */
+    .card-muhajir {
+      background: rgba(8,18,6,0.72);
+      border: 1px solid rgba(84,96,64,0.5);
+    }
+    .card-muhajir:hover {
+      box-shadow: 0 24px 48px -8px rgba(84,96,64,0.40);
+      border-color: rgba(154,190,114,0.5);
+    }
+    .card-muhajir .profile-name { color: #9abe72; }
+    .card-muhajir:hover .profile-name { color: #fff; }
+    .card-muhajir .profile-img-wrap::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(to top, rgba(30,58,14,0.60) 0%, transparent 50%);
+    }
+    .card-muhajir .theme-label { color: #9abe72; }
+
+    /* Wisnu — Ocean (teal/slate) */
+    .card-wisnu {
+      background: rgba(4,18,22,0.72);
+      border: 1px solid rgba(62,98,101,0.5);
+    }
+    .card-wisnu:hover {
+      box-shadow: 0 24px 48px -8px rgba(62,98,101,0.40);
+      border-color: rgba(94,173,176,0.5);
+    }
+    .card-wisnu .profile-name { color: #5eadb0; }
+    .card-wisnu:hover .profile-name { color: #fff; }
+    .card-wisnu .profile-img-wrap::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(to top, rgba(8,60,70,0.60) 0%, transparent 50%);
+    }
+    .card-wisnu .theme-label { color: #5eadb0; }
+
+    /* Image wrap needs relative for overlay */
+    .profile-img-wrap { position: relative; }
+
+    /* Theme label tag */
+    .theme-label {
+      display: inline-block;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+      opacity: 0.75;
+    }
+    .profile-card:hover .theme-label { opacity: 1; }
 
     /* ── FOOTER ── */
     footer {
@@ -316,50 +396,54 @@
 
       <div class="profiles">
 
-        <a class="profile-card" href="rudi.html" onclick="selectProfile('Rudi','cmbyn')">
+        <!-- Rudi — Thracian Defiance / dark blood red -->
+        <a class="profile-card card-rudi" href="rudi.html" onclick="selectProfile('Rudi','noir')">
           <div class="profile-img-wrap">
             <img class="profile-img"
               src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&q=80&auto=format&fit=crop&crop=face"
               alt="Rudi">
           </div>
           <div class="profile-name">Rudi</div>
-          <span class="profile-theme-dot theme-cmbyn"></span>
+          <span class="theme-label">⬛ Thracian Defiance</span>
         </a>
 
-        <a class="profile-card" href="index.html" onclick="selectProfile('Fajar','noir')">
+        <!-- Fajar — Noir Gold / dark ink + amber -->
+        <a class="profile-card card-fajar" href="index.html" onclick="selectProfile('Fajar','noir')">
           <div class="profile-img-wrap">
             <img class="profile-img"
               src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&q=80&auto=format&fit=crop&crop=face"
               alt="Fajar">
           </div>
           <div class="profile-name">Fajar</div>
-          <span class="profile-theme-dot theme-noir"></span>
+          <span class="theme-label">🟡 Noir Gold</span>
         </a>
 
-        <a class="profile-card" href="index.html" onclick="selectProfile('Muhajir','forest')">
+        <!-- Muhajir — Forest / deep green -->
+        <a class="profile-card card-muhajir" href="index.html" onclick="selectProfile('Muhajir','forest')">
           <div class="profile-img-wrap">
             <img class="profile-img"
               src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&q=80&auto=format&fit=crop&crop=face"
               alt="Muhajir">
           </div>
           <div class="profile-name">Muhajir</div>
-          <span class="profile-theme-dot theme-forest"></span>
+          <span class="theme-label">🟢 Forest Quiet</span>
         </a>
 
-        <a class="profile-card" href="index.html" onclick="selectProfile('Wisnu','ocean')">
+        <!-- Wisnu — Ocean / teal slate -->
+        <a class="profile-card card-wisnu" href="index.html" onclick="selectProfile('Wisnu','ocean')">
           <div class="profile-img-wrap">
             <img class="profile-img"
               src="https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=400&q=80&auto=format&fit=crop&crop=face"
               alt="Wisnu">
           </div>
           <div class="profile-name">Wisnu</div>
-          <span class="profile-theme-dot theme-ocean"></span>
+          <span class="theme-label">🔵 Ocean Slate</span>
         </a>
 
       </div>
 
-      <p style="margin-top:40px; font-size:12px; color:var(--outline); opacity:.65;">
-        Bukan kamu? <a href="profiles.html" style="color:var(--primary);opacity:.9;text-underline-offset:2px;">Ganti arsip</a>
+      <p style="margin-top:40px; font-size:12px; color:rgba(245,237,224,0.35);">
+        Bukan kamu? <a href="profiles.html" style="color:rgba(245,237,224,0.7);text-underline-offset:2px;">Ganti arsip</a>
       </p>
     </div>
   </main>
