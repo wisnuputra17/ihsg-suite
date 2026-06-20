@@ -6,798 +6,1264 @@
   <title>IHSG Suite</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Mono:wght@300;400&family=Lato:wght@300;400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500;1,600&family=DM+Mono:wght@300;400;500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
   <style>
     :root {
-      --cream:     #f7f2ea;
-      --cream-2:   #efe8d8;
-      --cream-3:   #e5d9c4;
-      --peach:     #e8a87c;
-      --peach-d:   #c97b47;
-      --gold:      #c9a84c;
-      --gold-d:    #9e7c2e;
-      --olive:     #7a8c5e;
-      --olive-d:   #546040;
-      --terracotta:#b85c38;
-      --brown:     #5c3d2e;
-      --brown-l:   #8c6b55;
-      --text:      #2e1f0f;
-      --text-2:    #6b4f3a;
-      --text-3:    #9c7d65;
-      --shadow:    rgba(94, 58, 30, 0.12);
-      --shadow-d:  rgba(94, 58, 30, 0.22);
+      --cream:       #f5ede0;
+      --cream-warm:  #ede0cc;
+      --paper:       #faf6ef;
+      --peach:       #e8956d;
+      --peach-light: #f2b89a;
+      --terracotta:  #c4663a;
+      --gold:        #c9a046;
+      --olive:       #7a8c5e;
+      --brown:       #3d2c1e;
+      --brown-mid:   #6b4f34;
+      --brown-light: #9c7a5a;
+      --ink:         #1a1208;
+      --ink-2:       #2e1f0f;
+      --mist:        rgba(61,44,30,0.06);
 
       --font-serif: 'Cormorant Garamond', Georgia, serif;
-      --font-sans:  'Lato', sans-serif;
+      --font-sans:  'Inter', system-ui, sans-serif;
       --font-mono:  'DM Mono', monospace;
 
-      --radius-sm: 4px;
-      --radius:    12px;
-      --radius-lg: 20px;
-      --ease:      cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      --nav-h: 64px;
+      --ease:  cubic-bezier(0.25, 0.46, 0.45, 0.94);
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     html { scroll-behavior: smooth; }
 
     body {
-      background: var(--cream);
-      color: var(--text);
+      background: var(--paper);
+      color: var(--ink-2);
       font-family: var(--font-sans);
       font-size: 15px;
-      line-height: 1.6;
-      min-height: 100vh;
-      /* Subtle grain texture */
-      background-image:
-        radial-gradient(ellipse at 20% 0%, rgba(232, 168, 124, 0.18) 0%, transparent 60%),
-        radial-gradient(ellipse at 80% 100%, rgba(201, 160, 76, 0.12) 0%, transparent 60%),
-        url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+      line-height: 1.65;
+      overflow-x: hidden;
     }
 
-    /* ── LAYOUT ── */
-    .page {
-      max-width: 1080px;
-      margin: 0 auto;
-      padding: 0 32px 80px;
-    }
-
-    /* ── HEADER ── */
-    header {
-      padding: 64px 0 48px;
-      display: flex;
-      align-items: flex-end;
-      justify-content: space-between;
-      gap: 24px;
-      border-bottom: 1px solid var(--cream-3);
-      animation: riseIn 700ms var(--ease) both;
-    }
-
-    .header-left {}
-
-    .eyebrow {
-      font-family: var(--font-mono);
-      font-size: 11px;
-      letter-spacing: 0.25em;
-      text-transform: uppercase;
-      color: var(--peach-d);
-      margin-bottom: 10px;
-    }
-
-    h1 {
-      font-family: var(--font-serif);
-      font-size: clamp(2.4rem, 5vw, 3.6rem);
-      font-weight: 300;
-      line-height: 1.1;
-      letter-spacing: -0.01em;
-      color: var(--text);
-    }
-
-    h1 em {
-      font-style: italic;
-      color: var(--peach-d);
-    }
-
-    .header-right {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 6px;
-      padding-bottom: 4px;
-      flex-shrink: 0;
-    }
-
-    .market-pill {
+    /* ── NAV ── */
+    nav {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100;
+      width: calc(100% - 48px);
+      max-width: 1100px;
+      background: rgba(26,18,8,0.88);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-radius: 60px;
+      padding: 0 28px;
+      height: 52px;
       display: flex;
       align-items: center;
-      gap: 7px;
-      padding: 6px 14px;
-      border-radius: 40px;
-      border: 1px solid var(--cream-3);
-      background: rgba(255,255,255,0.5);
-      backdrop-filter: blur(4px);
+      justify-content: space-between;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .nav-logo {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 400;
+      color: #fff;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      opacity: 0.9;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      list-style: none;
+    }
+
+    .nav-links a {
+      font-size: 13px;
+      color: rgba(255,255,255,0.65);
+      text-decoration: none;
+      letter-spacing: 0.02em;
+      transition: color .2s;
+    }
+    .nav-links a:hover { color: rgba(255,255,255,0.95); }
+
+    .nav-token-btn {
+      font-size: 12px;
+      font-family: var(--font-mono);
+      background: var(--peach);
+      color: #fff;
+      border: none;
+      border-radius: 20px;
+      padding: 6px 16px;
+      cursor: pointer;
+      letter-spacing: 0.04em;
+      transition: background .2s;
+    }
+    .nav-token-btn:hover { background: var(--terracotta); }
+    .nav-token-btn.set { background: var(--olive); }
+
+    /* ── HERO ── */
+    .hero {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-left {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 120px 64px 80px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .hero-eyebrow {
       font-family: var(--font-mono);
       font-size: 11px;
-      letter-spacing: 0.1em;
-      color: var(--text-3);
-      transition: all 300ms var(--ease);
-    }
-
-    .market-dot {
-      width: 7px; height: 7px;
-      border-radius: 50%;
-      background: var(--cream-3);
-      transition: all 300ms var(--ease);
-      flex-shrink: 0;
-    }
-
-    .market-dot.open  { background: var(--olive);       box-shadow: 0 0 8px var(--olive); }
-    .market-dot.close { background: var(--terracotta); }
-    .market-label.open  { color: var(--olive-d); }
-    .market-label.close { color: var(--terracotta); }
-
-    .market-time {
-      font-family: var(--font-mono);
-      font-size: 10px;
-      color: var(--text-3);
-      letter-spacing: 0.08em;
-    }
-
-    /* ── TOKEN ── */
-    .token-wrap {
-      padding: 28px 0 0;
-      animation: riseIn 700ms 80ms var(--ease) both;
-    }
-
-    .token-label {
-      font-family: var(--font-mono);
-      font-size: 10px;
       letter-spacing: 0.2em;
       text-transform: uppercase;
-      color: var(--text-3);
-      margin-bottom: 10px;
+      color: var(--peach);
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .hero-eyebrow::before {
+      content: '';
+      display: block;
+      width: 32px;
+      height: 1px;
+      background: var(--peach);
     }
 
-    .token-row { display: flex; gap: 8px; align-items: center; }
+    .hero-title {
+      font-family: var(--font-serif);
+      font-size: clamp(52px, 6vw, 86px);
+      font-weight: 300;
+      line-height: 1.05;
+      color: var(--ink);
+      margin-bottom: 28px;
+    }
+    .hero-title em {
+      font-style: italic;
+      color: var(--terracotta);
+    }
 
-    .token-input {
+    .hero-sub {
+      font-size: 16px;
+      color: var(--brown-mid);
+      max-width: 380px;
+      line-height: 1.7;
+      margin-bottom: 48px;
+    }
+
+    .hero-search {
+      display: flex;
+      align-items: center;
+      background: #fff;
+      border: 1.5px solid var(--cream-warm);
+      border-radius: 40px;
+      padding: 4px 6px 4px 20px;
+      max-width: 400px;
+      gap: 8px;
+      box-shadow: 0 4px 24px rgba(61,44,30,0.08);
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .hero-search:focus-within {
+      border-color: var(--peach);
+      box-shadow: 0 4px 24px rgba(232,149,109,0.18);
+    }
+    .hero-search input {
       flex: 1;
-      min-width: 0;
-      padding: 10px 14px;
-      background: rgba(255,255,255,0.7);
-      border: 1px solid var(--cream-3);
-      border-radius: var(--radius-sm);
-      font-family: var(--font-mono);
-      font-size: 12px;
-      color: var(--text);
+      border: none;
       outline: none;
-      transition: border-color 200ms, box-shadow 200ms;
+      font-size: 14px;
+      font-family: var(--font-sans);
+      background: transparent;
+      color: var(--ink-2);
     }
-    .token-input::placeholder { color: var(--text-3); }
-    .token-input:focus {
-      border-color: var(--peach);
-      box-shadow: 0 0 0 3px rgba(232,168,124,0.2);
-    }
-    .token-input.has-token { color: var(--text-2); }
-
-    .btn {
-      padding: 10px 18px;
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--cream-3);
-      background: rgba(255,255,255,0.6);
-      font-family: var(--font-mono);
-      font-size: 11px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--text-2);
+    .hero-search input::placeholder { color: var(--brown-light); }
+    .search-btn {
+      background: var(--ink);
+      color: #fff;
+      border: none;
+      border-radius: 30px;
+      padding: 10px 20px;
+      font-size: 13px;
       cursor: pointer;
+      transition: background .2s;
       white-space: nowrap;
-      transition: all 200ms var(--ease);
     }
-    .btn:hover {
-      background: white;
-      border-color: var(--peach);
-      color: var(--peach-d);
+    .search-btn:hover { background: var(--brown); }
+
+    .hero-stats {
+      margin-top: 56px;
+      display: flex;
+      gap: 40px;
     }
-    .btn.primary {
-      background: var(--peach-d);
-      border-color: var(--peach-d);
-      color: white;
+    .stat-item { }
+    .stat-num {
+      font-family: var(--font-serif);
+      font-size: 36px;
+      font-weight: 400;
+      color: var(--ink);
+      line-height: 1;
     }
-    .btn.primary:hover {
-      background: var(--terracotta);
-      border-color: var(--terracotta);
+    .stat-label {
+      font-size: 12px;
+      color: var(--brown-light);
+      letter-spacing: 0.05em;
+      margin-top: 4px;
     }
 
-    .token-status {
-      font-family: var(--font-mono);
-      font-size: 11px;
-      color: var(--text-3);
-      margin-top: 8px;
-      min-height: 18px;
-      transition: color 200ms;
+    .hero-right {
+      position: relative;
+      overflow: hidden;
     }
-    .token-status.ok    { color: var(--olive-d); }
-    .token-status.error { color: var(--terracotta); }
 
-    /* ── SEARCH ── */
-    .search-wrap {
-      margin-top: 20px;
+    .hero-collage {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+      gap: 3px;
+    }
+
+    .collage-img {
+      overflow: hidden;
       position: relative;
     }
-    .search-icon {
+    .collage-img img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 6s ease;
+    }
+    .collage-img:hover img { transform: scale(1.06); }
+
+    .collage-img.span-col {
+      grid-column: span 2;
+    }
+    .collage-img.span-row {
+      grid-row: span 2;
+    }
+
+    .hero-overlay {
       position: absolute;
-      left: 14px; top: 50%;
-      transform: translateY(-50%);
-      color: var(--text-3);
+      inset: 0;
+      background: linear-gradient(to right, var(--paper) 0%, transparent 30%);
+      z-index: 1;
       pointer-events: none;
     }
-    #searchInput {
-      width: 100%;
-      padding: 12px 16px 12px 42px;
-      background: rgba(255,255,255,0.7);
-      border: 1px solid var(--cream-3);
-      border-radius: var(--radius-sm);
-      font-family: var(--font-sans);
-      font-size: 14px;
-      color: var(--text);
-      outline: none;
-      transition: border-color 200ms, box-shadow 200ms;
+
+    /* ── STRIP ── */
+    .strip {
+      background: var(--ink);
+      color: rgba(255,255,255,0.5);
+      padding: 14px 0;
+      overflow: hidden;
+      white-space: nowrap;
     }
-    #searchInput::placeholder { color: var(--text-3); }
-    #searchInput:focus {
-      border-color: var(--peach);
-      box-shadow: 0 0 0 3px rgba(232,168,124,0.2);
+    .strip-inner {
+      display: inline-flex;
+      gap: 0;
+      animation: marquee 22s linear infinite;
+    }
+    .strip-item {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 0 32px;
+    }
+    .strip-item span {
+      color: var(--peach);
+      margin-right: 32px;
+    }
+    @keyframes marquee {
+      from { transform: translateX(0); }
+      to   { transform: translateX(-50%); }
     }
 
-    /* ── MAIN ── */
-    .main { padding: 40px 0; }
+    /* ── SECTION WRAPPER ── */
+    .section {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 100px 32px;
+    }
 
-    .list-header {
+    .section-label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--peach);
       display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      margin-bottom: 28px;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .section-label::before {
+      content: '';
+      display: block;
+      width: 24px;
+      height: 1px;
+      background: var(--peach);
     }
 
     .section-title {
       font-family: var(--font-serif);
-      font-size: 1.4rem;
-      font-weight: 400;
-      color: var(--text);
-      letter-spacing: 0.01em;
+      font-size: clamp(36px, 4vw, 56px);
+      font-weight: 300;
+      line-height: 1.1;
+      color: var(--ink);
+      margin-bottom: 16px;
+    }
+    .section-title em {
+      font-style: italic;
+      color: var(--terracotta);
     }
 
-    .feature-count {
-      font-family: var(--font-mono);
-      font-size: 11px;
-      color: var(--text-3);
-      letter-spacing: 0.1em;
+    .section-desc {
+      font-size: 16px;
+      color: var(--brown-mid);
+      max-width: 520px;
+      line-height: 1.7;
     }
 
-    /* ── CARD GRID ── */
-    .card-grid {
+    /* ── FEATURE GRID ── */
+    .features-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-bottom: 52px;
+      gap: 32px;
+    }
+
+    .features-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      grid-template-columns: repeat(3, 1fr);
       gap: 20px;
     }
 
-    .card {
-      display: block;
+    .feat-card {
+      background: #fff;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid rgba(61,44,30,0.07);
+      transition: transform .35s var(--ease), box-shadow .35s var(--ease), border-color .35s;
       text-decoration: none;
       color: inherit;
-      background: rgba(255,255,255,0.65);
-      border: 1px solid rgba(229, 217, 196, 0.8);
-      border-radius: var(--radius);
-      padding: 28px 26px 24px;
-      position: relative;
+      display: flex;
+      flex-direction: column;
+      cursor: pointer;
+    }
+    .feat-card:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 20px 60px rgba(61,44,30,0.14);
+      border-color: rgba(232,149,109,0.3);
+    }
+
+    .feat-img {
+      aspect-ratio: 16/9;
       overflow: hidden;
-      backdrop-filter: blur(6px);
-      transition: transform 320ms var(--ease), box-shadow 320ms var(--ease), border-color 320ms var(--ease), background 320ms var(--ease);
-      animation: riseIn 500ms var(--ease) both;
+      position: relative;
+      background: var(--cream-warm);
     }
-
-    .card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 16px 40px var(--shadow-d), 0 4px 12px var(--shadow);
-      border-color: rgba(232, 168, 124, 0.5);
-      background: rgba(255,255,255,0.88);
+    .feat-img img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform .6s var(--ease);
     }
+    .feat-card:hover .feat-img img { transform: scale(1.06); }
 
-    /* Warm glow strip at top per category */
-    .card::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 3px;
-      border-radius: var(--radius) var(--radius) 0 0;
-      opacity: 0.7;
-      transition: opacity 320ms var(--ease), height 320ms var(--ease);
-    }
-    .card:hover::before { opacity: 1; height: 4px; }
-
-    .card[data-cat="scalping"]::before    { background: linear-gradient(90deg, #e8a87c, #c97b47); }
-    .card[data-cat="pre-opening"]::before { background: linear-gradient(90deg, #c9a84c, #9e7c2e); }
-    .card[data-cat="intraday"]::before    { background: linear-gradient(90deg, #7a8c5e, #546040); }
-    .card[data-cat="swing"]::before       { background: linear-gradient(90deg, #b85c38, #8c3d20); }
-    .card[data-cat="watchlist"]::before   { background: linear-gradient(90deg, #8c6b55, #5c3d2e); }
-    .card[data-cat="lab"]::before         { background: linear-gradient(90deg, #9c7d65, #6b4f3a); }
-
-    /* Subtle warm light in corner on hover */
-    .card::after {
-      content: '';
-      position: absolute;
-      bottom: -40px; right: -40px;
-      width: 120px; height: 120px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(232,168,124,0.15) 0%, transparent 70%);
-      opacity: 0;
-      transition: opacity 320ms var(--ease), transform 320ms var(--ease);
-      pointer-events: none;
-    }
-    .card:hover::after { opacity: 1; transform: translate(-8px, -8px); }
-
-    .card-num {
-      font-family: var(--font-mono);
-      font-size: 10px;
-      color: var(--text-3);
-      letter-spacing: 0.15em;
-      margin-bottom: 16px;
-    }
-
-    .card-icon {
-      font-size: 1.6rem;
-      margin-bottom: 12px;
-      display: block;
-      filter: saturate(0.8);
-      transition: filter 320ms var(--ease), transform 320ms var(--ease);
-    }
-    .card:hover .card-icon {
-      filter: saturate(1.2);
-      transform: scale(1.08) rotate(-2deg);
-    }
-
-    .card-name {
-      font-family: var(--font-serif);
-      font-size: 1.25rem;
-      font-weight: 400;
-      color: var(--text);
-      letter-spacing: 0.01em;
-      margin-bottom: 8px;
-      transition: color 200ms;
-    }
-    .card:hover .card-name { color: var(--peach-d); }
-
-    .card-desc {
-      font-size: 13px;
-      color: var(--text-2);
-      line-height: 1.55;
-      margin-bottom: 20px;
-    }
-
-    .card-footer {
+    .feat-img-placeholder {
+      width: 100%;
+      height: 100%;
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: center;
+      font-size: 40px;
     }
 
-    .card-tag {
+    .feat-tag {
+      position: absolute;
+      top: 12px;
+      left: 12px;
       font-family: var(--font-mono);
       font-size: 10px;
       letter-spacing: 0.1em;
       text-transform: uppercase;
+      background: rgba(26,18,8,0.7);
+      color: rgba(255,255,255,0.9);
       padding: 4px 10px;
-      border-radius: 40px;
-      background: var(--cream-2);
-      color: var(--text-3);
-      border: 1px solid var(--cream-3);
-      transition: all 200ms var(--ease);
-    }
-    .card:hover .card-tag {
-      background: rgba(232,168,124,0.12);
-      border-color: rgba(232,168,124,0.4);
-      color: var(--peach-d);
+      border-radius: 20px;
     }
 
-    .card-arrow {
-      font-size: 18px;
-      color: var(--cream-3);
-      transition: all 320ms var(--ease);
-      line-height: 1;
-    }
-    .card:hover .card-arrow {
-      color: var(--peach-d);
-      transform: translate(3px, -3px);
+    .feat-body {
+      padding: 24px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
     }
 
-    .card.hidden { display: none; }
-
-    /* Stagger animation */
-    .card:nth-child(1) { animation-delay: 0ms; }
-    .card:nth-child(2) { animation-delay: 50ms; }
-    .card:nth-child(3) { animation-delay: 100ms; }
-    .card:nth-child(4) { animation-delay: 150ms; }
-    .card:nth-child(5) { animation-delay: 200ms; }
-    .card:nth-child(6) { animation-delay: 250ms; }
-    .card:nth-child(7) { animation-delay: 300ms; }
-    .card:nth-child(8) { animation-delay: 350ms; }
-    .card:nth-child(9) { animation-delay: 400ms; }
-
-    /* ── EMPTY STATE ── */
-    .empty-state {
-      padding: 60px 0;
-      text-align: center;
+    .feat-name {
       font-family: var(--font-serif);
-      font-size: 1.2rem;
-      font-style: italic;
-      color: var(--text-3);
-      display: none;
+      font-size: 22px;
+      font-weight: 500;
+      color: var(--ink);
+      line-height: 1.2;
     }
+
+    .feat-desc {
+      font-size: 13.5px;
+      color: var(--brown-mid);
+      line-height: 1.6;
+      flex: 1;
+    }
+
+    .feat-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--mist);
+    }
+    .feat-cat {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--brown-light);
+    }
+    .feat-arrow {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--cream-warm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background .2s, transform .2s;
+      font-size: 14px;
+    }
+    .feat-card:hover .feat-arrow {
+      background: var(--peach);
+      transform: translate(2px, -2px);
+    }
+
+    /* Large feature card (first = hero size) */
+    .feat-card.large {
+      grid-column: span 2;
+    }
+    .feat-card.large .feat-img {
+      aspect-ratio: 2/1;
+    }
+    .feat-card.large .feat-name {
+      font-size: 30px;
+    }
+
+    /* ── MANIFESTO SECTION ── */
+    .manifesto {
+      background: var(--ink);
+      color: #fff;
+      padding: 120px 32px;
+      position: relative;
+      overflow: hidden;
+    }
+    .manifesto::before {
+      content: '';
+      position: absolute;
+      top: -200px;
+      right: -100px;
+      width: 600px;
+      height: 600px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(232,149,109,0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .manifesto-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+      gap: 80px;
+      align-items: start;
+    }
+    .manifesto-side {
+      position: sticky;
+      top: 100px;
+    }
+    .manifesto-label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--peach);
+      margin-bottom: 16px;
+    }
+    .manifesto-quote {
+      font-family: var(--font-serif);
+      font-size: 42px;
+      font-weight: 300;
+      font-style: italic;
+      line-height: 1.2;
+      color: rgba(255,255,255,0.9);
+    }
+    .manifesto-content {
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+    .manifesto-para {
+      font-size: 16px;
+      color: rgba(255,255,255,0.6);
+      line-height: 1.8;
+      border-left: 1px solid rgba(232,149,109,0.3);
+      padding-left: 24px;
+    }
+    .manifesto-para strong {
+      color: rgba(255,255,255,0.9);
+      font-weight: 400;
+    }
+
+    /* ── PHOTO BAND ── */
+    .photo-band {
+      display: flex;
+      height: 320px;
+      gap: 3px;
+      overflow: hidden;
+    }
+    .photo-band-item {
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+    }
+    .photo-band-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 5s ease;
+    }
+    .photo-band-item:hover img { transform: scale(1.08); }
+    .photo-band-item:first-child { flex: 1.5; }
+
+    /* ── SETTINGS SECTION ── */
+    .settings-section {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 80px 32px;
+    }
+    .settings-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-top: 48px;
+    }
+    .settings-card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 32px;
+      border: 1px solid rgba(61,44,30,0.07);
+    }
+    .settings-card-title {
+      font-family: var(--font-serif);
+      font-size: 22px;
+      font-weight: 500;
+      color: var(--ink);
+      margin-bottom: 8px;
+    }
+    .settings-card-desc {
+      font-size: 13px;
+      color: var(--brown-light);
+      margin-bottom: 20px;
+      line-height: 1.6;
+    }
+    .settings-input-row {
+      display: flex;
+      gap: 8px;
+    }
+    .settings-input {
+      flex: 1;
+      border: 1.5px solid var(--cream-warm);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
+      font-family: var(--font-mono);
+      color: var(--ink-2);
+      outline: none;
+      background: var(--paper);
+      transition: border-color .2s;
+    }
+    .settings-input:focus { border-color: var(--peach); }
+    .settings-btn {
+      background: var(--ink);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 20px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background .2s;
+      white-space: nowrap;
+    }
+    .settings-btn:hover { background: var(--brown); }
+    .settings-status {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      margin-top: 10px;
+      min-height: 18px;
+    }
+    .status-ok  { color: var(--olive); }
+    .status-err { color: var(--terracotta); }
+    .status-loading { color: var(--brown-light); }
 
     /* ── FOOTER ── */
     footer {
-      padding: 32px 0;
-      border-top: 1px solid var(--cream-3);
+      background: var(--ink);
+      color: rgba(255,255,255,0.45);
+      padding: 60px 32px;
+    }
+    .footer-inner {
+      max-width: 1200px;
+      margin: 0 auto;
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
-    .footer-l, .footer-r {
+    .footer-logo {
       font-family: var(--font-mono);
-      font-size: 10px;
-      color: var(--text-3);
+      font-size: 14px;
+      color: rgba(255,255,255,0.7);
       letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .footer-note {
+      font-size: 12px;
+      text-align: right;
+      line-height: 1.7;
     }
 
-    /* ── MODAL ── */
+    /* ── TOKEN MODAL ── */
     .modal-overlay {
-      position: fixed; inset: 0;
-      background: rgba(46, 31, 15, 0.5);
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(26,18,8,0.6);
       backdrop-filter: blur(6px);
-      display: flex; align-items: center; justify-content: center;
-      z-index: 100; opacity: 0; pointer-events: none;
-      transition: opacity 300ms var(--ease);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
     }
-    .modal-overlay.visible { opacity: 1; pointer-events: all; }
+    .modal-overlay.open { display: flex; }
     .modal {
-      background: var(--cream);
-      border: 1px solid var(--cream-3);
-      border-radius: var(--radius);
+      background: var(--paper);
+      border-radius: 20px;
       padding: 40px;
-      width: 100%; max-width: 480px; margin: 24px;
-      box-shadow: 0 24px 60px var(--shadow-d);
+      width: 440px;
+      max-width: calc(100vw - 32px);
+      position: relative;
     }
     .modal-title {
       font-family: var(--font-serif);
-      font-size: 1.5rem;
+      font-size: 28px;
       font-weight: 400;
-      color: var(--text);
+      color: var(--ink);
       margin-bottom: 8px;
     }
     .modal-desc {
       font-size: 13px;
-      color: var(--text-2);
+      color: var(--brown-mid);
       margin-bottom: 24px;
       line-height: 1.6;
     }
-
-    /* ── ANIMATIONS ── */
-    @keyframes riseIn {
-      from { opacity: 0; transform: translateY(16px); }
-      to   { opacity: 1; transform: translateY(0); }
+    .modal-close {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      background: var(--cream-warm);
+      border: none;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--brown-mid);
+    }
+    .modal-input {
+      width: 100%;
+      border: 1.5px solid var(--cream-warm);
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-size: 13px;
+      font-family: var(--font-mono);
+      color: var(--ink-2);
+      outline: none;
+      background: #fff;
+      transition: border-color .2s;
+      margin-bottom: 12px;
+    }
+    .modal-input:focus { border-color: var(--peach); }
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+    }
+    .btn-primary {
+      flex: 1;
+      background: var(--ink);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background .2s;
+    }
+    .btn-primary:hover { background: var(--brown); }
+    .btn-danger {
+      background: rgba(196,102,58,0.1);
+      color: var(--terracotta);
+      border: 1px solid rgba(196,102,58,0.2);
+      border-radius: 10px;
+      padding: 12px 20px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background .2s;
+    }
+    .btn-danger:hover { background: rgba(196,102,58,0.18); }
+    .modal-status {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      margin-top: 10px;
+      min-height: 16px;
     }
 
+    /* ── HIDDEN FOR SEARCH ── */
+    .feat-card.hidden { display: none; }
+
     /* ── RESPONSIVE ── */
-    @media (max-width: 640px) {
-      .page { padding: 0 20px 60px; }
-      header { padding: 40px 0 32px; flex-direction: column; align-items: flex-start; gap: 16px; }
-      .header-right { align-items: flex-start; }
-      .card-grid { grid-template-columns: 1fr; gap: 14px; }
+    @media (max-width: 900px) {
+      .hero {
+        grid-template-columns: 1fr;
+        min-height: auto;
+      }
+      .hero-right {
+        height: 300px;
+      }
+      .hero-left {
+        padding: 100px 24px 60px;
+      }
+      .features-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+      .feat-card.large {
+        grid-column: span 2;
+      }
+      .manifesto-inner {
+        grid-template-columns: 1fr;
+        gap: 40px;
+      }
+      .manifesto-side {
+        position: static;
+      }
+      .settings-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    @media (max-width: 600px) {
+      .features-grid {
+        grid-template-columns: 1fr;
+      }
+      .feat-card.large {
+        grid-column: span 1;
+      }
+      .hero-stats { gap: 24px; }
+      .nav-links  { display: none; }
+      .photo-band { height: 200px; }
     }
   </style>
 </head>
 <body>
 
-<div class="page">
+<!-- ── NAVIGATION ── -->
+<nav>
+  <span class="nav-logo">IHSG Suite</span>
+  <ul class="nav-links">
+    <li><a href="#features">Fitur</a></li>
+    <li><a href="#about">Tentang</a></li>
+    <li><a href="#settings">Pengaturan</a></li>
+  </ul>
+  <button class="nav-token-btn" id="navTokenBtn" onclick="openModal()">Token Stockbit</button>
+</nav>
 
-  <!-- HEADER -->
-  <header>
-    <div class="header-left">
-      <div class="eyebrow">IHSG Suite · wisnuputra17</div>
-      <h1>Analisa<br><em>Saham IDX</em></h1>
+<!-- ── HERO ── -->
+<section class="hero">
+  <div class="hero-left">
+    <p class="hero-eyebrow">Platform Analisis IDX</p>
+    <h1 class="hero-title">
+      Baca pasar<br>
+      seperti membaca<br>
+      <em>sebuah novel</em>
+    </h1>
+    <p class="hero-sub">
+      Alat analisis saham Indonesia yang tenang, tajam, dan personal.
+      Dari broker flow hingga IEP — semua dalam satu ruang.
+    </p>
+    <div class="hero-search">
+      <input type="text" id="searchInput" placeholder="Cari fitur…" autocomplete="off">
+      <button class="search-btn" onclick="document.getElementById('features').scrollIntoView({behavior:'smooth'})">Jelajahi</button>
     </div>
-    <div class="header-right">
-      <div class="market-pill">
-        <div class="market-dot" id="marketDot"></div>
-        <span class="market-label" id="marketLabel">–––</span>
+    <div class="hero-stats">
+      <div class="stat-item">
+        <div class="stat-num">9</div>
+        <div class="stat-label">Fitur Aktif</div>
       </div>
-      <div class="market-time" id="marketTime">–</div>
-    </div>
-  </header>
-
-  <!-- TOKEN + SEARCH -->
-  <div class="token-wrap">
-    <div class="token-label">Bearer Token · Stockbit</div>
-    <div class="token-row">
-      <input type="password" class="token-input" id="tokenInput" placeholder="eyJ..." autocomplete="off" spellcheck="false">
-      <button class="btn primary" id="btnSave">Simpan</button>
-      <button class="btn" id="btnClear">Hapus</button>
-      <button class="btn" id="btnToggle">Lihat</button>
-    </div>
-    <div class="token-status" id="tokenStatus"></div>
-
-    <div class="search-wrap">
-      <svg class="search-icon" width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
-        <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398l3.85 3.85a1 1 0 0 0 1.415-1.415l-3.868-3.833zm-5.242 1.156a5 5 0 1 1 0-10 5 5 0 0 1 0 10z"/>
-      </svg>
-      <input id="searchInput" type="text" placeholder="Cari fitur..." autocomplete="off">
+      <div class="stat-item">
+        <div class="stat-num">894</div>
+        <div class="stat-label">Emiten IDX</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num">Real-time</div>
+        <div class="stat-label">Data Stockbit</div>
+      </div>
     </div>
   </div>
 
-  <!-- MAIN -->
-  <main class="main">
-    <div class="list-header">
-      <div class="section-title">Fitur</div>
-      <div class="feature-count" id="featureCount"></div>
+  <div class="hero-right">
+    <div class="hero-collage">
+      <!-- Crema, Italy — via Unsplash free images -->
+      <div class="collage-img span-row">
+        <img src="https://images.unsplash.com/photo-1516483638261-f4dbaf036963?w=800&q=80&auto=format&fit=crop" alt="Italian summer street" loading="lazy">
+      </div>
+      <div class="collage-img">
+        <img src="https://images.unsplash.com/photo-1533104816931-20fa691ff6ca?w=600&q=75&auto=format&fit=crop" alt="Old books in sunlight" loading="lazy">
+      </div>
+      <div class="collage-img">
+        <img src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=75&auto=format&fit=crop" alt="Bicycle on Italian path" loading="lazy">
+      </div>
     </div>
+    <div class="hero-overlay"></div>
+  </div>
+</section>
 
-    <div class="card-grid" id="cardGrid">
-
-      <a class="card" href="features/haka/index.html" data-cat="scalping" data-search="haka beli besar running trade">
-        <div class="card-num">01</div>
-        <span class="card-icon">🔍</span>
-        <div class="card-name">HAKA</div>
-        <div class="card-desc">Deteksi transaksi beli besar real-time dari running trade</div>
-        <div class="card-footer">
-          <span class="card-tag">scalping</span>
-          <span class="card-arrow">↗</span>
-        </div>
-      </a>
-
-      <a class="card" href="features/hakahaki/index.html" data-cat="scalping" data-search="haka haki beli jual besar posisi monitor">
-        <div class="card-num">02</div>
-        <span class="card-icon">⚡</span>
-        <div class="card-name">HAKA+HAKI</div>
-        <div class="card-desc">Monitor posisi aktif — deteksi aksi beli & jual besar sekaligus</div>
-        <div class="card-footer">
-          <span class="card-tag">scalping</span>
-          <span class="card-arrow">↗</span>
-        </div>
-      </a>
-
-      <a class="card" href="features/iep-scanner/index.html" data-cat="pre-opening" data-search="iep scanner pre-opening surge volume harga">
-        <div class="card-num">03</div>
-        <span class="card-icon">📡</span>
-        <div class="card-name">IEP Scanner</div>
-        <div class="card-desc">Scan harga & volume IEP pre-opening, deteksi volume surge</div>
-        <div class="card-footer">
-          <span class="card-tag">pre-opening</span>
-          <span class="card-arrow">↗</span>
-        </div>
-      </a>
-
-      <a class="card" href="features/lpm/index.html" data-cat="intraday" data-search="lpm liquidity pressure tekanan jual beli grafik">
-        <div class="card-num">04</div>
-        <span class="card-icon">📊</span>
-        <div class="card-name">LPM</div>
-        <div class="card-desc">Liquidity Pressure Model — visualisasi tekanan jual vs beli per emiten</div>
-        <div class="card-footer">
-          <span class="card-tag">intraday</span>
-          <span class="card-arrow">↗</span>
-        </div>
-      </a>
-
-      <a class="card" href="features/absorption/index.html" data-cat="intraday" data-search="absorption net buy sell menit dominan">
-        <div class="card-num">05</div>
-        <span class="card-icon">🧲</span>
-        <div class="card-name">Absorption</div>
-        <div class="card-desc">Grafik net buy/sell per menit — lihat siapa yang dominan</div>
-        <div class="card-footer">
-          <span class="card-tag">intraday</span>
-          <span class="card-arrow">↗</span>
-        </div>
-      </a>
-
-      <a class="card" href="features/defence-tracker/index.html" data-cat="swing" data-search="defence tracker swing posisi average down target cut loss">
-        <div class="card-num">06</div>
-        <span class="card-icon">🛡️</span>
-        <div class="card-name">Defence Tracker</div>
-        <div class="card-desc">Pantau posisi swing — average down, target, cut loss</div>
-        <div class="card-footer">
-          <span class="card-tag">swing</span>
-          <span class="card-arrow">↗</span>
-        </div>
-      </a>
-
-      <a class="card" href="features/cacing-watchlist/index.html" data-cat="watchlist" data-search="cacing watchlist small cap alert">
-        <div class="card-num">07</div>
-        <span class="card-icon">👀</span>
-        <div class="card-name">Cacing Watchlist</div>
-        <div class="card-desc">Watchlist saham cacing dengan alert otomatis</div>
-        <div class="card-footer">
-          <span class="card-tag">watchlist</span>
-          <span class="card-arrow">↗</span>
-        </div>
-      </a>
-
-      <a class="card" href="features/lab-chart/index.html" data-cat="lab" data-search="lab chart eksperimen indikator kustom">
-        <div class="card-num">08</div>
-        <span class="card-icon">🔬</span>
-        <div class="card-name">Lab Chart</div>
-        <div class="card-desc">Chart eksperimen dengan indikator kustom</div>
-        <div class="card-footer">
-          <span class="card-tag">lab</span>
-          <span class="card-arrow">↗</span>
-        </div>
-      </a>
-
-      <a class="card" href="features/lab-console/index.html" data-cat="lab" data-search="lab console playground api test">
-        <div class="card-num">09</div>
-        <span class="card-icon">💻</span>
-        <div class="card-name">Lab Console</div>
-        <div class="card-desc">Playground untuk test API & indikator langsung di browser</div>
-        <div class="card-footer">
-          <span class="card-tag">lab</span>
-          <span class="card-arrow">↗</span>
-        </div>
-      </a>
-
-    </div>
-
-    <div class="empty-state" id="emptyState">
-      Tidak ada fitur untuk "<span id="emptyQuery"></span>"
-    </div>
-  </main>
-
-  <footer>
-    <div class="footer-l" id="footerEmiten">894 emiten · IDX</div>
-    <div class="footer-r" id="footerTime"></div>
-  </footer>
-
+<!-- ── MARQUEE STRIP ── -->
+<div class="strip">
+  <div class="strip-inner" aria-hidden="true">
+    <span class="strip-item"><span>◆</span> HAKA Flow</span>
+    <span class="strip-item"><span>◆</span> IEP Scanner</span>
+    <span class="strip-item"><span>◆</span> Liquidity Pressure</span>
+    <span class="strip-item"><span>◆</span> Absorption</span>
+    <span class="strip-item"><span>◆</span> Broker Activity</span>
+    <span class="strip-item"><span>◆</span> Defence Tracker</span>
+    <span class="strip-item"><span>◆</span> Cacing Watchlist</span>
+    <span class="strip-item"><span>◆</span> Lab Chart</span>
+    <span class="strip-item"><span>◆</span> Lab Console</span>
+    <!-- duplicate for seamless loop -->
+    <span class="strip-item"><span>◆</span> HAKA Flow</span>
+    <span class="strip-item"><span>◆</span> IEP Scanner</span>
+    <span class="strip-item"><span>◆</span> Liquidity Pressure</span>
+    <span class="strip-item"><span>◆</span> Absorption</span>
+    <span class="strip-item"><span>◆</span> Broker Activity</span>
+    <span class="strip-item"><span>◆</span> Defence Tracker</span>
+    <span class="strip-item"><span>◆</span> Cacing Watchlist</span>
+    <span class="strip-item"><span>◆</span> Lab Chart</span>
+    <span class="strip-item"><span>◆</span> Lab Console</span>
+  </div>
 </div>
 
-<!-- MODAL -->
-<div class="modal-overlay" id="modalOverlay">
+<!-- ── FEATURES ── -->
+<section id="features">
+  <div class="section">
+    <div class="features-header">
+      <div>
+        <p class="section-label">Fitur</p>
+        <h2 class="section-title">Setiap alat,<br><em>satu tujuan</em></h2>
+      </div>
+      <p class="section-desc">
+        Dirancang untuk trader yang ingin membaca aliran dana, tekanan pasar,
+        dan sinyal pre-opening dengan cara yang elegan dan efisien.
+      </p>
+    </div>
+
+    <div class="features-grid" id="featuresGrid">
+
+      <!-- HAKA — large hero card -->
+      <a class="feat-card large" href="features/haka/" data-search="broker haka haki net flow dana">
+        <div class="feat-img">
+          <img src="https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1200&q=80&auto=format&fit=crop" alt="Trading charts" loading="lazy">
+          <span class="feat-tag">Andalan</span>
+        </div>
+        <div class="feat-body">
+          <div class="feat-name">HAKA — Broker Flow</div>
+          <div class="feat-desc">Lacak aliran dana broker harian. Temukan akumulasi diam-diam sebelum pergerakan besar terjadi.</div>
+          <div class="feat-footer">
+            <span class="feat-cat">Broker · Analisis</span>
+            <span class="feat-arrow">↗</span>
+          </div>
+        </div>
+      </a>
+
+      <!-- HAKA + HAKI -->
+      <a class="feat-card" href="features/hakahaki/" data-search="haka haki broker compare bandingkan multi">
+        <div class="feat-img">
+          <img src="https://images.unsplash.com/photo-1642790106117-e829e14a795f?w=800&q=80&auto=format&fit=crop" alt="Comparison analysis" loading="lazy">
+        </div>
+        <div class="feat-body">
+          <div class="feat-name">HAKA + HAKI</div>
+          <div class="feat-desc">Bandingkan dua emiten secara berdampingan. Siapa yang lebih banyak diakumulasi hari ini?</div>
+          <div class="feat-footer">
+            <span class="feat-cat">Broker · Komparasi</span>
+            <span class="feat-arrow">↗</span>
+          </div>
+        </div>
+      </a>
+
+      <!-- IEP Scanner -->
+      <a class="feat-card" href="features/iep-scanner/" data-search="iep pre-opening pre opening scanner auction">
+        <div class="feat-img">
+          <img src="https://images.unsplash.com/photo-1569025743873-ea3a9ade89f9?w=800&q=80&auto=format&fit=crop" alt="Morning light through window" loading="lazy">
+        </div>
+        <div class="feat-body">
+          <div class="feat-name">IEP Scanner</div>
+          <div class="feat-desc">Monitor harga ekuilibrium indikatif saat pre-opening 08:45–08:59. Tangkap sinyal sebelum bell berbunyi.</div>
+          <div class="feat-footer">
+            <span class="feat-cat">Pre-Opening · Scan</span>
+            <span class="feat-arrow">↗</span>
+          </div>
+        </div>
+      </a>
+
+      <!-- LPM -->
+      <a class="feat-card" href="features/lpm/" data-search="lpm liquidity pressure model tekanan jual beli grafik">
+        <div class="feat-img">
+          <img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&q=80&auto=format&fit=crop" alt="Flowing water pressure" loading="lazy">
+        </div>
+        <div class="feat-body">
+          <div class="feat-name">Liquidity Pressure</div>
+          <div class="feat-desc">Visualisasi tekanan beli vs jual dalam bentuk grafik garis dan bar. Model eksklusif buatan sendiri.</div>
+          <div class="feat-footer">
+            <span class="feat-cat">Intraday · Visualisasi</span>
+            <span class="feat-arrow">↗</span>
+          </div>
+        </div>
+      </a>
+
+      <!-- Absorption -->
+      <a class="feat-card" href="features/absorption/" data-search="absorption big money trade book serapan">
+        <div class="feat-img">
+          <img src="https://images.unsplash.com/photo-1535320903710-d993d3d77d29?w=800&q=80&auto=format&fit=crop" alt="Water absorption" loading="lazy">
+        </div>
+        <div class="feat-body">
+          <div class="feat-name">Absorption Chart</div>
+          <div class="feat-desc">Lihat pola serapan big money per menit. Net value, buy delta, sell delta — semua dalam satu kanvas.</div>
+          <div class="feat-footer">
+            <span class="feat-cat">Intraday · Big Money</span>
+            <span class="feat-arrow">↗</span>
+          </div>
+        </div>
+      </a>
+
+      <!-- Defence Tracker -->
+      <a class="feat-card" href="features/defence-tracker/" data-search="defence defense tracker support harga jaga bandar">
+        <div class="feat-img">
+          <img src="https://images.unsplash.com/photo-1598153346810-860daa814c4b?w=800&q=80&auto=format&fit=crop" alt="Ancient stone wall" loading="lazy">
+        </div>
+        <div class="feat-body">
+          <div class="feat-name">Defence Tracker</div>
+          <div class="feat-desc">Identifikasi level harga yang dijaga oleh broker dominan. Temukan support tersembunyi sebelum semua orang.</div>
+          <div class="feat-footer">
+            <span class="feat-cat">Struktur · Support</span>
+            <span class="feat-arrow">↗</span>
+          </div>
+        </div>
+      </a>
+
+      <!-- Cacing Watchlist -->
+      <a class="feat-card" href="features/cacing-watchlist/" data-search="cacing watchlist watchlist simpan daftar saham">
+        <div class="feat-img">
+          <img src="https://images.unsplash.com/photo-1455885661740-29cbf08a42fa?w=800&q=80&auto=format&fit=crop" alt="Open notebook with pen" loading="lazy">
+        </div>
+        <div class="feat-body">
+          <div class="feat-name">Cacing Watchlist</div>
+          <div class="feat-desc">Daftar pantau pribadi dengan sinkronisasi Google Sheets. Catatan, level, dan sinyal — tersimpan otomatis.</div>
+          <div class="feat-footer">
+            <span class="feat-cat">Watchlist · Sync</span>
+            <span class="feat-arrow">↗</span>
+          </div>
+        </div>
+      </a>
+
+      <!-- Lab Chart -->
+      <a class="feat-card" href="features/lab-chart/" data-search="lab chart chart grafik candlestick custom indikator">
+        <div class="feat-img">
+          <img src="https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?w=800&q=80&auto=format&fit=crop" alt="Blueprint drawings" loading="lazy">
+        </div>
+        <div class="feat-body">
+          <div class="feat-name">Lab Chart</div>
+          <div class="feat-desc">Ruang eksperimen grafik dengan indikator kustom. Uji hipotesis teknikal tanpa batas.</div>
+          <div class="feat-footer">
+            <span class="feat-cat">Lab · Chart</span>
+            <span class="feat-arrow">↗</span>
+          </div>
+        </div>
+      </a>
+
+      <!-- Lab Console -->
+      <a class="feat-card" href="features/lab-console/" data-search="lab console terminal debug raw api data json">
+        <div class="feat-img">
+          <img src="https://images.unsplash.com/photo-1517077304055-6e89abbf09b0?w=800&q=80&auto=format&fit=crop" alt="Terminal screen" loading="lazy">
+        </div>
+        <div class="feat-body">
+          <div class="feat-name">Lab Console</div>
+          <div class="feat-desc">Terminal akses langsung ke API Stockbit. Inspeksi raw data, uji endpoint, debugging cepat.</div>
+          <div class="feat-footer">
+            <span class="feat-cat">Lab · Debug</span>
+            <span class="feat-arrow">↗</span>
+          </div>
+        </div>
+      </a>
+
+    </div><!-- /features-grid -->
+
+    <!-- Empty state for search -->
+    <p id="emptySearch" style="display:none; text-align:center; padding:60px 0; font-family:var(--font-serif); font-size:22px; color:var(--brown-light); font-style:italic;">
+      Tidak ada fitur yang cocok…
+    </p>
+
+  </div><!-- /section -->
+</section>
+
+<!-- ── PHOTO BAND ── -->
+<div class="photo-band">
+  <div class="photo-band-item">
+    <img src="https://images.unsplash.com/photo-1523531294919-4bcd7c65e216?w=900&q=75&auto=format&fit=crop" alt="Italian piazza in summer" loading="lazy">
+  </div>
+  <div class="photo-band-item">
+    <img src="https://images.unsplash.com/photo-1516483638261-f4dbaf036963?w=700&q=75&auto=format&fit=crop" alt="Bicycles in Italy" loading="lazy">
+  </div>
+  <div class="photo-band-item">
+    <img src="https://images.unsplash.com/photo-1474401915596-2a4a40dc1f69?w=700&q=75&auto=format&fit=crop" alt="River in summer light" loading="lazy">
+  </div>
+  <div class="photo-band-item">
+    <img src="https://images.unsplash.com/photo-1533104816931-20fa691ff6ca?w=700&q=75&auto=format&fit=crop" alt="Old books on table" loading="lazy">
+  </div>
+</div>
+
+<!-- ── MANIFESTO ── -->
+<div id="about" class="manifesto">
+  <div class="manifesto-inner">
+    <div class="manifesto-side">
+      <p class="manifesto-label">Filosofi</p>
+      <p class="manifesto-quote">"Baca pasar<br>dengan sabar<br>dan kedalaman."</p>
+    </div>
+    <div class="manifesto-content">
+      <p class="manifesto-para">
+        Pasar saham Indonesia penuh dengan informasi — tetapi <strong>sebagian besar tersembunyi</strong>
+        di balik noise volume, harga bergerak, dan aksi broker yang tidak terlihat oleh mata biasa.
+        IHSG Suite dibangun untuk membaca di antara baris-baris itu.
+      </p>
+      <p class="manifesto-para">
+        Seperti membaca novel musim panas yang lambat dan penuh nuansa,
+        <strong>analisis yang baik membutuhkan kesabaran</strong>. Bukan kecepatan.
+        Bukan reaksi. Tetapi pemahaman mendalam tentang apa yang sedang terjadi di bawah permukaan.
+      </p>
+      <p class="manifesto-para">
+        Setiap fitur di sini adalah alat yang <strong>dibuat untuk satu hal saja</strong>:
+        membantu Anda melihat lebih dalam, berpikir lebih jernih, dan bertindak dengan keyakinan
+        yang lahir dari data — bukan dari perasaan.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ── SETTINGS ── -->
+<div id="settings">
+  <div class="settings-section">
+    <p class="section-label">Pengaturan</p>
+    <h2 class="section-title">Konfigurasi<br><em>koneksi data</em></h2>
+
+    <div class="settings-grid">
+
+      <!-- Token Stockbit -->
+      <div class="settings-card">
+        <div class="settings-card-title">Token Stockbit</div>
+        <div class="settings-card-desc">
+          Bearer token dari akun Stockbit Anda. Dibutuhkan untuk mengakses semua data market.
+          Tersimpan di browser, tidak dikirim ke mana pun.
+        </div>
+        <div class="settings-input-row">
+          <input type="password" class="settings-input" id="tokenInput" placeholder="Paste token di sini…">
+          <button class="settings-btn" onclick="saveToken()">Simpan</button>
+        </div>
+        <p class="settings-status" id="tokenStatus"></p>
+      </div>
+
+      <!-- Google Sheets URL -->
+      <div class="settings-card">
+        <div class="settings-card-title">Google Sheets Sync</div>
+        <div class="settings-card-desc">
+          URL deployment Apps Script untuk sinkronisasi watchlist dan data antar perangkat.
+          Deploy <code style="font-size:12px;background:var(--cream-warm);padding:1px 4px;border-radius:3px">apps-script/Code.gs</code> lalu paste URL-nya.
+        </div>
+        <div class="settings-input-row">
+          <input type="text" class="settings-input" id="gsInput" placeholder="https://script.google.com/macros/s/…">
+          <button class="settings-btn" onclick="saveGsUrl()">Ping</button>
+        </div>
+        <p class="settings-status" id="gsStatus"></p>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ── FOOTER ── -->
+<footer>
+  <div class="footer-inner">
+    <span class="footer-logo">IHSG Suite</span>
+    <p class="footer-note">
+      Data via Stockbit API · Personal use only<br>
+      © 2025 · Dibuat dengan kesabaran dan kopi
+    </p>
+  </div>
+</footer>
+
+<!-- ── TOKEN MODAL ── -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModalOnBg(event)">
   <div class="modal">
-    <div class="modal-title">Token Diperlukan</div>
-    <div class="modal-desc">
-      Masukkan Bearer token Stockbit untuk menggunakan fitur real-time.<br><br>
-      Cara ambil: buka stockbit.com → F12 → Network → klik request apapun → header <code style="font-family:var(--font-mono);color:var(--peach-d)">Authorization</code>.
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <h3 class="modal-title">Token Stockbit</h3>
+    <p class="modal-desc">
+      Paste Bearer token dari Stockbit. Bisa didapat dari DevTools browser
+      saat login ke stockbit.com — cari header <code style="font-size:11px;background:var(--cream-warm);padding:1px 4px;border-radius:3px">Authorization: Bearer …</code>
+    </p>
+    <input type="password" class="modal-input" id="modalTokenInput" placeholder="eyJ…">
+    <div class="modal-actions">
+      <button class="btn-primary" onclick="saveTokenFromModal()">Simpan Token</button>
+      <button class="btn-danger" onclick="clearToken()">Hapus</button>
     </div>
-    <div class="token-row">
-      <input type="password" class="token-input" id="modalTokenInput" placeholder="eyJ..." autocomplete="off">
-      <button class="btn primary" id="modalBtnSave">Simpan</button>
-    </div>
-    <div class="token-status" id="modalTokenStatus"></div>
+    <p class="modal-status" id="modalStatus"></p>
   </div>
 </div>
 
 <script type="module">
-  import { TOKEN } from './shared/store.js'
-  import { fetchMarketStatus } from './shared/api.js'
+  import { TOKEN }        from './shared/store.js'
+  import { setGsUrl, getGsUrl, gsPing } from './shared/sheets.js'
 
-  // TOKEN
-  const tokenInput  = document.getElementById('tokenInput')
-  const tokenStatus = document.getElementById('tokenStatus')
-  const btnSave     = document.getElementById('btnSave')
-  const btnClear    = document.getElementById('btnClear')
-  const btnToggle   = document.getElementById('btnToggle')
+  // ── Token functions ──
+  window.openModal = () => {
+    const modal = document.getElementById('modalOverlay')
+    modal.classList.add('open')
+    const inp = document.getElementById('modalTokenInput')
+    inp.value = TOKEN.get() ? '••••••••••••••••' : ''
+    inp.focus()
+  }
+  window.closeModal = () => document.getElementById('modalOverlay').classList.remove('open')
+  window.closeModalOnBg = (e) => { if (e.target.id === 'modalOverlay') window.closeModal() }
 
-  function _renderTokenState() {
-    const t = TOKEN.get()
-    if (t) {
-      tokenInput.value = t; tokenInput.type = 'password'
-      tokenInput.classList.add('has-token')
-      tokenStatus.textContent = '✓ Token tersimpan'; tokenStatus.className = 'token-status ok'
-      btnToggle.textContent = 'Lihat'
+  window.saveTokenFromModal = () => {
+    const v = document.getElementById('modalTokenInput').value.trim()
+    if (!v || v.startsWith('•')) { document.getElementById('modalStatus').textContent = 'Tidak ada perubahan.'; return }
+    TOKEN.set(v)
+    document.getElementById('modalStatus').className = 'modal-status status-ok'
+    document.getElementById('modalStatus').textContent = '✓ Token tersimpan'
+    updateNavBtn()
+    setTimeout(window.closeModal, 900)
+  }
+
+  window.clearToken = () => {
+    TOKEN.clear()
+    document.getElementById('modalTokenInput').value = ''
+    document.getElementById('modalStatus').className = 'modal-status status-err'
+    document.getElementById('modalStatus').textContent = '✕ Token dihapus'
+    updateNavBtn()
+  }
+
+  // Settings page token
+  window.saveToken = () => {
+    const v = document.getElementById('tokenInput').value.trim()
+    if (!v) return
+    TOKEN.set(v)
+    document.getElementById('tokenStatus').className = 'settings-status status-ok'
+    document.getElementById('tokenStatus').textContent = '✓ Token tersimpan'
+    updateNavBtn()
+    setTimeout(() => { document.getElementById('tokenInput').value = '' }, 1000)
+  }
+
+  // Settings page GS
+  window.saveGsUrl = async () => {
+    const url = document.getElementById('gsInput').value.trim()
+    if (!url) return
+    setGsUrl(url)
+    const st = document.getElementById('gsStatus')
+    st.className = 'settings-status status-loading'
+    st.textContent = '⟳ Menghubungi Apps Script…'
+    try {
+      const res = await gsPing()
+      st.className = 'settings-status status-ok'
+      st.textContent = `✓ Terhubung · ${res.sheets?.length ?? 0} sheet ditemukan`
+    } catch (e) {
+      st.className = 'settings-status status-err'
+      st.textContent = '✕ ' + (e.code || e.message)
+    }
+  }
+
+  function updateNavBtn() {
+    const btn = document.getElementById('navTokenBtn')
+    if (TOKEN.isSet()) {
+      btn.textContent = '✓ Token'
+      btn.classList.add('set')
     } else {
-      tokenInput.value = ''; tokenInput.type = 'password'
-      tokenInput.classList.remove('has-token')
-      tokenStatus.textContent = 'Token belum diisi'; tokenStatus.className = 'token-status'
+      btn.textContent = 'Token Stockbit'
+      btn.classList.remove('set')
     }
   }
+  updateNavBtn()
 
-  btnSave.addEventListener('click', () => {
-    const val = tokenInput.value.trim()
-    if (!val) { tokenStatus.textContent = '✗ Token kosong'; tokenStatus.className = 'token-status error'; return }
-    TOKEN.set(val); _renderTokenState(); _fetchMarketStatus()
-  })
-  btnClear.addEventListener('click', () => { TOKEN.clear(); _renderTokenState(); _setMarketUnknown() })
-  btnToggle.addEventListener('click', () => {
-    if (tokenInput.type === 'password') { tokenInput.type = 'text'; btnToggle.textContent = 'Sembunyikan' }
-    else { tokenInput.type = 'password'; btnToggle.textContent = 'Lihat' }
-  })
-  tokenInput.addEventListener('keydown', e => { if (e.key === 'Enter') btnSave.click() })
+  // Pre-fill settings if already saved
+  const savedGs = getGsUrl()
+  if (savedGs) document.getElementById('gsInput').value = savedGs
 
-  // MARKET
-  const marketDot   = document.getElementById('marketDot')
-  const marketLabel = document.getElementById('marketLabel')
-  const marketTime  = document.getElementById('marketTime')
+  // ── Search ──
+  const searchInput = document.getElementById('searchInput')
+  const cards = document.querySelectorAll('.feat-card')
+  const emptyMsg = document.getElementById('emptySearch')
 
-  function _setMarketUnknown() {
-    marketDot.className = 'market-dot'
-    marketLabel.className = 'market-label'
-    marketLabel.textContent = '–––'
-    marketTime.textContent = '–'
-  }
-  function _setMarketStatus(s) {
-    const iepOpen = s.iepiev_regular === 'open'
-    const isOpen  = s.market === 'open'
-    const open    = iepOpen || isOpen
-    marketDot.className     = 'market-dot '   + (open ? 'open' : 'close')
-    marketLabel.className   = 'market-label ' + (open ? 'open' : 'close')
-    marketLabel.textContent = iepOpen ? 'SESI IEP' : (isOpen ? 'PASAR BUKA' : 'PASAR TUTUP')
-  }
-  async function _fetchMarketStatus() {
-    if (!TOKEN.isSet()) return
-    try { _setMarketStatus(await fetchMarketStatus()) }
-    catch(e) {
-      if (e.code === 'TOKEN_EXPIRED') { tokenStatus.textContent = '✗ Token expired'; tokenStatus.className = 'token-status error' }
-      _setMarketUnknown()
-    }
-  }
-
-  // WAKTU
-  const footerTime = document.getElementById('footerTime')
-  function _updateTime() {
-    footerTime.textContent = new Date().toLocaleString('id-ID', {
-      timeZone:'Asia/Jakarta', day:'2-digit', month:'short', year:'numeric',
-      hour:'2-digit', minute:'2-digit', second:'2-digit'
-    }) + ' WIB'
-  }
-
-  // MODAL
-  const modalOverlay    = document.getElementById('modalOverlay')
-  const modalTokenInput = document.getElementById('modalTokenInput')
-  const modalBtnSave    = document.getElementById('modalBtnSave')
-  const modalTokenStatus= document.getElementById('modalTokenStatus')
-  window.showTokenModal = () => { modalOverlay.classList.add('visible'); modalTokenInput.focus() }
-  window.hideTokenModal = () => modalOverlay.classList.remove('visible')
-  modalBtnSave.addEventListener('click', () => {
-    const val = modalTokenInput.value.trim()
-    if (!val) { modalTokenStatus.textContent = '✗ Token kosong'; modalTokenStatus.className = 'token-status error'; return }
-    TOKEN.set(val); modalTokenStatus.textContent = '✓ Tersimpan'; modalTokenStatus.className = 'token-status ok'
-    tokenInput.value = val; _renderTokenState(); setTimeout(() => window.hideTokenModal(), 800); _fetchMarketStatus()
-  })
-  modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) window.hideTokenModal() })
-  modalTokenInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter') modalBtnSave.click()
-    if (e.key === 'Escape') window.hideTokenModal()
-  })
-
-  // SEARCH
-  const cards        = document.querySelectorAll('.card')
-  const featureCount = document.getElementById('featureCount')
-  const emptyState   = document.getElementById('emptyState')
-  const emptyQuery   = document.getElementById('emptyQuery')
-  const searchInput  = document.getElementById('searchInput')
-
-  function _updateCount(n) { featureCount.textContent = n + ' fitur' }
-  _updateCount(cards.length)
-
-  searchInput.addEventListener('input', () => {
-    const q = searchInput.value.trim().toLowerCase()
+  function doSearch(q) {
+    const term = q.toLowerCase().trim()
     let visible = 0
     cards.forEach(card => {
-      const match = !q ||
-        card.querySelector('.card-name').textContent.toLowerCase().includes(q) ||
-        card.querySelector('.card-desc').textContent.toLowerCase().includes(q) ||
-        (card.dataset.search || '').toLowerCase().includes(q)
+      const text = [
+        card.querySelector('.feat-name')?.textContent,
+        card.querySelector('.feat-desc')?.textContent,
+        card.dataset.search || ''
+      ].join(' ').toLowerCase()
+      const match = !term || text.includes(term)
       card.classList.toggle('hidden', !match)
       if (match) visible++
     })
-    emptyState.style.display = visible === 0 ? 'block' : 'none'
-    emptyQuery.textContent = searchInput.value.trim()
-    _updateCount(visible)
-  })
+    emptyMsg.style.display = visible === 0 ? 'block' : 'none'
+    // For large card — restore on clear
+    const large = document.querySelector('.feat-card.large')
+    if (large && !large.classList.contains('hidden')) {
+      large.style.gridColumn = term ? 'span 1' : ''
+    }
+  }
 
-  // INIT
-  _renderTokenState()
-  _fetchMarketStatus()
-  _updateTime()
-  setInterval(_updateTime, 1000)
-  setInterval(_fetchMarketStatus, 60_000)
+  searchInput.addEventListener('input', (e) => doSearch(e.target.value))
 </script>
-
 </body>
 </html>
