@@ -6,452 +6,493 @@
   <title>IHSG Suite</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
-  <!-- IHSG Suite v2 — search-based flat feature list -->
-
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Mono:wght@300;400&family=Lato:wght@300;400&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg:          #0a0a0a;
-      --bg-card:     #111111;
-      --bg-card-hover: #161616;
-      --border:      #222222;
-      --border-hover:#333333;
-      --text-primary:   #e8e8e8;
-      --text-secondary: #666666;
-      --text-muted:     #3a3a3a;
-      --accent:      #e8e8e8;
-      --accent-dim:  #444444;
-      --open:   #4ade80;
-      --close:  #f87171;
-      --font-mono: 'DM Mono', monospace;
-      --font-sans: 'DM Sans', sans-serif;
-      --radius: 2px;
-      --transition: 200ms ease;
+      --cream:     #f7f2ea;
+      --cream-2:   #efe8d8;
+      --cream-3:   #e5d9c4;
+      --peach:     #e8a87c;
+      --peach-d:   #c97b47;
+      --gold:      #c9a84c;
+      --gold-d:    #9e7c2e;
+      --olive:     #7a8c5e;
+      --olive-d:   #546040;
+      --terracotta:#b85c38;
+      --brown:     #5c3d2e;
+      --brown-l:   #8c6b55;
+      --text:      #2e1f0f;
+      --text-2:    #6b4f3a;
+      --text-3:    #9c7d65;
+      --shadow:    rgba(94, 58, 30, 0.12);
+      --shadow-d:  rgba(94, 58, 30, 0.22);
+
+      --font-serif: 'Cormorant Garamond', Georgia, serif;
+      --font-sans:  'Lato', sans-serif;
+      --font-mono:  'DM Mono', monospace;
+
+      --radius-sm: 4px;
+      --radius:    12px;
+      --radius-lg: 20px;
+      --ease:      cubic-bezier(0.25, 0.46, 0.45, 0.94);
     }
 
-    /* =========================================================
-       RESET & BASE
-       ========================================================= */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    html, body {
-      height: 100%;
-      background: var(--bg);
-      color: var(--text-primary);
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--cream);
+      color: var(--text);
       font-family: var(--font-sans);
-      font-size: 14px;
+      font-size: 15px;
       line-height: 1.6;
-      -webkit-font-smoothing: antialiased;
-    }
-
-    /* =========================================================
-       LAYOUT
-       ========================================================= */
-    .page {
       min-height: 100vh;
-      display: grid;
-      grid-template-rows: auto 1fr auto;
-      max-width: 960px;
-      margin: 0 auto;
-      padding: 0 24px;
+      /* Subtle grain texture */
+      background-image:
+        radial-gradient(ellipse at 20% 0%, rgba(232, 168, 124, 0.18) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 100%, rgba(201, 160, 76, 0.12) 0%, transparent 60%),
+        url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
     }
 
-    /* =========================================================
-       HEADER
-       ========================================================= */
-    .header {
-      padding: 40px 0 32px;
+    /* ── LAYOUT ── */
+    .page {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 0 32px 80px;
+    }
+
+    /* ── HEADER ── */
+    header {
+      padding: 64px 0 48px;
       display: flex;
-      align-items: flex-start;
+      align-items: flex-end;
       justify-content: space-between;
-      gap: 16px;
-      border-bottom: 1px solid var(--border);
-      animation: fadeDown 400ms ease both;
+      gap: 24px;
+      border-bottom: 1px solid var(--cream-3);
+      animation: riseIn 700ms var(--ease) both;
     }
 
     .header-left {}
 
-    .logo {
+    .eyebrow {
       font-family: var(--font-mono);
       font-size: 11px;
-      font-weight: 400;
-      letter-spacing: 0.2em;
+      letter-spacing: 0.25em;
       text-transform: uppercase;
-      color: var(--text-secondary);
-      margin-bottom: 8px;
+      color: var(--peach-d);
+      margin-bottom: 10px;
     }
 
-    .title {
-      font-family: var(--font-mono);
-      font-size: 28px;
+    h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(2.4rem, 5vw, 3.6rem);
       font-weight: 300;
-      letter-spacing: -0.02em;
-      color: var(--text-primary);
       line-height: 1.1;
+      letter-spacing: -0.01em;
+      color: var(--text);
     }
 
-    .title span {
-      color: var(--text-secondary);
+    h1 em {
+      font-style: italic;
+      color: var(--peach-d);
     }
 
     .header-right {
       display: flex;
       flex-direction: column;
       align-items: flex-end;
-      gap: 8px;
-      padding-top: 4px;
+      gap: 6px;
+      padding-bottom: 4px;
+      flex-shrink: 0;
     }
 
-    /* Badge status pasar */
-    .market-badge {
+    .market-pill {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 7px;
+      padding: 6px 14px;
+      border-radius: 40px;
+      border: 1px solid var(--cream-3);
+      background: rgba(255,255,255,0.5);
+      backdrop-filter: blur(4px);
       font-family: var(--font-mono);
       font-size: 11px;
       letter-spacing: 0.1em;
-      color: var(--text-secondary);
+      color: var(--text-3);
+      transition: all 300ms var(--ease);
     }
 
     .market-dot {
-      width: 6px;
-      height: 6px;
+      width: 7px; height: 7px;
       border-radius: 50%;
-      background: var(--unknown);
-      transition: background var(--transition);
+      background: var(--cream-3);
+      transition: all 300ms var(--ease);
+      flex-shrink: 0;
     }
 
-    .market-dot.open  { background: var(--open);  box-shadow: 0 0 6px var(--open); }
-    .market-dot.close { background: var(--close); }
+    .market-dot.open  { background: var(--olive);       box-shadow: 0 0 8px var(--olive); }
+    .market-dot.close { background: var(--terracotta); }
+    .market-label.open  { color: var(--olive-d); }
+    .market-label.close { color: var(--terracotta); }
 
-    .market-label {
-      transition: color var(--transition);
+    .market-time {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-3);
+      letter-spacing: 0.08em;
     }
 
-    .market-label.open  { color: var(--open); }
-    .market-label.close { color: var(--close); }
-
-    /* =========================================================
-       TOKEN SECTION
-       ========================================================= */
-    .token-section {
-      padding: 20px 0;
-      border-bottom: 1px solid var(--border);
-      animation: fadeDown 400ms 80ms ease both;
+    /* ── TOKEN ── */
+    .token-wrap {
+      padding: 28px 0 0;
+      animation: riseIn 700ms 80ms var(--ease) both;
     }
 
     .token-label {
       font-family: var(--font-mono);
       font-size: 10px;
-      letter-spacing: 0.15em;
+      letter-spacing: 0.2em;
       text-transform: uppercase;
-      color: var(--text-secondary);
-      margin-bottom: 8px;
+      color: var(--text-3);
+      margin-bottom: 10px;
     }
 
-    .token-row {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
+    .token-row { display: flex; gap: 8px; align-items: center; }
 
     .token-input {
       flex: 1;
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 9px 12px;
+      min-width: 0;
+      padding: 10px 14px;
+      background: rgba(255,255,255,0.7);
+      border: 1px solid var(--cream-3);
+      border-radius: var(--radius-sm);
       font-family: var(--font-mono);
       font-size: 12px;
-      color: var(--text-primary);
+      color: var(--text);
       outline: none;
-      transition: border-color var(--transition);
-      min-width: 0;
+      transition: border-color 200ms, box-shadow 200ms;
     }
-
-    .token-input::placeholder { color: var(--text-muted); }
-    .token-input:focus { border-color: var(--accent-dim); }
-
-    .token-input.has-token {
-      color: var(--text-secondary);
-      letter-spacing: 0.05em;
+    .token-input::placeholder { color: var(--text-3); }
+    .token-input:focus {
+      border-color: var(--peach);
+      box-shadow: 0 0 0 3px rgba(232,168,124,0.2);
     }
+    .token-input.has-token { color: var(--text-2); }
 
     .btn {
+      padding: 10px 18px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--cream-3);
+      background: rgba(255,255,255,0.6);
       font-family: var(--font-mono);
       font-size: 11px;
-      letter-spacing: 0.1em;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
-      padding: 9px 16px;
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-      background: transparent;
-      color: var(--text-secondary);
+      color: var(--text-2);
       cursor: pointer;
-      transition: all var(--transition);
       white-space: nowrap;
+      transition: all 200ms var(--ease);
     }
-
     .btn:hover {
-      border-color: var(--accent-dim);
-      color: var(--text-primary);
+      background: white;
+      border-color: var(--peach);
+      color: var(--peach-d);
     }
-
-    .btn.btn-save {
-      border-color: var(--accent-dim);
-      color: var(--text-primary);
+    .btn.primary {
+      background: var(--peach-d);
+      border-color: var(--peach-d);
+      color: white;
     }
-
-    .btn.btn-save:hover {
-      background: var(--bg-card-hover);
+    .btn.primary:hover {
+      background: var(--terracotta);
+      border-color: var(--terracotta);
     }
 
     .token-status {
       font-family: var(--font-mono);
       font-size: 11px;
-      color: var(--text-secondary);
-      margin-top: 6px;
-      min-height: 16px;
-      transition: color var(--transition);
+      color: var(--text-3);
+      margin-top: 8px;
+      min-height: 18px;
+      transition: color 200ms;
     }
+    .token-status.ok    { color: var(--olive-d); }
+    .token-status.error { color: var(--terracotta); }
 
-    .token-status.ok    { color: var(--open); }
-    .token-status.error { color: var(--close); }
-
-    /* =========================================================
-       SEARCH
-       ========================================================= */
+    /* ── SEARCH ── */
     .search-wrap {
-      padding: 20px 0 0;
+      margin-top: 20px;
       position: relative;
     }
     .search-icon {
       position: absolute;
-      left: 12px;
-      top: 50%;
+      left: 14px; top: 50%;
       transform: translateY(-50%);
-      color: var(--text-muted);
+      color: var(--text-3);
       pointer-events: none;
-      margin-top: 10px;
     }
     #searchInput {
       width: 100%;
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 10px 12px 10px 36px;
-      font-family: var(--font-mono);
-      font-size: 13px;
-      color: var(--text-primary);
+      padding: 12px 16px 12px 42px;
+      background: rgba(255,255,255,0.7);
+      border: 1px solid var(--cream-3);
+      border-radius: var(--radius-sm);
+      font-family: var(--font-sans);
+      font-size: 14px;
+      color: var(--text);
       outline: none;
-      transition: border-color var(--transition);
+      transition: border-color 200ms, box-shadow 200ms;
     }
-    #searchInput::placeholder { color: var(--text-muted); }
-    #searchInput:focus { border-color: var(--accent-dim); }
+    #searchInput::placeholder { color: var(--text-3); }
+    #searchInput:focus {
+      border-color: var(--peach);
+      box-shadow: 0 0 0 3px rgba(232,168,124,0.2);
+    }
 
-    /* =========================================================
-       FITUR LIST
-       ========================================================= */
-    .main { padding: 24px 0; }
+    /* ── MAIN ── */
+    .main { padding: 40px 0; }
 
     .list-header {
       display: flex;
       justify-content: space-between;
-      align-items: center;
-      margin-bottom: 12px;
+      align-items: baseline;
+      margin-bottom: 28px;
     }
-    .section-label {
-      font-family: var(--font-mono);
-      font-size: 10px;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: var(--text-muted);
+
+    .section-title {
+      font-family: var(--font-serif);
+      font-size: 1.4rem;
+      font-weight: 400;
+      color: var(--text);
+      letter-spacing: 0.01em;
     }
+
     .feature-count {
       font-family: var(--font-mono);
-      font-size: 10px;
-      color: var(--text-muted);
+      font-size: 11px;
+      color: var(--text-3);
+      letter-spacing: 0.1em;
     }
 
-    .feature-list {
-      border: 1px solid var(--border);
+    /* ── CARD GRID ── */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
     }
 
-    .feature-item {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      padding: 14px 16px;
+    .card {
+      display: block;
       text-decoration: none;
       color: inherit;
-      border-bottom: 1px solid var(--border);
-      background: var(--bg-card);
-      transition: background var(--transition);
+      background: rgba(255,255,255,0.65);
+      border: 1px solid rgba(229, 217, 196, 0.8);
+      border-radius: var(--radius);
+      padding: 28px 26px 24px;
       position: relative;
+      overflow: hidden;
+      backdrop-filter: blur(6px);
+      transition: transform 320ms var(--ease), box-shadow 320ms var(--ease), border-color 320ms var(--ease), background 320ms var(--ease);
+      animation: riseIn 500ms var(--ease) both;
     }
-    .feature-item:last-child { border-bottom: none; }
-    .feature-item:hover { background: var(--bg-card-hover); }
-    .feature-item.hidden { display: none; }
 
-    .feature-item::before {
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 16px 40px var(--shadow-d), 0 4px 12px var(--shadow);
+      border-color: rgba(232, 168, 124, 0.5);
+      background: rgba(255,255,255,0.88);
+    }
+
+    /* Warm glow strip at top per category */
+    .card::before {
       content: '';
       position: absolute;
-      top: 0; left: 0;
-      width: 2px;
-      height: 100%;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      border-radius: var(--radius) var(--radius) 0 0;
+      opacity: 0.7;
+      transition: opacity 320ms var(--ease), height 320ms var(--ease);
+    }
+    .card:hover::before { opacity: 1; height: 4px; }
+
+    .card[data-cat="scalping"]::before    { background: linear-gradient(90deg, #e8a87c, #c97b47); }
+    .card[data-cat="pre-opening"]::before { background: linear-gradient(90deg, #c9a84c, #9e7c2e); }
+    .card[data-cat="intraday"]::before    { background: linear-gradient(90deg, #7a8c5e, #546040); }
+    .card[data-cat="swing"]::before       { background: linear-gradient(90deg, #b85c38, #8c3d20); }
+    .card[data-cat="watchlist"]::before   { background: linear-gradient(90deg, #8c6b55, #5c3d2e); }
+    .card[data-cat="lab"]::before         { background: linear-gradient(90deg, #9c7d65, #6b4f3a); }
+
+    /* Subtle warm light in corner on hover */
+    .card::after {
+      content: '';
+      position: absolute;
+      bottom: -40px; right: -40px;
+      width: 120px; height: 120px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(232,168,124,0.15) 0%, transparent 70%);
       opacity: 0;
-      transition: opacity var(--transition);
+      transition: opacity 320ms var(--ease), transform 320ms var(--ease);
+      pointer-events: none;
     }
-    .feature-item:hover::before { opacity: 1; }
-    .feature-item[data-cat="scalping"]::before   { background: #f59e0b; }
-    .feature-item[data-cat="pre-opening"]::before { background: #60a5fa; }
-    .feature-item[data-cat="intraday"]::before   { background: #34d399; }
-    .feature-item[data-cat="swing"]::before      { background: #a78bfa; }
-    .feature-item[data-cat="watchlist"]::before  { background: #f472b6; }
-    .feature-item[data-cat="lab"]::before        { background: #94a3b8; }
+    .card:hover::after { opacity: 1; transform: translate(-8px, -8px); }
 
-    .feature-num {
+    .card-num {
       font-family: var(--font-mono);
       font-size: 10px;
-      color: var(--text-muted);
-      width: 24px;
-      flex-shrink: 0;
-      text-align: right;
+      color: var(--text-3);
+      letter-spacing: 0.15em;
+      margin-bottom: 16px;
     }
-    .feature-name {
-      font-family: var(--font-mono);
+
+    .card-icon {
+      font-size: 1.6rem;
+      margin-bottom: 12px;
+      display: block;
+      filter: saturate(0.8);
+      transition: filter 320ms var(--ease), transform 320ms var(--ease);
+    }
+    .card:hover .card-icon {
+      filter: saturate(1.2);
+      transform: scale(1.08) rotate(-2deg);
+    }
+
+    .card-name {
+      font-family: var(--font-serif);
+      font-size: 1.25rem;
+      font-weight: 400;
+      color: var(--text);
+      letter-spacing: 0.01em;
+      margin-bottom: 8px;
+      transition: color 200ms;
+    }
+    .card:hover .card-name { color: var(--peach-d); }
+
+    .card-desc {
       font-size: 13px;
-      color: var(--text-primary);
-      min-width: 160px;
-      flex-shrink: 0;
-    }
-    .feature-desc {
-      font-size: 12px;
-      color: var(--text-secondary);
-      flex: 1;
-      line-height: 1.4;
-    }
-    .feature-tag {
-      font-family: var(--font-mono);
-      font-size: 10px;
-      padding: 2px 8px;
-      border: 1px solid var(--border);
-      color: var(--text-muted);
-      border-radius: var(--radius);
-      white-space: nowrap;
-      flex-shrink: 0;
-    }
-    .feature-arrow {
-      font-size: 12px;
-      color: var(--text-muted);
-      flex-shrink: 0;
-      transition: all var(--transition);
-    }
-    .feature-item:hover .feature-arrow {
-      color: var(--text-secondary);
-      transform: translate(2px, -2px);
+      color: var(--text-2);
+      line-height: 1.55;
+      margin-bottom: 20px;
     }
 
-    .empty-state {
-      padding: 48px 0;
-      text-align: center;
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .card-tag {
       font-family: var(--font-mono);
-      font-size: 12px;
-      color: var(--text-muted);
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      border-radius: 40px;
+      background: var(--cream-2);
+      color: var(--text-3);
+      border: 1px solid var(--cream-3);
+      transition: all 200ms var(--ease);
+    }
+    .card:hover .card-tag {
+      background: rgba(232,168,124,0.12);
+      border-color: rgba(232,168,124,0.4);
+      color: var(--peach-d);
+    }
+
+    .card-arrow {
+      font-size: 18px;
+      color: var(--cream-3);
+      transition: all 320ms var(--ease);
+      line-height: 1;
+    }
+    .card:hover .card-arrow {
+      color: var(--peach-d);
+      transform: translate(3px, -3px);
+    }
+
+    .card.hidden { display: none; }
+
+    /* Stagger animation */
+    .card:nth-child(1) { animation-delay: 0ms; }
+    .card:nth-child(2) { animation-delay: 50ms; }
+    .card:nth-child(3) { animation-delay: 100ms; }
+    .card:nth-child(4) { animation-delay: 150ms; }
+    .card:nth-child(5) { animation-delay: 200ms; }
+    .card:nth-child(6) { animation-delay: 250ms; }
+    .card:nth-child(7) { animation-delay: 300ms; }
+    .card:nth-child(8) { animation-delay: 350ms; }
+    .card:nth-child(9) { animation-delay: 400ms; }
+
+    /* ── EMPTY STATE ── */
+    .empty-state {
+      padding: 60px 0;
+      text-align: center;
+      font-family: var(--font-serif);
+      font-size: 1.2rem;
+      font-style: italic;
+      color: var(--text-3);
       display: none;
     }
 
-    /* =========================================================
-       FOOTER
-       ========================================================= */
-    .footer {
-      padding: 20px 0 32px;
-      border-top: 1px solid var(--border);
+    /* ── FOOTER ── */
+    footer {
+      padding: 32px 0;
+      border-top: 1px solid var(--cream-3);
       display: flex;
       justify-content: space-between;
       align-items: center;
-      animation: fadeUp 400ms 400ms ease both;
     }
-
-    .footer-left {
+    .footer-l, .footer-r {
       font-family: var(--font-mono);
       font-size: 10px;
-      color: var(--text-muted);
+      color: var(--text-3);
       letter-spacing: 0.1em;
     }
 
-    .footer-right {
-      font-family: var(--font-mono);
-      font-size: 10px;
-      color: var(--text-muted);
-      letter-spacing: 0.1em;
-    }
-
-    /* =========================================================
-       MODAL TOKEN EXPIRED
-       ========================================================= */
+    /* ── MODAL ── */
     .modal-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.8);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 100;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity var(--transition);
+      position: fixed; inset: 0;
+      background: rgba(46, 31, 15, 0.5);
+      backdrop-filter: blur(6px);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100; opacity: 0; pointer-events: none;
+      transition: opacity 300ms var(--ease);
     }
-
-    .modal-overlay.visible {
-      opacity: 1;
-      pointer-events: all;
-    }
-
+    .modal-overlay.visible { opacity: 1; pointer-events: all; }
     .modal {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      padding: 32px;
-      width: 100%;
-      max-width: 480px;
-      margin: 24px;
+      background: var(--cream);
+      border: 1px solid var(--cream-3);
+      border-radius: var(--radius);
+      padding: 40px;
+      width: 100%; max-width: 480px; margin: 24px;
+      box-shadow: 0 24px 60px var(--shadow-d);
     }
-
     .modal-title {
-      font-family: var(--font-mono);
-      font-size: 13px;
-      color: var(--text-primary);
+      font-family: var(--font-serif);
+      font-size: 1.5rem;
+      font-weight: 400;
+      color: var(--text);
       margin-bottom: 8px;
     }
-
     .modal-desc {
-      font-size: 12px;
-      color: var(--text-secondary);
-      margin-bottom: 20px;
+      font-size: 13px;
+      color: var(--text-2);
+      margin-bottom: 24px;
       line-height: 1.6;
     }
 
-    /* =========================================================
-       ANIMATIONS
-       ========================================================= */
-    @keyframes fadeDown {
-      from { opacity: 0; transform: translateY(-8px); }
+    /* ── ANIMATIONS ── */
+    @keyframes riseIn {
+      from { opacity: 0; transform: translateY(16px); }
       to   { opacity: 1; transform: translateY(0); }
     }
 
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(8px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-
-    /* =========================================================
-       RESPONSIVE
-       ========================================================= */
-    @media (max-width: 600px) {
-      .card-grid { grid-template-columns: 1fr; }
-      .title { font-size: 22px; }
-      .header { flex-direction: column; gap: 12px; }
+    /* ── RESPONSIVE ── */
+    @media (max-width: 640px) {
+      .page { padding: 0 20px 60px; }
+      header { padding: 40px 0 32px; flex-direction: column; align-items: flex-start; gap: 16px; }
       .header-right { align-items: flex-start; }
+      .card-grid { grid-template-columns: 1fr; gap: 14px; }
     }
   </style>
 </head>
@@ -460,154 +501,172 @@
 <div class="page">
 
   <!-- HEADER -->
-  <header class="header">
+  <header>
     <div class="header-left">
-      <div class="logo">IHSG Suite · wisnuputra17</div>
-      <h1 class="title">Analisa<br><span>Saham IDX</span></h1>
+      <div class="eyebrow">IHSG Suite · wisnuputra17</div>
+      <h1>Analisa<br><em>Saham IDX</em></h1>
     </div>
     <div class="header-right">
-      <div class="market-badge">
+      <div class="market-pill">
         <div class="market-dot" id="marketDot"></div>
         <span class="market-label" id="marketLabel">–––</span>
       </div>
-      <div class="market-badge" style="color: var(--text-muted)">
-        <span id="marketTime">–</span>
-      </div>
+      <div class="market-time" id="marketTime">–</div>
     </div>
   </header>
 
-  <!-- TOKEN -->
-  <div class="token-section">
+  <!-- TOKEN + SEARCH -->
+  <div class="token-wrap">
     <div class="token-label">Bearer Token · Stockbit</div>
     <div class="token-row">
-      <input
-        type="password"
-        class="token-input"
-        id="tokenInput"
-        placeholder="eyJ..."
-        autocomplete="off"
-        spellcheck="false"
-      >
-      <button class="btn btn-save" id="btnSave">Simpan</button>
+      <input type="password" class="token-input" id="tokenInput" placeholder="eyJ..." autocomplete="off" spellcheck="false">
+      <button class="btn primary" id="btnSave">Simpan</button>
       <button class="btn" id="btnClear">Hapus</button>
       <button class="btn" id="btnToggle">Lihat</button>
     </div>
     <div class="token-status" id="tokenStatus"></div>
 
-    <!-- SEARCH -->
     <div class="search-wrap">
-      <svg class="search-icon" width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+      <svg class="search-icon" width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
         <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398l3.85 3.85a1 1 0 0 0 1.415-1.415l-3.868-3.833zm-5.242 1.156a5 5 0 1 1 0-10 5 5 0 0 1 0 10z"/>
       </svg>
-      <input id="searchInput" type="text" placeholder="Cari fitur..." autocomplete="off" />
+      <input id="searchInput" type="text" placeholder="Cari fitur..." autocomplete="off">
     </div>
   </div>
 
-  <!-- MAIN — FEATURE LIST -->
+  <!-- MAIN -->
   <main class="main">
     <div class="list-header">
-      <div class="section-label">Fitur</div>
+      <div class="section-title">Fitur</div>
       <div class="feature-count" id="featureCount"></div>
     </div>
 
-    <div class="feature-list" id="featureList">
+    <div class="card-grid" id="cardGrid">
 
-      <a class="feature-item" href="features/haka/index.html" data-cat="scalping" data-search="haka beli besar">
-        <span class="feature-num">01</span>
-        <span class="feature-name">HAKA</span>
-        <span class="feature-desc">Deteksi transaksi beli besar real-time dari running trade</span>
-        <span class="feature-tag">scalping</span>
-        <span class="feature-arrow">↗</span>
+      <a class="card" href="features/haka/index.html" data-cat="scalping" data-search="haka beli besar running trade">
+        <div class="card-num">01</div>
+        <span class="card-icon">🔍</span>
+        <div class="card-name">HAKA</div>
+        <div class="card-desc">Deteksi transaksi beli besar real-time dari running trade</div>
+        <div class="card-footer">
+          <span class="card-tag">scalping</span>
+          <span class="card-arrow">↗</span>
+        </div>
       </a>
 
-      <a class="feature-item" href="features/hakahaki/index.html" data-cat="scalping" data-search="haka haki beli jual besar posisi">
-        <span class="feature-num">02</span>
-        <span class="feature-name">HAKA+HAKI</span>
-        <span class="feature-desc">Monitor posisi aktif — deteksi aksi beli & jual besar sekaligus</span>
-        <span class="feature-tag">scalping</span>
-        <span class="feature-arrow">↗</span>
+      <a class="card" href="features/hakahaki/index.html" data-cat="scalping" data-search="haka haki beli jual besar posisi monitor">
+        <div class="card-num">02</div>
+        <span class="card-icon">⚡</span>
+        <div class="card-name">HAKA+HAKI</div>
+        <div class="card-desc">Monitor posisi aktif — deteksi aksi beli & jual besar sekaligus</div>
+        <div class="card-footer">
+          <span class="card-tag">scalping</span>
+          <span class="card-arrow">↗</span>
+        </div>
       </a>
 
-      <a class="feature-item" href="features/iep-scanner/index.html" data-cat="pre-opening" data-search="iep scanner pre-opening surge volume">
-        <span class="feature-num">03</span>
-        <span class="feature-name">IEP Scanner</span>
-        <span class="feature-desc">Scan harga & volume IEP pre-opening, deteksi volume surge</span>
-        <span class="feature-tag">pre-opening</span>
-        <span class="feature-arrow">↗</span>
+      <a class="card" href="features/iep-scanner/index.html" data-cat="pre-opening" data-search="iep scanner pre-opening surge volume harga">
+        <div class="card-num">03</div>
+        <span class="card-icon">📡</span>
+        <div class="card-name">IEP Scanner</div>
+        <div class="card-desc">Scan harga & volume IEP pre-opening, deteksi volume surge</div>
+        <div class="card-footer">
+          <span class="card-tag">pre-opening</span>
+          <span class="card-arrow">↗</span>
+        </div>
       </a>
 
-      <a class="feature-item" href="features/lpm/index.html" data-cat="intraday" data-search="lpm liquidity pressure tekanan jual beli">
-        <span class="feature-num">04</span>
-        <span class="feature-name">LPM</span>
-        <span class="feature-desc">Liquidity Pressure Model — visualisasi tekanan jual vs beli per emiten</span>
-        <span class="feature-tag">intraday</span>
-        <span class="feature-arrow">↗</span>
+      <a class="card" href="features/lpm/index.html" data-cat="intraday" data-search="lpm liquidity pressure tekanan jual beli grafik">
+        <div class="card-num">04</div>
+        <span class="card-icon">📊</span>
+        <div class="card-name">LPM</div>
+        <div class="card-desc">Liquidity Pressure Model — visualisasi tekanan jual vs beli per emiten</div>
+        <div class="card-footer">
+          <span class="card-tag">intraday</span>
+          <span class="card-arrow">↗</span>
+        </div>
       </a>
 
-      <a class="feature-item" href="features/absorption/index.html" data-cat="intraday" data-search="absorption net buy sell menit dominan">
-        <span class="feature-num">05</span>
-        <span class="feature-name">Absorption</span>
-        <span class="feature-desc">Grafik net buy/sell per menit — lihat siapa yang dominan</span>
-        <span class="feature-tag">intraday</span>
-        <span class="feature-arrow">↗</span>
+      <a class="card" href="features/absorption/index.html" data-cat="intraday" data-search="absorption net buy sell menit dominan">
+        <div class="card-num">05</div>
+        <span class="card-icon">🧲</span>
+        <div class="card-name">Absorption</div>
+        <div class="card-desc">Grafik net buy/sell per menit — lihat siapa yang dominan</div>
+        <div class="card-footer">
+          <span class="card-tag">intraday</span>
+          <span class="card-arrow">↗</span>
+        </div>
       </a>
 
-      <a class="feature-item" href="features/defence-tracker/index.html" data-cat="swing" data-search="defence tracker swing posisi average down">
-        <span class="feature-num">06</span>
-        <span class="feature-name">Defence Tracker</span>
-        <span class="feature-desc">Pantau posisi swing — average down, target, cut loss</span>
-        <span class="feature-tag">swing</span>
-        <span class="feature-arrow">↗</span>
+      <a class="card" href="features/defence-tracker/index.html" data-cat="swing" data-search="defence tracker swing posisi average down target cut loss">
+        <div class="card-num">06</div>
+        <span class="card-icon">🛡️</span>
+        <div class="card-name">Defence Tracker</div>
+        <div class="card-desc">Pantau posisi swing — average down, target, cut loss</div>
+        <div class="card-footer">
+          <span class="card-tag">swing</span>
+          <span class="card-arrow">↗</span>
+        </div>
       </a>
 
-      <a class="feature-item" href="features/cacing-watchlist/index.html" data-cat="watchlist" data-search="cacing watchlist small cap alert">
-        <span class="feature-num">07</span>
-        <span class="feature-name">Cacing Watchlist</span>
-        <span class="feature-desc">Watchlist saham cacing dengan alert otomatis</span>
-        <span class="feature-tag">watchlist</span>
-        <span class="feature-arrow">↗</span>
+      <a class="card" href="features/cacing-watchlist/index.html" data-cat="watchlist" data-search="cacing watchlist small cap alert">
+        <div class="card-num">07</div>
+        <span class="card-icon">👀</span>
+        <div class="card-name">Cacing Watchlist</div>
+        <div class="card-desc">Watchlist saham cacing dengan alert otomatis</div>
+        <div class="card-footer">
+          <span class="card-tag">watchlist</span>
+          <span class="card-arrow">↗</span>
+        </div>
       </a>
 
-      <a class="feature-item" href="features/lab-chart/index.html" data-cat="lab" data-search="lab chart eksperimen indikator">
-        <span class="feature-num">08</span>
-        <span class="feature-name">Lab Chart</span>
-        <span class="feature-desc">Chart eksperimen dengan indikator kustom</span>
-        <span class="feature-tag">lab</span>
-        <span class="feature-arrow">↗</span>
+      <a class="card" href="features/lab-chart/index.html" data-cat="lab" data-search="lab chart eksperimen indikator kustom">
+        <div class="card-num">08</div>
+        <span class="card-icon">🔬</span>
+        <div class="card-name">Lab Chart</div>
+        <div class="card-desc">Chart eksperimen dengan indikator kustom</div>
+        <div class="card-footer">
+          <span class="card-tag">lab</span>
+          <span class="card-arrow">↗</span>
+        </div>
       </a>
 
-      <a class="feature-item" href="features/lab-console/index.html" data-cat="lab" data-search="lab console playground api test">
-        <span class="feature-num">09</span>
-        <span class="feature-name">Lab Console</span>
-        <span class="feature-desc">Playground untuk test API & indikator langsung di browser</span>
-        <span class="feature-tag">lab</span>
-        <span class="feature-arrow">↗</span>
+      <a class="card" href="features/lab-console/index.html" data-cat="lab" data-search="lab console playground api test">
+        <div class="card-num">09</div>
+        <span class="card-icon">💻</span>
+        <div class="card-name">Lab Console</div>
+        <div class="card-desc">Playground untuk test API & indikator langsung di browser</div>
+        <div class="card-footer">
+          <span class="card-tag">lab</span>
+          <span class="card-arrow">↗</span>
+        </div>
       </a>
 
     </div>
 
-    <div class="empty-state" id="emptyState">Tidak ada hasil untuk "<span id="emptyQuery"></span>"</div>
+    <div class="empty-state" id="emptyState">
+      Tidak ada fitur untuk "<span id="emptyQuery"></span>"
+    </div>
   </main>
 
-  <!-- FOOTER -->
-  <footer class="footer">
-    <div class="footer-left" id="footerEmiten">894 emiten · IDX</div>
-    <div class="footer-right" id="footerTime"></div>
+  <footer>
+    <div class="footer-l" id="footerEmiten">894 emiten · IDX</div>
+    <div class="footer-r" id="footerTime"></div>
   </footer>
 
 </div>
 
-<!-- MODAL: Token expired -->
+<!-- MODAL -->
 <div class="modal-overlay" id="modalOverlay">
   <div class="modal">
     <div class="modal-title">Token Diperlukan</div>
     <div class="modal-desc">
-      Masukkan Bearer token Stockbit untuk menggunakan fitur yang membutuhkan data real-time.<br><br>
-      Cara ambil token: buka stockbit.com → F12 → Network → klik request apapun → header <code style="font-family:var(--font-mono);color:var(--text-primary)">Authorization</code>.
+      Masukkan Bearer token Stockbit untuk menggunakan fitur real-time.<br><br>
+      Cara ambil: buka stockbit.com → F12 → Network → klik request apapun → header <code style="font-family:var(--font-mono);color:var(--peach-d)">Authorization</code>.
     </div>
     <div class="token-row">
       <input type="password" class="token-input" id="modalTokenInput" placeholder="eyJ..." autocomplete="off">
-      <button class="btn btn-save" id="modalBtnSave">Simpan</button>
+      <button class="btn primary" id="modalBtnSave">Simpan</button>
     </div>
     <div class="token-status" id="modalTokenStatus"></div>
   </div>
@@ -617,221 +676,127 @@
   import { TOKEN } from './shared/store.js'
   import { fetchMarketStatus } from './shared/api.js'
 
-  // ============================================================
-  // SEKSI 1: TOKEN UI
-  // ============================================================
-
-  const tokenInput   = document.getElementById('tokenInput')
-  const tokenStatus  = document.getElementById('tokenStatus')
-  const btnSave      = document.getElementById('btnSave')
-  const btnClear     = document.getElementById('btnClear')
-  const btnToggle    = document.getElementById('btnToggle')
+  // TOKEN
+  const tokenInput  = document.getElementById('tokenInput')
+  const tokenStatus = document.getElementById('tokenStatus')
+  const btnSave     = document.getElementById('btnSave')
+  const btnClear    = document.getElementById('btnClear')
+  const btnToggle   = document.getElementById('btnToggle')
 
   function _renderTokenState() {
     const t = TOKEN.get()
     if (t) {
-      // Tampilkan sebagian token — sembunyikan sisanya
-      tokenInput.value      = t
-      tokenInput.type       = 'password'
+      tokenInput.value = t; tokenInput.type = 'password'
       tokenInput.classList.add('has-token')
-      tokenStatus.textContent = '✓ Token tersimpan'
-      tokenStatus.className   = 'token-status ok'
-      btnToggle.textContent   = 'Lihat'
+      tokenStatus.textContent = '✓ Token tersimpan'; tokenStatus.className = 'token-status ok'
+      btnToggle.textContent = 'Lihat'
     } else {
-      tokenInput.value      = ''
-      tokenInput.type       = 'password'
+      tokenInput.value = ''; tokenInput.type = 'password'
       tokenInput.classList.remove('has-token')
-      tokenStatus.textContent = 'Token belum diisi'
-      tokenStatus.className   = 'token-status'
+      tokenStatus.textContent = 'Token belum diisi'; tokenStatus.className = 'token-status'
     }
   }
 
   btnSave.addEventListener('click', () => {
     const val = tokenInput.value.trim()
-    if (!val) {
-      tokenStatus.textContent = '✗ Token kosong'
-      tokenStatus.className   = 'token-status error'
-      return
-    }
-    TOKEN.set(val)
-    _renderTokenState()
-    // Refresh status pasar setelah token diisi
-    _fetchMarketStatus()
+    if (!val) { tokenStatus.textContent = '✗ Token kosong'; tokenStatus.className = 'token-status error'; return }
+    TOKEN.set(val); _renderTokenState(); _fetchMarketStatus()
   })
-
-  btnClear.addEventListener('click', () => {
-    TOKEN.clear()
-    _renderTokenState()
-    _setMarketUnknown()
-  })
-
+  btnClear.addEventListener('click', () => { TOKEN.clear(); _renderTokenState(); _setMarketUnknown() })
   btnToggle.addEventListener('click', () => {
-    if (tokenInput.type === 'password') {
-      tokenInput.type       = 'text'
-      btnToggle.textContent = 'Sembunyikan'
-    } else {
-      tokenInput.type       = 'password'
-      btnToggle.textContent = 'Lihat'
-    }
+    if (tokenInput.type === 'password') { tokenInput.type = 'text'; btnToggle.textContent = 'Sembunyikan' }
+    else { tokenInput.type = 'password'; btnToggle.textContent = 'Lihat' }
   })
+  tokenInput.addEventListener('keydown', e => { if (e.key === 'Enter') btnSave.click() })
 
-  // Enter di input = simpan
-  tokenInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter') btnSave.click()
-  })
-
-  // ============================================================
-  // SEKSI 2: STATUS PASAR
-  // ============================================================
-
+  // MARKET
   const marketDot   = document.getElementById('marketDot')
   const marketLabel = document.getElementById('marketLabel')
   const marketTime  = document.getElementById('marketTime')
 
   function _setMarketUnknown() {
-    marketDot.className      = 'market-dot'
-    marketLabel.className    = 'market-label'
-    marketLabel.textContent  = '–––'
-    marketTime.textContent   = '–'
+    marketDot.className = 'market-dot'
+    marketLabel.className = 'market-label'
+    marketLabel.textContent = '–––'
+    marketTime.textContent = '–'
   }
-
-  function _setMarketStatus(status) {
-    const isOpen = status.market === 'open'
-    marketDot.className     = 'market-dot ' + (isOpen ? 'open' : 'close')
-    marketLabel.className   = 'market-label ' + (isOpen ? 'open' : 'close')
-    marketLabel.textContent = isOpen ? 'PASAR BUKA' : 'PASAR TUTUP'
-
-    // IEP status
-    const iepOpen = status.iepiev_regular === 'open'
-    if (iepOpen) {
-      marketLabel.textContent = 'SESI IEP'
-      marketDot.className = 'market-dot open'
-      marketLabel.className = 'market-label open'
-    }
+  function _setMarketStatus(s) {
+    const iepOpen = s.iepiev_regular === 'open'
+    const isOpen  = s.market === 'open'
+    const open    = iepOpen || isOpen
+    marketDot.className     = 'market-dot '   + (open ? 'open' : 'close')
+    marketLabel.className   = 'market-label ' + (open ? 'open' : 'close')
+    marketLabel.textContent = iepOpen ? 'SESI IEP' : (isOpen ? 'PASAR BUKA' : 'PASAR TUTUP')
   }
-
   async function _fetchMarketStatus() {
     if (!TOKEN.isSet()) return
-    try {
-      const status = await fetchMarketStatus()
-      _setMarketStatus(status)
-    } catch (e) {
-      if (e.code === 'TOKEN_EXPIRED') {
-        tokenStatus.textContent = '✗ Token expired — perlu diperbarui'
-        tokenStatus.className   = 'token-status error'
-      }
+    try { _setMarketStatus(await fetchMarketStatus()) }
+    catch(e) {
+      if (e.code === 'TOKEN_EXPIRED') { tokenStatus.textContent = '✗ Token expired'; tokenStatus.className = 'token-status error' }
       _setMarketUnknown()
     }
   }
 
-  // ============================================================
-  // SEKSI 3: FOOTER — waktu sekarang
-  // ============================================================
-
+  // WAKTU
   const footerTime = document.getElementById('footerTime')
-
   function _updateTime() {
-    const now = new Date()
-    footerTime.textContent = now.toLocaleString('id-ID', {
-      timeZone: 'Asia/Jakarta',
-      day:    '2-digit',
-      month:  'short',
-      year:   'numeric',
-      hour:   '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
+    footerTime.textContent = new Date().toLocaleString('id-ID', {
+      timeZone:'Asia/Jakarta', day:'2-digit', month:'short', year:'numeric',
+      hour:'2-digit', minute:'2-digit', second:'2-digit'
     }) + ' WIB'
   }
 
-  // ============================================================
-  // SEKSI 4: MODAL
-  // ============================================================
-
-  const modalOverlay     = document.getElementById('modalOverlay')
-  const modalTokenInput  = document.getElementById('modalTokenInput')
-  const modalBtnSave     = document.getElementById('modalBtnSave')
-  const modalTokenStatus = document.getElementById('modalTokenStatus')
-
-  // Expose ke window — koordinator modul lain bisa panggil ini
-  window.showTokenModal = () => {
-    modalOverlay.classList.add('visible')
-    modalTokenInput.focus()
-  }
-
-  window.hideTokenModal = () => {
-    modalOverlay.classList.remove('visible')
-  }
-
+  // MODAL
+  const modalOverlay    = document.getElementById('modalOverlay')
+  const modalTokenInput = document.getElementById('modalTokenInput')
+  const modalBtnSave    = document.getElementById('modalBtnSave')
+  const modalTokenStatus= document.getElementById('modalTokenStatus')
+  window.showTokenModal = () => { modalOverlay.classList.add('visible'); modalTokenInput.focus() }
+  window.hideTokenModal = () => modalOverlay.classList.remove('visible')
   modalBtnSave.addEventListener('click', () => {
     const val = modalTokenInput.value.trim()
-    if (!val) {
-      modalTokenStatus.textContent = '✗ Token kosong'
-      modalTokenStatus.className   = 'token-status error'
-      return
-    }
-    TOKEN.set(val)
-    modalTokenStatus.textContent = '✓ Tersimpan'
-    modalTokenStatus.className   = 'token-status ok'
-    tokenInput.value = val
-    _renderTokenState()
-    setTimeout(() => window.hideTokenModal(), 800)
-    _fetchMarketStatus()
+    if (!val) { modalTokenStatus.textContent = '✗ Token kosong'; modalTokenStatus.className = 'token-status error'; return }
+    TOKEN.set(val); modalTokenStatus.textContent = '✓ Tersimpan'; modalTokenStatus.className = 'token-status ok'
+    tokenInput.value = val; _renderTokenState(); setTimeout(() => window.hideTokenModal(), 800); _fetchMarketStatus()
   })
-
-  modalOverlay.addEventListener('click', e => {
-    if (e.target === modalOverlay) window.hideTokenModal()
-  })
-
+  modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) window.hideTokenModal() })
   modalTokenInput.addEventListener('keydown', e => {
     if (e.key === 'Enter') modalBtnSave.click()
     if (e.key === 'Escape') window.hideTokenModal()
   })
 
-  // ============================================================
-  // SEKSI 5: SEARCH
-  // ============================================================
+  // SEARCH
+  const cards        = document.querySelectorAll('.card')
+  const featureCount = document.getElementById('featureCount')
+  const emptyState   = document.getElementById('emptyState')
+  const emptyQuery   = document.getElementById('emptyQuery')
+  const searchInput  = document.getElementById('searchInput')
 
-  const searchInput   = document.getElementById('searchInput')
-  const featureItems  = document.querySelectorAll('.feature-item')
-  const featureCount  = document.getElementById('featureCount')
-  const emptyState    = document.getElementById('emptyState')
-  const emptyQuery    = document.getElementById('emptyQuery')
-
-  function _updateFeatureCount(n) {
-    featureCount.textContent = n + ' fitur'
-  }
-
-  _updateFeatureCount(featureItems.length)
+  function _updateCount(n) { featureCount.textContent = n + ' fitur' }
+  _updateCount(cards.length)
 
   searchInput.addEventListener('input', () => {
     const q = searchInput.value.trim().toLowerCase()
     let visible = 0
-    featureItems.forEach(item => {
-      const name   = item.querySelector('.feature-name').textContent.toLowerCase()
-      const desc   = item.querySelector('.feature-desc').textContent.toLowerCase()
-      const extra  = (item.dataset.search || '').toLowerCase()
-      const match  = !q || name.includes(q) || desc.includes(q) || extra.includes(q)
-      item.classList.toggle('hidden', !match)
+    cards.forEach(card => {
+      const match = !q ||
+        card.querySelector('.card-name').textContent.toLowerCase().includes(q) ||
+        card.querySelector('.card-desc').textContent.toLowerCase().includes(q) ||
+        (card.dataset.search || '').toLowerCase().includes(q)
+      card.classList.toggle('hidden', !match)
       if (match) visible++
     })
     emptyState.style.display = visible === 0 ? 'block' : 'none'
-    emptyQuery.textContent   = searchInput.value.trim()
-    _updateFeatureCount(visible)
+    emptyQuery.textContent = searchInput.value.trim()
+    _updateCount(visible)
   })
 
-  // ============================================================
-  // SEKSI 6: INIT
-  // ============================================================
-
-  function init() {
-    _renderTokenState()
-    _fetchMarketStatus()
-    _updateTime()
-    setInterval(_updateTime, 1000)
-    setInterval(_fetchMarketStatus, 60_000)
-  }
-
-  init()
+  // INIT
+  _renderTokenState()
+  _fetchMarketStatus()
+  _updateTime()
+  setInterval(_updateTime, 1000)
+  setInterval(_fetchMarketStatus, 60_000)
 </script>
 
 </body>
