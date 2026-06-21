@@ -31,6 +31,7 @@
     .sym-option:hover { background: var(--panel-hi); }
     .sym-option-code { font-family: var(--f-mono); font-size: 12px; color: var(--paper); flex-shrink: 0; }
     .sym-option-name { font-size: 11px; color: var(--ghost); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sym-dropdown-empty { padding: 10px; font-family: var(--f-mono); font-size: 11px; color: var(--ghost); }
 
     .selected-chip-row { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
     .selected-chip-row .chip { font-size: 10px; }
@@ -114,9 +115,12 @@
 </div>
 
 <script type="module">
-  import { TOKEN, EMITEN_INFO, has, setEmitenInfo } from '../../shared/store.js'
+  import { TOKEN, has, setEmitenInfo } from '../../shared/store.js'
   import { fetchDaily, fetchBroker, fetchEmitenJson } from '../../shared/api.js'
   import { renderHeader, refreshTokenStatus, openTokenPopover } from '../../shared/header.js'
+  import { bindSymSearch } from '../../shared/symsearch.js'
+  import { fmtRp, fmtNum } from '../../shared/format.js'
+  import { fetchWithConfirm } from '../../shared/expensive-fetch.js'
   import { DB, loadBrokerCacheForSym, appendBrokerCache, appendNoDataDates, savePrefs, loadPrefs } from './db.js'
 
   let _loading = false
@@ -154,40 +158,11 @@
   // SEKSI 2: SEARCH SAHAM
   // ============================================================
   function _bindSymSearch() {
-    const input = document.getElementById('sym-input')
-    input.addEventListener('input', () => _renderSymDropdown(input.value.trim()))
-    input.addEventListener('focus', () => { if (input.value.trim()) _renderSymDropdown(input.value.trim()) })
-    input.addEventListener('keydown', e => {
-      if (e.key === 'Enter') { document.getElementById('sym-dropdown').classList.add('hidden'); _loadSym() }
-      if (e.key === 'Escape') document.getElementById('sym-dropdown').classList.add('hidden')
-    })
-    document.addEventListener('click', e => {
-      const dd = document.getElementById('sym-dropdown')
-      if (!dd.contains(e.target) && e.target !== input) dd.classList.add('hidden')
-    })
-  }
-
-  function _renderSymDropdown(query) {
-    const dropdown = document.getElementById('sym-dropdown')
-    if (!query) { dropdown.classList.add('hidden'); return }
-    const q = query.toUpperCase()
-    const all = Object.entries(EMITEN_INFO)
-    const codeMatches = all.filter(([code]) => code.startsWith(q))
-    const nameMatches  = all.filter(([code, info]) => !code.startsWith(q) && info.name && info.name.toUpperCase().includes(q))
-    const results = [...codeMatches, ...nameMatches].slice(0, 30)
-    if (!results.length) { dropdown.innerHTML = `<div class="sym-option" style="color:var(--ghost)">Tidak ditemukan</div>`; dropdown.classList.remove('hidden'); return }
-    dropdown.innerHTML = results.map(([code, info]) => `
-      <div class="sym-option" data-code="${code}">
-        <span class="sym-option-code">${code}</span><span class="sym-option-name">${info.name || ''}</span>
-      </div>`).join('')
-    dropdown.classList.remove('hidden')
-    dropdown.querySelectorAll('.sym-option').forEach(el => {
-      el.addEventListener('click', () => {
-        document.getElementById('sym-input').value = el.dataset.code
-        dropdown.classList.add('hidden')
-        _loadSym()
-      })
-    })
+    bindSymSearch(
+      document.getElementById('sym-input'),
+      document.getElementById('sym-dropdown'),
+      () => _loadSym()
+    )
   }
 
   // ============================================================
@@ -258,7 +233,7 @@
       el.innerHTML = list.map(b => `
         <div class="top10-row ${DB.selectedBrokers.includes(b.code) ? 'is-selected' : ''}" data-code="${b.code}">
           <span class="top10-row-code">${b.code}</span>
-          <span class="top10-row-val">${_fmtRp(Math.abs(b.val))}</span>
+          <span class="top10-row-val">${fmtRp(Math.abs(b.val))}</span>
         </div>
       `).join('')
       el.querySelectorAll('.top10-row').forEach(row => {
@@ -378,70 +353,52 @@
     // 1 tanggal dianggap "missing" kalau BELUM PERNAH di-fetch sama sekali
     // (bukan per-broker) — karena 1 fetch sudah cukup utk semua broker.
     const missing = visibleDates.filter(d => !(d in DB.brokerCache))
-    const statusEl = document.getElementById('status')
+    _renderAllBrokerLines() // tampilkan yang sudah ada di cache duluan, sambil nunggu (kalau ada) konfirmasi
 
-    if (!missing.length) { statusEl.textContent = ''; _renderAllBrokerLines(); return }
-
-    if (missing.length <= AUTO_FETCH_MAX) {
-      statusEl.textContent = `Memuat histori broker ${missing.length}h...`
-      await _fetchDates(missing)
-      statusEl.textContent = ''
-      _renderAllBrokerLines()
-      return
-    }
-
-    const estSec = Math.ceil(missing.length / BATCH_SIZE) * (BATCH_DELAY / 1000)
-    const estTxt = estSec >= 60 ? `~${Math.ceil(estSec / 60)} menit` : `~${estSec} detik`
-    statusEl.innerHTML = `${missing.length} hari belum ter-cache (${estTxt}, sekali saja — berlaku utk semua broker yang dipilih). ` +
-      `<button class="btn btn-sm btn-primary" id="broker-confirm-fetch">Mulai Fetch</button>`
-    document.getElementById('broker-confirm-fetch').addEventListener('click', async () => {
-      statusEl.textContent = `Memuat histori broker...`
-      await _fetchDates(missing)
-      statusEl.textContent = ''
-      _renderAllBrokerLines()
+    await fetchWithConfirm({
+      missingDates: missing,
+      statusEl: document.getElementById('status'),
+      autoMax: AUTO_FETCH_MAX,
+      batchSize: BATCH_SIZE,
+      batchDelay: BATCH_DELAY,
+      fetchFn: _fetchDateBatch,
+      onComplete: _renderAllBrokerLines
     })
-    _renderAllBrokerLines()
   }
 
   /**
    * Fetch 1 batch tanggal — TIAP tanggal cuma 1 request fetchBroker, hasilnya
    * (SEMUA broker yang muncul) disimpan, lalu ekstrak khusus utk broker yang
    * sedang dipilih saja utk dipersist ke Sheets (hindari nyimpan 70+ broker/hari
-   * yang tidak pernah dilihat).
+   * yang tidak pernah dilihat siapa-siapa).
    */
-  async function _fetchDates(dates) {
-    const newlyFetched = [] // {date, broker, buy, sell, net} — HANYA broker terpilih
+  async function _fetchDateBatch(batch) {
+    const newlyFetched = []
     const noDataDates  = []
-    const batches = []
-    for (let i = 0; i < dates.length; i += BATCH_SIZE) batches.push(dates.slice(i, i + BATCH_SIZE))
+    await Promise.allSettled(batch.map(async date => {
+      try {
+        const { buys, sells } = await fetchBroker(DB.sym, date, date)
+        const hasData = buys.length > 0 || sells.length > 0
+        if (!hasData) { DB.brokerCache[date] = null; noDataDates.push(date); return }
 
-    for (const batch of batches) {
-      await Promise.allSettled(batch.map(async date => {
-        try {
-          const { buys, sells } = await fetchBroker(DB.sym, date, date)
-          const hasData = buys.length > 0 || sells.length > 0
-          if (!hasData) { DB.brokerCache[date] = null; noDataDates.push(date); return }
+        const dayMap = {}
+        buys.forEach(b  => { dayMap[b.code] = { buy: b.val, sell: 0, net: 0 } })
+        sells.forEach(s => {
+          const sellVal = Math.abs(s.val) // sval/val sudah negatif, ambil magnitude
+          if (!dayMap[s.code]) dayMap[s.code] = { buy: 0, sell: 0, net: 0 }
+          dayMap[s.code].sell = sellVal
+        })
+        Object.keys(dayMap).forEach(code => { dayMap[code].net = dayMap[code].buy - dayMap[code].sell })
+        DB.brokerCache[date] = dayMap
 
-          const dayMap = {}
-          buys.forEach(b  => { dayMap[b.code] = { buy: b.val, sell: 0, net: 0 } })
-          sells.forEach(s => {
-            const sellVal = Math.abs(s.val) // sval/val sudah negatif, ambil magnitude
-            if (!dayMap[s.code]) dayMap[s.code] = { buy: 0, sell: 0, net: 0 }
-            dayMap[s.code].sell = sellVal
-          })
-          Object.keys(dayMap).forEach(code => { dayMap[code].net = dayMap[code].buy - dayMap[code].sell })
-          DB.brokerCache[date] = dayMap
-
-          // Persist HANYA broker yang sedang dipilih — bukan semua 70+ broker
-          DB.selectedBrokers.forEach(code => {
-            if (dayMap[code]) newlyFetched.push({ date, broker: code, ...dayMap[code] })
-          })
-        } catch (_) {
-          DB.brokerCache[date] = null
-        }
-      }))
-      if (batches.length > 1) await new Promise(r => setTimeout(r, BATCH_DELAY))
-    }
+        // Persist HANYA broker yang sedang dipilih — bukan semua 70+ broker
+        DB.selectedBrokers.forEach(code => {
+          if (dayMap[code]) newlyFetched.push({ date, broker: code, ...dayMap[code] })
+        })
+      } catch (_) {
+        DB.brokerCache[date] = null
+      }
+    }))
     appendBrokerCache(DB.sym, newlyFetched)
     if (noDataDates.length) appendNoDataDates(DB.sym, noDataDates)
   }
@@ -481,7 +438,7 @@
     if (!days.length || idx === undefined || idx < 0 || idx >= days.length) return
     const d = days[idx]
 
-    document.getElementById('ohlc-bar').innerHTML = `<b>${DB.sym}</b> · ${d.date} · C ${_fmtNum(d.close)}`
+    document.getElementById('ohlc-bar').innerHTML = `<b>${DB.sym}</b> · ${d.date} · C ${fmtNum(d.close)}`
 
     const rows = DB.selectedBrokers.map((broker, i) => {
       const color = BROKER_COLORS[i % BROKER_COLORS.length]
@@ -497,20 +454,11 @@
     document.getElementById('chart-legend').innerHTML = rows.map(r => `
       <div class="legend-row">
         <span class="legend-swatch" style="background:${r.color}"></span>
-        <span class="legend-value" style="color:${r.color}">${r.label}: ${_fmtRp(r.value)}</span>
+        <span class="legend-value" style="color:${r.color}">${r.label}: ${fmtRp(r.value)}</span>
       </div>
     `).join('')
   }
 
-  function _fmtRp(v) {
-    if (v === null || v === undefined || isNaN(v)) return '–'
-    const sign = v < 0 ? '-' : ''
-    const abs  = Math.abs(v)
-    if (abs >= 1e9) return sign + (abs/1e9).toFixed(2) + 'M'
-    if (abs >= 1e6) return sign + (abs/1e6).toFixed(0) + 'jt'
-    return sign + new Intl.NumberFormat('id-ID').format(Math.round(abs))
-  }
-  function _fmtNum(v) { return new Intl.NumberFormat('id-ID').format(Math.round(v)) }
 
   init()
   window._ba = { DB, chart: () => chart }

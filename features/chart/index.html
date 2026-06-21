@@ -285,9 +285,12 @@
 </div>
 
 <script type="module">
-  import { TOKEN, EMITEN_INFO, has, setEmitenInfo } from '../../shared/store.js'
+  import { TOKEN, has, setEmitenInfo } from '../../shared/store.js'
   import { fetchDaily, fetchAbsorption, fetchMarketStatus, fetchEmitenJson } from '../../shared/api.js'
   import { renderHeader, refreshTokenStatus, openTokenPopover } from '../../shared/header.js'
+  import { bindSymSearch } from '../../shared/symsearch.js'
+  import { fmtRp, fmtVol } from '../../shared/format.js'
+  import { fetchWithConfirm } from '../../shared/expensive-fetch.js'
   import { calcSMA, calcEMA, calcRSI, calcMACD, calcBollinger, calcATR, calcSupertrend } from '../../shared/indicators.js'
   import { DB, savePrefs, loadPrefs, loadDrawings, addDrawing, removeDrawing, loadLpmCacheForSym, appendLpmCache } from './db.js'
 
@@ -539,64 +542,17 @@
   // SEKSI 3b: SEARCH SAHAM — dropdown saran, scrollable, tetap bisa mengetik
   // ============================================================
   function _bindSymSearch() {
-    const input    = document.getElementById('sym-input')
-    const dropdown = document.getElementById('sym-dropdown')
-
-    input.addEventListener('input', () => _renderSymDropdown(input.value.trim()))
-    input.addEventListener('focus', () => { if (input.value.trim()) _renderSymDropdown(input.value.trim()) })
-
-    document.addEventListener('click', e => {
-      if (!dropdown.contains(e.target) && e.target !== input) dropdown.classList.add('hidden')
-    })
-  }
-
-  function _renderSymDropdown(query) {
-    const dropdown = document.getElementById('sym-dropdown')
-    if (!query) { dropdown.classList.add('hidden'); return }
-
-    const q = query.toUpperCase()
-    const all = Object.entries(EMITEN_INFO) // [code, {name, sector, ...}]
-
-    // Prioritas: kode yang AWALAN-nya cocok dulu, baru nama yang mengandung query
-    const codeMatches = all.filter(([code]) => code.startsWith(q))
-    const nameMatches  = all.filter(([code, info]) =>
-      !code.startsWith(q) && info.name && info.name.toUpperCase().includes(q)
+    bindSymSearch(
+      document.getElementById('sym-input'),
+      document.getElementById('sym-dropdown'),
+      () => _loadSym()
     )
-    const results = [...codeMatches, ...nameMatches].slice(0, 30)
-
-    if (!results.length) {
-      dropdown.innerHTML = `<div class="sym-dropdown-empty">Tidak ditemukan</div>`
-      dropdown.classList.remove('hidden')
-      return
-    }
-
-    dropdown.innerHTML = results.map(([code, info]) => `
-      <div class="sym-option" data-code="${code}">
-        <span class="sym-option-code">${code}</span>
-        <span class="sym-option-name">${info.name || ''}</span>
-      </div>
-    `).join('')
-    dropdown.classList.remove('hidden')
-
-    dropdown.querySelectorAll('.sym-option').forEach(el => {
-      el.addEventListener('click', () => {
-        document.getElementById('sym-input').value = el.dataset.code
-        dropdown.classList.add('hidden')
-        _loadSym()
-      })
-    })
   }
 
   // ============================================================
   // SEKSI 4: CONTROLS
   // ============================================================
   function _bindControls() {
-    const symInput = document.getElementById('sym-input')
-    symInput.addEventListener('keydown', e => {
-      if (e.key === 'Enter') { document.getElementById('sym-dropdown').classList.add('hidden'); _loadSym() }
-      if (e.key === 'Escape') document.getElementById('sym-dropdown').classList.add('hidden')
-    })
-
     // MA — multi periode, tambah via input+tombol, hapus via × di chip
     document.getElementById('ma-add-btn').addEventListener('click', () => {
       const period = parseInt(document.getElementById('ma-period-input').value)
@@ -1178,70 +1134,46 @@
 
     const visibleDates = DB.daily.slice(fromIdx, toIdx + 1).map(d => d.date)
     const missing = visibleDates.filter(d => !(d in DB.lpmCache))
-    const statusEl = document.getElementById('lpm-status')
+    _renderLpmFromCache() // tampilkan yang sudah ada di cache duluan
 
-    if (!missing.length) {
-      statusEl.textContent = ''
-      _renderLpmFromCache()
-      return
-    }
-
-    if (missing.length <= LPM_AUTO_FETCH_MAX) {
-      statusEl.textContent = `Memuat LPM ${missing.length}h...`
-      await _fetchLpmDates(missing)
-      statusEl.textContent = ''
-      _renderLpmFromCache()
-      return
-    }
-
-    // Rentang besar — jangan diam-diam fetch ratusan/ribuan request, minta
-    // konfirmasi dulu dengan estimasi waktu. Yang sudah ada di cache tetap ditampilkan.
-    const estSec = Math.ceil(missing.length / LPM_BATCH_SIZE) * (LPM_BATCH_DELAY / 1000)
-    const estTxt = estSec >= 60 ? `~${Math.ceil(estSec / 60)} menit` : `~${estSec} detik`
-    statusEl.innerHTML = `${missing.length} hari belum ter-cache (${estTxt}, sekali saja — selanjutnya instan). ` +
-      `<button class="btn btn-sm btn-primary" id="lpm-confirm-fetch">Mulai Fetch</button>`
-    document.getElementById('lpm-confirm-fetch').addEventListener('click', async () => {
-      await _fetchLpmDates(missing, (done, total) => { statusEl.textContent = `Memuat LPM ${done}/${total}...` })
-      statusEl.textContent = ''
-      _renderLpmFromCache()
+    await fetchWithConfirm({
+      missingDates: missing,
+      statusEl: document.getElementById('lpm-status'),
+      autoMax: LPM_AUTO_FETCH_MAX,
+      batchSize: LPM_BATCH_SIZE,
+      batchDelay: LPM_BATCH_DELAY,
+      fetchFn: _fetchLpmDateBatch,
+      onComplete: _renderLpmFromCache
     })
-    _renderLpmFromCache()
   }
 
-  async function _fetchLpmDates(dates, onProgress) {
+  /** Fetch 1 batch tanggal LPM — dipanggil oleh fetchWithConfirm, sudah dibagi batch otomatis. */
+  async function _fetchLpmDateBatch(batch) {
     const newlyFetched = []
     const noDataDates  = []
-    const batches = []
-    for (let i = 0; i < dates.length; i += LPM_BATCH_SIZE) batches.push(dates.slice(i, i + LPM_BATCH_SIZE))
-    let done = 0
-    for (const batch of batches) {
-      await Promise.allSettled(batch.map(async date => {
-        try {
-          const data = await fetchAbsorption(DB.sym, date)
-          const hasData = data.buy.length > 0 || data.sell.length > 0
+    await Promise.allSettled(batch.map(async date => {
+      try {
+        const data = await fetchAbsorption(DB.sym, date)
+        const hasData = data.buy.length > 0 || data.sell.length > 0
 
-          if (!hasData) {
-            // API memang tidak punya data utk tanggal ini (BUKAN error, BUKAN net=0
-            // sungguhan) — tandai null supaya tidak dihitung di kumulatif/bar, tapi
-            // tetap dicatat "sudah dicek" supaya tidak fetch ulang tiap sesi.
-            DB.lpmCache[date] = null
-            noDataDates.push(date)
-            return
-          }
-
-          const buyTotal  = data.buy.length  ? data.buy[data.buy.length - 1].value   : 0
-          const sellTotal = data.sell.length ? data.sell[data.sell.length - 1].value : 0
-          const entry = { buy: buyTotal, sell: sellTotal, net: buyTotal - sellTotal }
-          DB.lpmCache[date] = entry
-          newlyFetched.push({ date, ...entry })
-        } catch (_) {
+        if (!hasData) {
+          // API memang tidak punya data utk tanggal ini (BUKAN error, BUKAN net=0
+          // sungguhan) — tandai null supaya tidak dihitung di kumulatif/bar, tapi
+          // tetap dicatat "sudah dicek" supaya tidak fetch ulang tiap sesi.
           DB.lpmCache[date] = null
-        } finally {
-          done++; onProgress?.(done, dates.length)
+          noDataDates.push(date)
+          return
         }
-      }))
-      if (batches.length > 1) await new Promise(r => setTimeout(r, LPM_BATCH_DELAY))
-    }
+
+        const buyTotal  = data.buy.length  ? data.buy[data.buy.length - 1].value   : 0
+        const sellTotal = data.sell.length ? data.sell[data.sell.length - 1].value : 0
+        const entry = { buy: buyTotal, sell: sellTotal, net: buyTotal - sellTotal }
+        DB.lpmCache[date] = entry
+        newlyFetched.push({ date, ...entry })
+      } catch (_) {
+        DB.lpmCache[date] = null
+      }
+    }))
     // Simpan permanen ke Sheets — data valid (append biasa) + tanggal "tidak ada
     // data" (sentinel buy=-1, supaya tidak fetch ulang lagi di sesi/device lain)
     appendLpmCache(DB.sym, newlyFetched)
@@ -1401,8 +1333,8 @@
 
   function _fmtVal(v, fmt) {
     if (v === null || v === undefined || isNaN(v)) return '–'
-    if (fmt === 'vol')    return v >= 1e6 ? (v/1e6).toFixed(1)+'jt' : v >= 1e3 ? (v/1e3).toFixed(0)+'rb' : String(v)
-    if (fmt === 'rp')     return (v >= 0 ? '' : '-') + (Math.abs(v) >= 1e9 ? (Math.abs(v)/1e9).toFixed(2)+'M' : Math.abs(v) >= 1e6 ? (Math.abs(v)/1e6).toFixed(0)+'jt' : Math.abs(v).toFixed(0))
+    if (fmt === 'vol')    return fmtVol(v)
+    if (fmt === 'rp')     return fmtRp(v)
     if (fmt === 'pct')    return v.toFixed(1) + '%'
     if (fmt === 'num1')   return v.toFixed(1)
     if (fmt === 'price2') return v.toFixed(2)
