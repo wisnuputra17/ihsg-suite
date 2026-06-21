@@ -307,8 +307,10 @@
   const _maPeriodSettings = {}   // {period: {source, color}} — PERSIST lintas ganti saham (beda dari _maSeries)
 
   // LPM — data fetch dibagi (cache bersama), tapi render terpisah: bar (panel) & overlay (garis %)
-  let _lpmBarSeries     = null
-  let _lpmOverlaySeries = null
+  let _lpmBarSeries     = null // mode bar + delta on -> 1 bar (HAKA-HAKI)
+  let _lpmHakaSeries    = null // mode bar + delta off -> bar HAKA (hijau, naik)
+  let _lpmHakiSeries    = null // mode bar + delta off -> bar HAKI (merah, turun)
+  let _lpmOverlaySeries = null // mode garis -> selalu 1 garis dominasi %
 
   // ============================================================
   // SETTING INDIKATOR — Length/Source/dst, gaya TradingView (1 panel,
@@ -1233,12 +1235,19 @@
   }
 
   /**
-   * Render LPM — SATU fungsi, mode (bar/line) & delta diatur via _indSettings.lpm
-   * (gear settings), bukan 2 checkbox terpisah lagi.
+   * Render LPM — SATU fungsi, mode (bar/line) & delta diatur via _indSettings.lpm.
+   *
+   * Mode Bar + Tanpa Delta → 2 bar berdampingan per hari: HAKA (hijau, naik)
+   *   dan HAKI (merah, turun) — KEDUANYA tampil utuh, tidak dikurangi.
+   * Mode Bar + Delta        → 1 bar = HAKA − HAKI di HARI YANG SAMA.
+   * Mode Garis               → SELALU 1 garis dominasi % (HAKA/(HAKA+HAKI)*100).
+   *   Delta tidak berlaku di mode ini (konsepnya cuma relevan utk Bar).
    */
   function _renderLpmFromCache() {
-    if (_lpmBarSeries)     { try { chart.removeSeries(_lpmBarSeries) } catch (_) {} _lpmBarSeries = null }
-    if (_lpmOverlaySeries) { try { chart.removeSeries(_lpmOverlaySeries) } catch (_) {} _lpmOverlaySeries = null }
+    ;[_lpmBarSeries, _lpmHakaSeries, _lpmHakiSeries, _lpmOverlaySeries].forEach(s => {
+      if (s) { try { chart.removeSeries(s) } catch (_) {} }
+    })
+    _lpmBarSeries = _lpmHakaSeries = _lpmHakiSeries = _lpmOverlaySeries = null
 
     if (!chart || !document.getElementById('ind-lpm').checked) {
       _setPaneActiveHeight('lpm', false)
@@ -1248,38 +1257,55 @@
 
     const { mode, delta } = _indSettings.lpm
 
-    // Bangun titik data — kalau delta aktif, hitung selisih vs hari sebelumnya
-    // (butuh hari sebelumnya juga ada di cache, kalau tidak → skip hari itu)
-    const points = []
-    DB.daily.forEach((d, i) => {
-      const cur = DB.lpmCache[d.date]
-      if (!cur) return
-      const curPct = (cur.buy + cur.sell) > 0 ? (cur.buy / (cur.buy + cur.sell)) * 100 : 50
-
-      if (!delta) { points.push({ date: d.date, net: cur.net, pct: curPct }); return }
-
-      const prevDay = DB.daily[i - 1]
-      const prev = prevDay ? DB.lpmCache[prevDay.date] : null
-      if (!prev) return // hari pertama tidak punya pembanding
-      const prevPct = (prev.buy + prev.sell) > 0 ? (prev.buy / (prev.buy + prev.sell)) * 100 : 50
-      points.push({ date: d.date, net: cur.net - prev.net, pct: curPct - prevPct })
-    })
-
-    if (mode === 'bar') {
+    if (mode === 'bar' && delta) {
+      // 1 bar — HAKA minus HAKI, hari yang sama
       const pIdx = _paneIndexFor('lpm')
-      const s = chart.addSeries(LightweightCharts.HistogramSeries, { priceFormat: { type: 'volume' }, title: delta ? 'ΔLPM' : 'LPM' }, pIdx)
-      s.setData(points.map(p => ({ time: p.date, value: p.net, color: p.net >= 0 ? '#4ade80' : '#f0635c' })))
+      const points = DB.daily.map(d => {
+        const v = DB.lpmCache[d.date]
+        return v ? { time: d.date, value: v.net, color: v.net >= 0 ? '#4ade80' : '#f0635c' } : null
+      }).filter(Boolean)
+      const s = chart.addSeries(LightweightCharts.HistogramSeries, { priceFormat: { type: 'volume' }, title: 'ΔLPM' }, pIdx)
+      s.setData(points)
       _lpmBarSeries = s
       _setPaneActiveHeight('lpm', true)
-    } else {
+    }
+
+    else if (mode === 'bar' && !delta) {
+      // 2 bar berdampingan — HAKA (positif, hijau) & HAKI (negatif, merah)
+      const pIdx = _paneIndexFor('lpm')
+      const hakaPts = []
+      const hakiPts = []
+      DB.daily.forEach(d => {
+        const v = DB.lpmCache[d.date]
+        if (!v) return
+        hakaPts.push({ time: d.date, value: v.buy,  color: '#4ade80' })
+        hakiPts.push({ time: d.date, value: -v.sell, color: '#f0635c' }) // dinegatifkan supaya turun ke bawah
+      })
+      const sHaka = chart.addSeries(LightweightCharts.HistogramSeries, { priceFormat: { type: 'volume' }, title: 'HAKA' }, pIdx)
+      const sHaki = chart.addSeries(LightweightCharts.HistogramSeries, { priceFormat: { type: 'volume' }, title: 'HAKI' }, pIdx)
+      sHaka.setData(hakaPts)
+      sHaki.setData(hakiPts)
+      _lpmHakaSeries = sHaka
+      _lpmHakiSeries = sHaki
+      _setPaneActiveHeight('lpm', true)
+    }
+
+    else {
+      // mode === 'line' — selalu 1 garis dominasi %, delta tidak berlaku
+      const points = DB.daily.map(d => {
+        const v = DB.lpmCache[d.date]
+        if (!v) return null
+        const pct = (v.buy + v.sell) > 0 ? (v.buy / (v.buy + v.sell)) * 100 : 50
+        return { time: d.date, value: pct }
+      }).filter(Boolean)
       const s = chart.addSeries(LightweightCharts.LineSeries, {
-        color: '#d98e2b', lineWidth: 1.5, title: delta ? 'ΔLPM%' : 'LPM%',
+        color: '#d98e2b', lineWidth: 1.5, title: 'LPM%',
         priceScaleId: 'lpm-pct-scale' // skala sendiri, TIDAK ikut skala harga candle
       }, 0) // pane 0 = overlay bareng candle
-      s.setData(points.map(p => ({ time: p.date, value: p.pct })))
+      s.setData(points)
       try { s.priceScale().applyOptions({ scaleMargins: { top: 0.05, bottom: 0.05 } }) } catch (_) {}
       _lpmOverlaySeries = s
-      _setPaneActiveHeight('lpm', false) // pastikan slot panel tetap 0 saat mode overlay
+      _setPaneActiveHeight('lpm', false) // pastikan slot panel tetap 0 saat mode garis
     }
     if (DB.daily.length) _updateInfoAndLegend(DB.daily.length - 1)
   }
@@ -1324,26 +1350,19 @@
       rows.push(...ind.legend(idx))
     })
 
-    // LPM — 1 baris, bentuk & delta sesuai gear settings
+    // LPM — bentuk legend ikut mode & delta dari gear settings
     const lpmVal = DB.lpmCache[d.date]
-    if (document.getElementById('ind-lpm').checked) {
+    if (document.getElementById('ind-lpm').checked && lpmVal) {
       const { mode, delta } = _indSettings.lpm
-      let val = null
-      if (lpmVal) {
-        const curPct = (lpmVal.buy + lpmVal.sell) > 0 ? (lpmVal.buy / (lpmVal.buy + lpmVal.sell)) * 100 : 50
-        if (!delta) {
-          val = mode === 'bar' ? lpmVal.net : curPct
-        } else {
-          const prevDay = days[idx - 1]
-          const prevVal = prevDay ? DB.lpmCache[prevDay.date] : null
-          if (prevVal) {
-            const prevPct = (prevVal.buy + prevVal.sell) > 0 ? (prevVal.buy / (prevVal.buy + prevVal.sell)) * 100 : 50
-            val = mode === 'bar' ? (lpmVal.net - prevVal.net) : (curPct - prevPct)
-          }
-        }
+      if (mode === 'bar' && delta) {
+        rows.push({ label: 'ΔLPM', color: '#d98e2b', value: lpmVal.net, fmt: 'rp' })
+      } else if (mode === 'bar' && !delta) {
+        rows.push({ label: 'HAKA', color: '#4ade80', value: lpmVal.buy, fmt: 'rp' })
+        rows.push({ label: 'HAKI', color: '#f0635c', value: lpmVal.sell, fmt: 'rp' })
+      } else {
+        const pct = (lpmVal.buy + lpmVal.sell) > 0 ? (lpmVal.buy / (lpmVal.buy + lpmVal.sell)) * 100 : 50
+        rows.push({ label: 'LPM%', color: '#d98e2b', value: pct, fmt: 'pct' })
       }
-      const label = (delta ? 'Δ' : '') + 'LPM' + (mode === 'line' ? '%' : '')
-      rows.push({ label, color: '#d98e2b', value: val, fmt: mode === 'bar' ? 'rp' : 'pct' })
     }
 
     document.getElementById('chart-legend').innerHTML = rows.map(r => `
