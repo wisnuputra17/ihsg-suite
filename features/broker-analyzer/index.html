@@ -102,11 +102,11 @@
 
     <div class="top10-panel">
       <div class="top10-col">
-        <div class="top10-title">Top 10 Buyer</div>
+        <div class="top10-title" id="top10-buy-title">Top 10 Buyer</div>
         <div id="top10-buy"></div>
       </div>
       <div class="top10-col">
-        <div class="top10-title">Top 10 Seller</div>
+        <div class="top10-title" id="top10-sell-title">Top 10 Seller</div>
         <div id="top10-sell"></div>
       </div>
     </div>
@@ -216,17 +216,35 @@
   // SEKSI 4: TOP 10 SNAPSHOT (1 request, murah — bukan histori)
   // ============================================================
   async function _fetchTop10Snapshot() {
-    try {
-      const today = new Date().toISOString().slice(0, 10)
-      const { buys, sells } = await fetchBroker(DB.sym, today, today)
-      DB.brokerTop = { buys: buys.slice(0, 10), sells: sells.slice(0, 10) }
-      _renderTop10Lists()
-    } catch (e) {
-      console.warn('[broker-analyzer] gagal fetch top10:', e.message)
+    if (!DB.daily.length) return
+    // Mulai dari hari TERAKHIR yang ada candle-nya (bukan tanggal kalender
+    // hari ini — itu bisa kosong di luar jam pasar/weekend/data belum siap).
+    // Mundur beberapa hari kalau data broker hari itu juga kosong (kadang
+    // proses data broker lag dibanding data harga).
+    const maxTries = 5
+    for (let i = 0; i < maxTries && i < DB.daily.length; i++) {
+      const date = DB.daily[DB.daily.length - 1 - i].date
+      try {
+        const { buys, sells } = await fetchBroker(DB.sym, date, date)
+        if (buys.length > 0 || sells.length > 0) {
+          DB.brokerTop = { buys: buys.slice(0, 10), sells: sells.slice(0, 10), date }
+          _renderTop10Lists()
+          return
+        }
+      } catch (e) {
+        console.warn('[broker-analyzer] gagal fetch top10 utk', date, ':', e.message)
+      }
     }
+    DB.brokerTop = { buys: [], sells: [] }
+    _renderTop10Lists()
+    document.getElementById('status').textContent = `Tidak ada data broker dalam ${maxTries} hari terakhir`
   }
 
   function _renderTop10Lists() {
+    const dateSuffix = DB.brokerTop.date ? ` · ${DB.brokerTop.date}` : ''
+    document.getElementById('top10-buy-title').textContent  = 'Top 10 Buyer' + dateSuffix
+    document.getElementById('top10-sell-title').textContent = 'Top 10 Seller' + dateSuffix
+
     const renderCol = (list, elId) => {
       const el = document.getElementById(elId)
       if (!list.length) { el.innerHTML = `<div class="empty-state" style="padding:10px 0;">Tidak ada data</div>`; return }
