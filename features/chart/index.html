@@ -229,7 +229,7 @@
   import { fetchDaily, fetchAbsorption, fetchMarketStatus, fetchEmitenJson } from '../../shared/api.js'
   import { renderHeader, refreshTokenStatus, openTokenPopover } from '../../shared/header.js'
   import { calcSMA, calcEMA, calcRSI, calcMACD, calcBollinger, calcATR, calcSupertrend } from '../../shared/indicators.js'
-  import { DB, savePrefs, loadPrefs, loadDrawings, addDrawing, removeDrawing } from './db.js'
+  import { DB, savePrefs, loadPrefs, loadDrawings, addDrawing, removeDrawing, loadLpmCacheForSym, appendLpmCache } from './db.js'
 
   let _loading = false
   let chart = null
@@ -495,7 +495,7 @@
       const raw = await fetchDaily(sym)
       DB.sym      = sym
       DB.daily    = [...raw].sort((a, b) => a.date.localeCompare(b.date))
-      DB.lpmCache = {}
+      await loadLpmCacheForSym(sym) // histori LPM tersimpan permanen — load dulu sebelum render, supaya tidak fetch ulang yang sudah ada
       status.textContent = ''
       document.getElementById('sym-input').value = sym
       _rebuildChart()
@@ -889,9 +889,13 @@
   //   - Bar (panel)   → histogram di sub-pane sendiri, seperti Volume
   //   - Garis % (overlay) → menempel di chart utama dgn skala terpisah, seperti MA
 
-  const LPM_MAX_DAYS    = 90
-  const LPM_BATCH_SIZE  = 5
-  const LPM_BATCH_DELAY = 400
+  // Di bawah ini = auto-fetch langsung (cepat, tidak perlu konfirmasi).
+  // Di atasnya = tampilkan estimasi waktu + tombol konfirmasi (5 tahun ≈ 1250
+  // hari TETAP mungkin, tinggal mau nunggu — dan berkat persist ke Sheets,
+  // biaya ini cuma dibayar SEKALI per saham, sesi berikutnya instan).
+  const LPM_AUTO_FETCH_MAX = 40
+  const LPM_BATCH_SIZE     = 5
+  const LPM_BATCH_DELAY    = 400
 
   function _lpmNeeded() {
     return document.getElementById('ind-lpm').checked || document.getElementById('ind-lpm-overlay').checked
@@ -919,34 +923,58 @@
     const missing = visibleDates.filter(d => !(d in DB.lpmCache))
     const statusEl = document.getElementById('lpm-status')
 
-    if (missing.length > LPM_MAX_DAYS) {
-      statusEl.textContent = `Zoom in untuk LPM (maks ${LPM_MAX_DAYS} hari)`
+    if (!missing.length) {
+      statusEl.textContent = ''
       _renderLpmBarFromCache(); _renderLpmOverlayFromCache()
       return
     }
-    if (missing.length) {
+
+    if (missing.length <= LPM_AUTO_FETCH_MAX) {
       statusEl.textContent = `Memuat LPM ${missing.length}h...`
       await _fetchLpmDates(missing)
+      statusEl.textContent = ''
+      _renderLpmBarFromCache(); _renderLpmOverlayFromCache()
+      return
     }
-    statusEl.textContent = ''
-    _renderLpmBarFromCache()
-    _renderLpmOverlayFromCache()
+
+    // Rentang besar — jangan diam-diam fetch ratusan/ribuan request, minta
+    // konfirmasi dulu dengan estimasi waktu. Yang sudah ada di cache tetap ditampilkan.
+    const estSec = Math.ceil(missing.length / LPM_BATCH_SIZE) * (LPM_BATCH_DELAY / 1000)
+    const estTxt = estSec >= 60 ? `~${Math.ceil(estSec / 60)} menit` : `~${estSec} detik`
+    statusEl.innerHTML = `${missing.length} hari belum ter-cache (${estTxt}, sekali saja — selanjutnya instan). ` +
+      `<button class="btn btn-sm btn-primary" id="lpm-confirm-fetch">Mulai Fetch</button>`
+    document.getElementById('lpm-confirm-fetch').addEventListener('click', async () => {
+      await _fetchLpmDates(missing, (done, total) => { statusEl.textContent = `Memuat LPM ${done}/${total}...` })
+      statusEl.textContent = ''
+      _renderLpmBarFromCache(); _renderLpmOverlayFromCache()
+    })
+    _renderLpmBarFromCache(); _renderLpmOverlayFromCache()
   }
 
-  async function _fetchLpmDates(dates) {
+  async function _fetchLpmDates(dates, onProgress) {
+    const newlyFetched = []
     const batches = []
     for (let i = 0; i < dates.length; i += LPM_BATCH_SIZE) batches.push(dates.slice(i, i + LPM_BATCH_SIZE))
+    let done = 0
     for (const batch of batches) {
       await Promise.allSettled(batch.map(async date => {
         try {
           const data = await fetchAbsorption(DB.sym, date)
           const buyTotal  = data.buy.length  ? data.buy[data.buy.length - 1].value   : 0
           const sellTotal = data.sell.length ? data.sell[data.sell.length - 1].value : 0
-          DB.lpmCache[date] = { buy: buyTotal, sell: sellTotal, net: buyTotal - sellTotal }
-        } catch (_) { DB.lpmCache[date] = null }
+          const entry = { buy: buyTotal, sell: sellTotal, net: buyTotal - sellTotal }
+          DB.lpmCache[date] = entry
+          newlyFetched.push({ date, ...entry })
+        } catch (_) {
+          DB.lpmCache[date] = null
+        } finally {
+          done++; onProgress?.(done, dates.length)
+        }
       }))
       if (batches.length > 1) await new Promise(r => setTimeout(r, LPM_BATCH_DELAY))
     }
+    // Simpan permanen ke Sheets — HANYA yang baru, bukan seluruh histori (append, bukan timpa)
+    appendLpmCache(DB.sym, newlyFetched)
   }
 
   /** LPM bentuk Bar — sub-pane sendiri, seperti Volume. */
