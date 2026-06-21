@@ -8,45 +8,69 @@
   <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@5.2.0/dist/lightweight-charts.standalone.production.js"></script>
 
   <style>
-    .page { max-width: 1100px; }
-
-    .token-bar {
-      padding: 10px 0; border-bottom: 1px solid var(--line);
-      display: flex; align-items: center; gap: 8px;
-    }
-    .token-bar-label {
-      font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.12em;
-      text-transform: uppercase; color: var(--down); white-space: nowrap;
+    /* Halaman ini full-screen — override max-width default shared/ui.css */
+    html, body { overflow: hidden; height: 100%; }
+    .page {
+      max-width: none; padding: 0 10px;
+      height: 100vh; display: flex; flex-direction: column;
     }
 
-    .panel { padding: 24px 0; }
+    .app-header { flex-shrink: 0; padding: 10px 0; }
 
-    .toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
-    .sym-input { width: 100px; text-transform: uppercase; }
-    .num-input { width: 56px; }
-
-    .ind-row { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
-    .ind-toggle {
-      display: flex; align-items: center; gap: 6px; font-family: var(--f-mono); font-size: 11px;
-      color: var(--dim); cursor: pointer; user-select: none;
+    /* ── TOOLBAR — search saham + Indicators + LPM mode + token, semua 1 baris ── */
+    .chart-toolbar {
+      flex-shrink: 0; display: flex; align-items: center; gap: 8px;
+      padding-bottom: 8px; flex-wrap: wrap; position: relative;
     }
-    .ind-toggle input[type=checkbox] { accent-color: var(--phosphor); cursor: pointer; }
-    .ind-toggle.active { color: var(--phosphor); }
 
+    .sym-search {
+      display: flex; align-items: center; gap: 6px;
+      background: #0f0e0c; border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 6px 10px; min-width: 140px;
+    }
+    .sym-search-icon { color: var(--ghost); font-size: 12px; }
+    .sym-search input {
+      background: transparent; border: none; outline: none; width: 90px;
+      font-family: var(--f-mono); font-size: 12px; color: var(--paper); text-transform: uppercase;
+    }
+    .sym-search input::placeholder { color: var(--ghost); text-transform: none; }
+
+    .dropdown-wrap { position: relative; }
+    .dropdown-panel {
+      position: absolute; top: calc(100% + 4px); left: 0; z-index: 20;
+      background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 12px; min-width: 220px; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+    .dropdown-row {
+      display: flex; align-items: center; gap: 8px; padding: 6px 0;
+      font-family: var(--f-mono); font-size: 12px; color: var(--dim);
+    }
+    .dropdown-row input[type=checkbox] { accent-color: var(--phosphor); cursor: pointer; }
+    .dropdown-row label { cursor: pointer; user-select: none; flex: 1; }
+    .num-input { width: 50px; }
     .mode-select {
       background: #0f0e0c; border: 1px solid var(--line); border-radius: var(--radius);
-      padding: 4px 6px; font-family: var(--f-mono); font-size: 10px; color: var(--paper); outline: none;
+      padding: 3px 5px; font-family: var(--f-mono); font-size: 10px; color: var(--paper); outline: none;
     }
 
-    .chart-wrap { border: 1px solid var(--line); margin-bottom: 4px; position: relative; }
-    #chart-main { height: 300px; transition: height 200ms ease; }
+    .token-popover {
+      position: absolute; top: calc(100% + 4px); right: 0; z-index: 20;
+      background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 10px; display: flex; gap: 6px; min-width: 280px;
+    }
 
-    .lpm-status { font-family: var(--f-mono); font-size: 10px; color: var(--ghost); margin-bottom: 4px; }
+    .lpm-status { font-family: var(--f-mono); font-size: 10px; color: var(--ghost); margin-left: 4px; }
 
-    /* ── OHLC info bar — di atas chart, gaya TradingView ── */
+    /* ── AREA CHART — mengisi sisa layar ── */
+    .chart-wrap { flex: 1; min-height: 0; border: 1px solid var(--line); position: relative; }
+    #chart-main { width: 100%; height: 100%; }
+
+    /* ── OHLC info bar — overlay di atas chart, bukan baris terpisah ── */
     .ohlc-bar {
-      display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
-      font-family: var(--f-mono); font-size: 12px; padding: 6px 2px 10px;
+      position: absolute; top: 6px; left: 8px; z-index: 5;
+      display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap;
+      font-family: var(--f-mono); font-size: 12px; pointer-events: none;
+      text-shadow: 0 0 4px rgba(10,9,8,0.9);
     }
     .ohlc-sym { color: var(--paper); font-weight: 500; }
     .ohlc-tf  { color: var(--ghost); }
@@ -55,9 +79,9 @@
     .ohlc-chg.up   { color: var(--live); }
     .ohlc-chg.down { color: var(--down); }
 
-    /* ── Legend overlay — menempel pojok kiri-atas chart ── */
+    /* ── Legend indikator — di bawah OHLC bar, overlay juga ── */
     .chart-legend {
-      position: absolute; top: 8px; left: 8px; z-index: 5;
+      position: absolute; top: 28px; left: 8px; z-index: 5;
       display: flex; flex-direction: column; gap: 2px;
       pointer-events: none; max-width: 260px;
     }
@@ -83,45 +107,59 @@
     <div class="app-clock" id="clock">––:––:––</div>
   </header>
 
-  <div class="token-bar hidden" id="tokenBar">
-    <span class="token-bar-label">Token belum diisi</span>
-    <input type="password" class="input" id="tokenInput" placeholder="Bearer token Stockbit..." style="flex:1; max-width:320px;">
-    <button class="btn btn-primary btn-sm" id="tokenSave">Simpan</button>
+  <div class="chart-toolbar">
+    <div class="sym-search">
+      <span class="sym-search-icon">⌕</span>
+      <input type="text" id="sym-input" placeholder="cari saham..." maxlength="10">
+    </div>
+
+    <div class="dropdown-wrap">
+      <button class="btn btn-sm" id="btn-indicators">Indicators ▾</button>
+      <div class="dropdown-panel hidden" id="ind-dropdown">
+        <div class="dropdown-row">
+          <input type="checkbox" id="ind-ma"><label for="ind-ma">MA</label>
+          <input type="number" class="input num-input" id="ma-period" value="20" min="2" max="200">
+        </div>
+        <div class="dropdown-row">
+          <input type="checkbox" id="ind-bollinger"><label for="ind-bollinger">Bollinger Bands</label>
+        </div>
+        <div class="dropdown-row">
+          <input type="checkbox" id="ind-volume" checked><label for="ind-volume">Volume</label>
+        </div>
+        <div class="dropdown-row">
+          <input type="checkbox" id="ind-rsi"><label for="ind-rsi">RSI</label>
+        </div>
+        <div class="dropdown-row">
+          <input type="checkbox" id="ind-macd"><label for="ind-macd">MACD</label>
+        </div>
+        <div class="dropdown-row">
+          <input type="checkbox" id="ind-lpm"><label for="ind-lpm">LPM</label>
+          <select class="mode-select" id="lpm-mode">
+            <option value="bar">Bar</option>
+            <option value="line">Garis %</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <span class="lpm-status" id="lpm-status"></span>
+    <span id="status" style="font-family:var(--f-mono); font-size:10px; color:var(--ghost); margin-left:4px;"></span>
+
+    <div class="dropdown-wrap" style="margin-left:auto;">
+      <button class="btn btn-sm" id="btn-token">Token</button>
+      <div class="token-popover hidden" id="tokenPopover">
+        <input type="password" class="input" id="tokenInput" placeholder="Bearer token Stockbit..." style="flex:1;">
+        <button class="btn btn-primary btn-sm" id="tokenSave">Simpan</button>
+      </div>
+    </div>
   </div>
 
-  <div class="panel">
-
-    <div class="section-label">Saham</div>
-    <div class="toolbar">
-      <input type="text" class="input sym-input" id="sym-input" placeholder="BBCA" maxlength="10">
-      <button class="btn btn-primary" id="btn-load">Load</button>
-      <span class="section-label" id="status" style="margin:0;"></span>
-    </div>
-
-    <div class="section-label">Indikator</div>
-    <div class="ind-row">
-      <label class="ind-toggle"><input type="checkbox" id="ind-ma">MA <input type="number" class="input num-input" id="ma-period" value="20" min="2" max="200"></label>
-      <label class="ind-toggle"><input type="checkbox" id="ind-bollinger">Bollinger</label>
-      <label class="ind-toggle"><input type="checkbox" id="ind-volume" checked>Volume</label>
-      <label class="ind-toggle"><input type="checkbox" id="ind-rsi">RSI</label>
-      <label class="ind-toggle"><input type="checkbox" id="ind-macd">MACD</label>
-      <label class="ind-toggle">
-        <input type="checkbox" id="ind-lpm">LPM
-        <select class="mode-select" id="lpm-mode">
-          <option value="bar">Bar</option>
-          <option value="line">Garis %</option>
-        </select>
-      </label>
-    </div>
-
-    <div class="lpm-status" id="lpm-status"></div>
+  <div class="chart-wrap">
     <div class="ohlc-bar" id="ohlc-bar"></div>
-    <div class="chart-wrap">
-      <div class="chart-legend" id="chart-legend"></div>
-      <div id="chart-main"></div>
-    </div>
-
+    <div class="chart-legend" id="chart-legend"></div>
+    <div id="chart-main"></div>
   </div>
+
 </div>
 
 <script type="module">
@@ -132,23 +170,23 @@
 
   let _loading = false
   let chart = null
+  let _dateToIndex = {}
 
-  // Registry indikator aktif — {key: {series:[], overlay:bool}}
-  // overlay:true = pane 0 (nempel di candle), false = pane sendiri
+  // Registry indikator aktif — {key: {series:[], overlay:bool, legend:fn}}
   const ACTIVE = {}
-
-  const PANE_HEIGHT_MAIN = 280
-  const PANE_HEIGHT_IND  = 110
+  const PANE_ORDER = ['volume', 'rsi', 'macd', 'lpm']
 
   // ============================================================
   // SEKSI 1: INIT
   // ============================================================
   function init() {
-    _renderTokenBar()
-    _bindTokenInput()
+    _renderTokenBtn()
+    _bindToken()
+    _bindDropdowns()
     _bindControls()
     _startClock()
     _applyPrefs(loadPrefs())
+    window.addEventListener('resize', () => _layoutPanes())
   }
 
   function _applyPrefs(p) {
@@ -164,38 +202,59 @@
 
   function _savePrefsNow() {
     savePrefs({
-      ma:         document.getElementById('ind-ma').checked,
-      bollinger:  document.getElementById('ind-bollinger').checked,
-      volume:     document.getElementById('ind-volume').checked,
-      rsi:        document.getElementById('ind-rsi').checked,
-      macd:       document.getElementById('ind-macd').checked,
-      lpm:        document.getElementById('ind-lpm').checked,
-      lpmMode:    document.getElementById('lpm-mode').value,
-      maPeriod:   document.getElementById('ma-period').value
+      ma: document.getElementById('ind-ma').checked,
+      bollinger: document.getElementById('ind-bollinger').checked,
+      volume: document.getElementById('ind-volume').checked,
+      rsi: document.getElementById('ind-rsi').checked,
+      macd: document.getElementById('ind-macd').checked,
+      lpm: document.getElementById('ind-lpm').checked,
+      lpmMode: document.getElementById('lpm-mode').value,
+      maPeriod: document.getElementById('ma-period').value
     })
   }
 
   // ============================================================
-  // SEKSI 2: TOKEN
+  // SEKSI 2: TOKEN (popover kecil, bukan bar peringatan lebar)
   // ============================================================
-  function _renderTokenBar() {
-    document.getElementById('tokenBar').classList.toggle('hidden', TOKEN.isSet())
+  function _renderTokenBtn() {
+    const btn = document.getElementById('btn-token')
+    btn.textContent = TOKEN.isSet() ? '✓ Token' : 'Token'
+    btn.classList.toggle('btn-primary', TOKEN.isSet())
   }
-  function _bindTokenInput() {
+  function _bindToken() {
+    document.getElementById('btn-token').addEventListener('click', e => {
+      e.stopPropagation()
+      document.getElementById('tokenPopover').classList.toggle('hidden')
+    })
     document.getElementById('tokenSave').addEventListener('click', () => {
       const v = document.getElementById('tokenInput').value.trim()
       if (!v) return
       TOKEN.set(v)
-      _renderTokenBar()
+      _renderTokenBtn()
+      document.getElementById('tokenPopover').classList.add('hidden')
     })
   }
 
   // ============================================================
-  // SEKSI 3: CONTROLS
+  // SEKSI 3: DROPDOWN INDICATORS — buka/tutup, klik luar menutup
+  // ============================================================
+  function _bindDropdowns() {
+    const btn   = document.getElementById('btn-indicators')
+    const panel = document.getElementById('ind-dropdown')
+    btn.addEventListener('click', e => { e.stopPropagation(); panel.classList.toggle('hidden') })
+    document.addEventListener('click', e => {
+      if (!panel.contains(e.target) && e.target !== btn) panel.classList.add('hidden')
+      const tp = document.getElementById('tokenPopover')
+      if (!tp.contains(e.target) && e.target.id !== 'btn-token') tp.classList.add('hidden')
+    })
+  }
+
+  // ============================================================
+  // SEKSI 4: CONTROLS
   // ============================================================
   function _bindControls() {
-    document.getElementById('btn-load').addEventListener('click', _loadSym)
-    document.getElementById('sym-input').addEventListener('keydown', e => { if (e.key === 'Enter') _loadSym() })
+    const symInput = document.getElementById('sym-input')
+    symInput.addEventListener('keydown', e => { if (e.key === 'Enter') _loadSym() })
 
     document.getElementById('ind-ma').addEventListener('change', e => _toggleIndicator('ma', e.target.checked))
     document.getElementById('ma-period').addEventListener('change', () => {
@@ -222,14 +281,14 @@
   }
 
   // ============================================================
-  // SEKSI 4: LOAD DAILY — bikin chart baru dari nol (data berubah total)
+  // SEKSI 5: LOAD DAILY
   // ============================================================
   async function _loadSym() {
     if (_loading) return
     const sym = document.getElementById('sym-input').value.trim().toUpperCase()
     const status = document.getElementById('status')
-    if (!sym) { status.textContent = 'Isi kode saham dulu'; return }
-    if (!TOKEN.isSet()) { _renderTokenBar(); return }
+    if (!sym) return
+    if (!TOKEN.isSet()) { document.getElementById('tokenPopover').classList.remove('hidden'); return }
 
     _loading = true
     status.textContent = 'Memuat...'
@@ -237,28 +296,22 @@
     try {
       const raw = await fetchDaily(sym)
       DB.sym      = sym
-      DB.daily    = [...raw].sort((a, b) => a.date.localeCompare(b.date)) // lama → baru
-      DB.lpmCache = {} // ganti saham → cache lama tidak relevan
-      status.textContent = `${sym} · ${DB.daily.length} hari`
+      DB.daily    = [...raw].sort((a, b) => a.date.localeCompare(b.date))
+      DB.lpmCache = {}
+      status.textContent = ''
+      document.getElementById('sym-input').value = sym
       _rebuildChart()
     } catch (e) {
       status.textContent = e.code === 'TOKEN_EXPIRED' ? 'Token expired' : 'Error: ' + e.message
-      if (e.code === 'TOKEN_EXPIRED') { TOKEN.clear(); _renderTokenBar() }
+      if (e.code === 'TOKEN_EXPIRED') { TOKEN.clear(); _renderTokenBtn() }
     } finally {
       _loading = false
     }
   }
 
   // ============================================================
-  // SEKSI 5: CHART — 1 instance, banyak pane, indikator add/remove individual
+  // SEKSI 6: CHART — 1 instance, banyak pane
   // ============================================================
-
-  /**
-   * Bangun ulang chart dari nol — hanya dipanggil saat ganti saham
-   * (time axis berubah total, tidak masuk akal pertahankan instance lama).
-   */
-  let _dateToIndex = {}
-
   function _rebuildChart() {
     if (chart) { chart.remove(); chart = null }
     Object.keys(ACTIVE).forEach(k => delete ACTIVE[k])
@@ -281,41 +334,28 @@
     candleSeries.setData(days.map(d => ({ time: d.date, open: d.open, high: d.high, low: d.low, close: d.close })))
     ACTIVE._candle = { series: [candleSeries], overlay: true }
 
-    // Tambahkan kembali indikator yang sedang dicentang
     ;['ma','bollinger','volume','rsi','macd','lpm'].forEach(key => {
       if (document.getElementById(`ind-${key}`).checked) _addIndicator(key)
     })
 
     chart.timeScale().fitContent()
 
-    // Crosshair → update OHLC bar + legend dengan nilai di titik yang dihover
     chart.subscribeCrosshairMove(param => {
       const idx = param.time ? _dateToIndex[param.time] : days.length - 1
       _updateInfoAndLegend(idx !== undefined ? idx : days.length - 1)
     })
 
-    _updateInfoAndLegend(days.length - 1) // tampilan awal: bar terakhir
+    _updateInfoAndLegend(days.length - 1)
   }
 
-  /**
-   * Hitung pane index untuk 1 indikator non-overlay.
-   * Pane 0 = candle. Indikator non-overlay dapat pane berurutan sesuai
-   * urutan tetap (volume, rsi, macd, lpm) — bukan urutan diklik, supaya
-   * posisi pane konsisten walau toggle dibuka-tutup berkali-kali.
-   */
-  const PANE_ORDER = ['volume', 'rsi', 'macd', 'lpm']
   function _paneIndexFor(key) {
     const activeNonOverlay = PANE_ORDER.filter(k => ACTIVE[k])
     const idx = activeNonOverlay.indexOf(key)
     return idx >= 0 ? idx + 1 : activeNonOverlay.length + 1
   }
 
-  /**
-   * Tambah 1 indikator — hanya bikin series baru, TIDAK sentuh indikator lain.
-   * Mempertahankan posisi zoom/scroll yang sedang dilihat.
-   */
   function _addIndicator(key) {
-    if (ACTIVE[key]) return // sudah aktif
+    if (ACTIVE[key]) return
     const days   = DB.daily
     const closes = days.map(d => d.close)
 
@@ -324,10 +364,7 @@
       const ma = calcSMA(closes, period)
       const s = chart.addSeries(LightweightCharts.LineSeries, { color: '#d98e2b', lineWidth: 1.5, priceLineVisible: true, lastValueVisible: true, title: 'MA' + period })
       s.setData(_align(days, ma))
-      ACTIVE.ma = {
-        series: [s], overlay: true,
-        legend: idx => [{ label: 'MA' + period, color: '#d98e2b', value: ma[idx], fmt: 'price' }]
-      }
+      ACTIVE.ma = { series: [s], overlay: true, legend: idx => [{ label: 'MA' + period, color: '#d98e2b', value: ma[idx], fmt: 'price' }] }
     }
 
     else if (key === 'bollinger') {
@@ -336,20 +373,14 @@
       const up  = chart.addSeries(LightweightCharts.LineSeries, { color: 'rgba(217,142,43,0.4)', lineWidth: 1, priceLineVisible: false, lastValueVisible: false })
       const lo  = chart.addSeries(LightweightCharts.LineSeries, { color: 'rgba(217,142,43,0.4)', lineWidth: 1, priceLineVisible: false, lastValueVisible: false })
       mid.setData(_align(days, middle)); up.setData(_align(days, upper)); lo.setData(_align(days, lower))
-      ACTIVE.bollinger = {
-        series: [mid, up, lo], overlay: true,
-        legend: idx => [{ label: 'BB(20,2)', color: 'rgba(217,142,43,0.8)', value: middle[idx], fmt: 'price' }]
-      }
+      ACTIVE.bollinger = { series: [mid, up, lo], overlay: true, legend: idx => [{ label: 'BB(20,2)', color: 'rgba(217,142,43,0.8)', value: middle[idx], fmt: 'price' }] }
     }
 
     else if (key === 'volume') {
       const pIdx = _paneIndexFor('volume')
       const s = chart.addSeries(LightweightCharts.HistogramSeries, { priceFormat: { type: 'volume' }, priceLineVisible: false, lastValueVisible: true, title: 'Vol' }, pIdx)
       s.setData(days.map(d => ({ time: d.date, value: d.volume, color: d.close >= d.open ? 'rgba(74,222,128,0.5)' : 'rgba(240,99,92,0.5)' })))
-      ACTIVE.volume = {
-        series: [s], overlay: false,
-        legend: idx => [{ label: 'Vol', color: '#9aa0a6', value: days[idx]?.volume, fmt: 'vol' }]
-      }
+      ACTIVE.volume = { series: [s], overlay: false, legend: idx => [{ label: 'Vol', color: '#9aa0a6', value: days[idx]?.volume, fmt: 'vol' }] }
     }
 
     else if (key === 'rsi') {
@@ -357,10 +388,7 @@
       const rsi = calcRSI(closes, 14)
       const s = chart.addSeries(LightweightCharts.LineSeries, { color: '#ece7de', lineWidth: 1.5, priceLineVisible: true, lastValueVisible: true, title: 'RSI' }, pIdx)
       s.setData(_align(days, rsi))
-      ACTIVE.rsi = {
-        series: [s], overlay: false,
-        legend: idx => [{ label: 'RSI(14)', color: '#ece7de', value: rsi[idx], fmt: 'num1' }]
-      }
+      ACTIVE.rsi = { series: [s], overlay: false, legend: idx => [{ label: 'RSI(14)', color: '#ece7de', value: rsi[idx], fmt: 'num1' }] }
     }
 
     else if (key === 'macd') {
@@ -369,16 +397,12 @@
       const macdLine = chart.addSeries(LightweightCharts.LineSeries, { color: '#60a5fa', lineWidth: 1, priceLineVisible: true, lastValueVisible: true, title: 'MACD' }, pIdx)
       const sigLine  = chart.addSeries(LightweightCharts.LineSeries, { color: '#d98e2b', lineWidth: 1, priceLineVisible: true, lastValueVisible: true }, pIdx)
       const histS    = chart.addSeries(LightweightCharts.HistogramSeries, { priceLineVisible: false, lastValueVisible: false }, pIdx)
-      macdLine.setData(_align(days, macd))
-      sigLine.setData(_align(days, signal))
+      macdLine.setData(_align(days, macd)); sigLine.setData(_align(days, signal))
       histS.setData(days.map((d, i) => hist[i] !== null ? { time: d.date, value: hist[i], color: hist[i] >= 0 ? 'rgba(74,222,128,0.5)' : 'rgba(240,99,92,0.5)' } : null).filter(Boolean))
-      ACTIVE.macd = {
-        series: [macdLine, sigLine, histS], overlay: false,
-        legend: idx => [
-          { label: 'MACD',   color: '#60a5fa', value: macd[idx],   fmt: 'price2' },
-          { label: 'Signal', color: '#d98e2b', value: signal[idx], fmt: 'price2' }
-        ]
-      }
+      ACTIVE.macd = { series: [macdLine, sigLine, histS], overlay: false, legend: idx => [
+        { label: 'MACD', color: '#60a5fa', value: macd[idx], fmt: 'price2' },
+        { label: 'Signal', color: '#d98e2b', value: signal[idx], fmt: 'price2' }
+      ]}
     }
 
     else if (key === 'lpm') {
@@ -403,7 +427,6 @@
     if (chart) _updateInfoAndLegend(days.length - 1)
   }
 
-  /** Hapus 1 indikator — series-nya saja, chart & indikator lain tetap utuh. */
   function _removeIndicator(key) {
     const ind = ACTIVE[key]
     if (!ind) return
@@ -413,29 +436,26 @@
     if (chart && DB.daily.length) _updateInfoAndLegend(DB.daily.length - 1)
   }
 
-  /** Selaraskan {time, value} dengan array hasil indikator yang bisa berisi null (warmup). */
   function _align(days, arr) {
     return days.map((d, i) => arr[i] !== null && arr[i] !== undefined ? { time: d.date, value: arr[i] } : null).filter(Boolean)
   }
 
-  /** Atur proporsi tinggi tiap pane + tinggi total container. */
+  /** Proporsi tinggi pane: candle 60% dari tinggi kontainer, indikator bagi rata sisanya. */
   function _layoutPanes() {
     if (!chart) return
     const panes = chart.panes()
-    const nInd  = panes.length - 1
-    const totalHeight = PANE_HEIGHT_MAIN + nInd * PANE_HEIGHT_IND
-    document.getElementById('chart-main').style.height = totalHeight + 'px'
-    try { panes[0].setHeight(PANE_HEIGHT_MAIN) } catch (_) {}
-    panes.slice(1).forEach(p => { try { p.setHeight(PANE_HEIGHT_IND) } catch (_) {} })
+    const containerH = document.getElementById('chart-main').clientHeight
+    if (!containerH) return
+    const nInd = panes.length - 1
+    const candleH = nInd > 0 ? Math.floor(containerH * 0.6) : containerH
+    const indH    = nInd > 0 ? Math.floor((containerH - candleH) / nInd) : 0
+    try { panes[0].setHeight(candleH) } catch (_) {}
+    panes.slice(1).forEach(p => { try { p.setHeight(indH) } catch (_) {} })
   }
 
   // ============================================================
-  // SEKSI 6: LPM — Liquidity Pressure Model
+  // SEKSI 7: LPM
   // ============================================================
-  // Net agresif (buy-sell) per HARI. Endpoint trade-book/chart hanya bisa
-  // 1 tanggal per request (beda dari fetchDaily yang sekali ambil semua hari)
-  // — jadi LPM ikut rentang yang TERLIHAT di viewport, di-cache per tanggal.
-
   const LPM_MAX_DAYS    = 90
   const LPM_BATCH_SIZE  = 5
   const LPM_BATCH_DELAY = 400
@@ -448,10 +468,8 @@
 
   async function _updateLpmForVisibleRange() {
     if (!chart || !DB.daily.length || !ACTIVE.lpm) return
-
     const range = chart.timeScale().getVisibleLogicalRange()
     if (!range) return
-
     const fromIdx = Math.max(0, Math.floor(range.from))
     const toIdx   = Math.min(DB.daily.length - 1, Math.ceil(range.to))
     if (fromIdx > toIdx) return
@@ -461,13 +479,12 @@
     const statusEl = document.getElementById('lpm-status')
 
     if (missing.length > LPM_MAX_DAYS) {
-      statusEl.textContent = `Rentang ${visibleDates.length} hari terlalu lebar — perbesar (zoom in) untuk lihat LPM (maks ${LPM_MAX_DAYS} hari sekaligus)`
+      statusEl.textContent = `Zoom in untuk LPM (maks ${LPM_MAX_DAYS} hari)`
       _renderLpmFromCache()
       return
     }
-
     if (missing.length) {
-      statusEl.textContent = `Memuat LPM ${missing.length} hari...`
+      statusEl.textContent = `Memuat LPM ${missing.length}h...`
       await _fetchLpmDates(missing)
     }
     statusEl.textContent = ''
@@ -477,7 +494,6 @@
   async function _fetchLpmDates(dates) {
     const batches = []
     for (let i = 0; i < dates.length; i += LPM_BATCH_SIZE) batches.push(dates.slice(i, i + LPM_BATCH_SIZE))
-
     for (const batch of batches) {
       await Promise.allSettled(batch.map(async date => {
         try {
@@ -485,22 +501,17 @@
           const buyTotal  = data.buy.length  ? data.buy[data.buy.length - 1].value   : 0
           const sellTotal = data.sell.length ? data.sell[data.sell.length - 1].value : 0
           DB.lpmCache[date] = { buy: buyTotal, sell: sellTotal, net: buyTotal - sellTotal }
-        } catch (_) {
-          DB.lpmCache[date] = null
-        }
+        } catch (_) { DB.lpmCache[date] = null }
       }))
       if (batches.length > 1) await new Promise(r => setTimeout(r, LPM_BATCH_DELAY))
     }
   }
 
-  /** Render ulang series LPM dari cache — tanpa fetch, dipakai juga saat ganti mode tampilan. */
   function _renderLpmFromCache() {
     if (!chart || !ACTIVE.lpm) return
     const mode = document.getElementById('lpm-mode').value
-
     ACTIVE.lpm.series.forEach(s => { try { chart.removeSeries(s) } catch (_) {} })
     ACTIVE.lpm.series = []
-
     const points = DB.daily.map(d => ({ date: d.date, lpm: DB.lpmCache[d.date] })).filter(p => p.lpm)
     const pIdx = ACTIVE.lpm.paneIdx
 
@@ -520,14 +531,8 @@
   }
 
   // ============================================================
-  // SEKSI 7: OHLC BAR + LEGEND OVERLAY
+  // SEKSI 8: OHLC BAR + LEGEND OVERLAY
   // ============================================================
-
-  /**
-   * Update baris info OHLC + legend overlay chart untuk 1 index hari.
-   * Dipanggil saat data baru dimuat (index terakhir) dan saat crosshair
-   * hover (index sesuai bar yang dihover).
-   */
   function _updateInfoAndLegend(idx) {
     const days = DB.daily
     if (!days.length || idx === undefined || idx < 0 || idx >= days.length) return
@@ -576,7 +581,7 @@
   }
 
   // ============================================================
-  // SEKSI 8: CLOCK
+  // SEKSI 9: CLOCK
   // ============================================================
   function _startClock() {
     const el = document.getElementById('clock')
