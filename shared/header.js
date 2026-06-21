@@ -75,7 +75,14 @@ async function _syncTokenFromSheetsIfNeeded() {
     if (!remoteToken) return
     TOKEN.set(remoteToken)
     const remoteExp = TOKEN.getExpiryMs()
-    if (remoteExp !== null && remoteExp <= Date.now()) TOKEN.clear() // token di Sheets juga sudah expired
+    if (remoteExp !== null && remoteExp <= Date.now()) { TOKEN.clear(); return } // token di Sheets juga sudah expired
+
+    // PENTING: ini async, jadi selesai SESAAT SETELAH halaman mulai dimuat.
+    // Fitur (Chart, Broker Analyzer, dst) yang langsung cek TOKEN.isSet() di
+    // init() akan KELEWAT momen ini kalau tidak diberi tahu — makanya pakai
+    // event yang SAMA dengan saat user input token manual, supaya listener yang
+    // sudah ada di tiap fitur (auto-load IHSG dst) otomatis ikut terpicu juga.
+    window.dispatchEvent(new CustomEvent('ihsg:token-saved'))
   } catch (e) {
     console.warn('[header] gagal sync token dari Sheets:', e.message)
   }
