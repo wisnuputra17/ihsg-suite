@@ -340,7 +340,7 @@
     macd:       [{ key: 'fast', label: 'Fast', type: 'number' }, { key: 'slow', label: 'Slow', type: 'number' }, { key: 'signal', label: 'Signal', type: 'number' }],
     atr:        [{ key: 'length', label: 'Length', type: 'number' }],
     lpm:        [
-      { key: 'mode',  label: 'Bentuk', type: 'select', options: [['bar', 'Bar (panel)'], ['line', 'Garis % (overlay)']] },
+      { key: 'mode',  label: 'Bentuk', type: 'select', options: [['bar', 'Bar (panel)'], ['line', 'Garis Kumulatif (overlay)']] },
       { key: 'delta', label: 'Delta (vs hari sebelumnya)', type: 'checkbox' }
     ]
   }
@@ -1291,16 +1291,20 @@
     }
 
     else {
-      // mode === 'line' — selalu 1 garis dominasi %, delta tidak berlaku
-      const points = DB.daily.map(d => {
+      // mode === 'line' — garis KUMULATIF (net tiap hari ditambah terus-menerus),
+      // bergerak naik-turun bebas seperti harga/MA — bukan persen terbatas 0-100.
+      // Delta tidak berlaku di mode ini (sama seperti sebelumnya).
+      let cum = 0
+      const points = []
+      DB.daily.forEach(d => {
         const v = DB.lpmCache[d.date]
-        if (!v) return null
-        const pct = (v.buy + v.sell) > 0 ? (v.buy / (v.buy + v.sell)) * 100 : 50
-        return { time: d.date, value: pct }
-      }).filter(Boolean)
+        if (!v) return
+        cum += v.net
+        points.push({ time: d.date, value: cum })
+      })
       const s = chart.addSeries(LightweightCharts.LineSeries, {
-        color: '#d98e2b', lineWidth: 1.5, title: 'LPM%',
-        priceScaleId: 'lpm-pct-scale' // skala sendiri, TIDAK ikut skala harga candle
+        color: '#d98e2b', lineWidth: 1.5, title: 'LPM Kum.',
+        priceScaleId: 'lpm-cum-scale' // skala sendiri, TIDAK ikut skala harga candle
       }, 0) // pane 0 = overlay bareng candle
       s.setData(points)
       try { s.priceScale().applyOptions({ scaleMargins: { top: 0.05, bottom: 0.05 } }) } catch (_) {}
@@ -1360,8 +1364,13 @@
         rows.push({ label: 'HAKA', color: '#4ade80', value: lpmVal.buy, fmt: 'rp' })
         rows.push({ label: 'HAKI', color: '#f0635c', value: lpmVal.sell, fmt: 'rp' })
       } else {
-        const pct = (lpmVal.buy + lpmVal.sell) > 0 ? (lpmVal.buy / (lpmVal.buy + lpmVal.sell)) * 100 : 50
-        rows.push({ label: 'LPM%', color: '#d98e2b', value: pct, fmt: 'pct' })
+        // Garis kumulatif — jumlahkan net dari hari PERTAMA sampai idx (hari yang dihover)
+        let cum = 0
+        for (let i = 0; i <= idx; i++) {
+          const v = DB.lpmCache[days[i].date]
+          if (v) cum += v.net
+        }
+        rows.push({ label: 'LPM Kum.', color: '#d98e2b', value: cum, fmt: 'rp' })
       }
     }
 
