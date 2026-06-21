@@ -56,15 +56,18 @@ export function renderHeader(container, crumbs) {
   // Kalau token lokal kosong/expired, coba ambil dari Sheets dulu (mungkin
   // baru diisi dari device lain) — SEBELUM render status, supaya tidak
   // sempat tampil "Token belum diisi" lalu berubah lagi sesaat kemudian.
-  _syncTokenFromSheetsIfNeeded().then(_renderStatus)
+  syncTokenFromSheetsIfNeeded().then(_renderStatus)
   setInterval(_renderStatus, 60_000)
 }
 
 /**
  * Kalau token lokal tidak ada / sudah pasti expired, coba ambil dari Sheets
  * (sinkron antar device). Tidak menimpa token lokal yang masih valid.
+ * Diekspor supaya halaman lain yang TIDAK pakai renderHeader (misal landing
+ * page, yang punya UI token sendiri) bisa pakai logic yang sama — bukan
+ * duplikasi.
  */
-async function _syncTokenFromSheetsIfNeeded() {
+export async function syncTokenFromSheetsIfNeeded() {
   if (TOKEN.isSet()) {
     const expMs = TOKEN.getExpiryMs()
     if (expMs === null || expMs > Date.now()) return // token lokal masih oke (atau tak bisa dicek), jangan ganggu
@@ -78,14 +81,26 @@ async function _syncTokenFromSheetsIfNeeded() {
     if (remoteExp !== null && remoteExp <= Date.now()) { TOKEN.clear(); return } // token di Sheets juga sudah expired
 
     // PENTING: ini async, jadi selesai SESAAT SETELAH halaman mulai dimuat.
-    // Fitur (Chart, Broker Analyzer, dst) yang langsung cek TOKEN.isSet() di
-    // init() akan KELEWAT momen ini kalau tidak diberi tahu — makanya pakai
-    // event yang SAMA dengan saat user input token manual, supaya listener yang
-    // sudah ada di tiap fitur (auto-load IHSG dst) otomatis ikut terpicu juga.
+    // Fitur yang langsung cek TOKEN.isSet() di init() akan KELEWAT momen ini
+    // kalau tidak diberi tahu — makanya pakai event yang SAMA dengan saat user
+    // input token manual, supaya listener yang sudah ada di tiap fitur
+    // (auto-load IHSG dst) otomatis ikut terpicu juga.
     window.dispatchEvent(new CustomEvent('ihsg:token-saved'))
   } catch (e) {
     console.warn('[header] gagal sync token dari Sheets:', e.message)
   }
+}
+
+/**
+ * Simpan token ke localStorage + Sheets + kirim event — SATU fungsi dipakai
+ * baik oleh popover token di header.js maupun UI token bespoke (landing page).
+ * Diekspor supaya tidak ada 2 jalur simpan token yang beda perilaku lagi
+ * (itu sebabnya landing page kemarin tidak ikut sinkron ke Sheets).
+ */
+export function saveTokenEverywhere(v) {
+  TOKEN.set(v)
+  gsSave(SHEET_TOKEN, [{ token: v }]).catch(e => console.warn('[header] gagal simpan token ke Sheets:', e.message))
+  window.dispatchEvent(new CustomEvent('ihsg:token-saved'))
 }
 
 function _bindTokenUI() {
@@ -111,12 +126,10 @@ function _bindTokenUI() {
   saveBtn.addEventListener('click', () => {
     const v = input.value.trim()
     if (!v) return
-    TOKEN.set(v)
-    gsSave(SHEET_TOKEN, [{ token: v }]).catch(e => console.warn('[header] gagal simpan token ke Sheets:', e.message))
+    saveTokenEverywhere(v)
     input.value = ''
     popover.classList.add('hidden')
     _renderStatus()
-    window.dispatchEvent(new CustomEvent('ihsg:token-saved'))
   })
 
   input.addEventListener('keydown', e => { if (e.key === 'Enter') saveBtn.click() })

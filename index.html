@@ -268,6 +268,7 @@
   import { FEATURES }                          from './shared/features.js'
   import { TOKEN, has, setEmitenInfo }          from './shared/store.js'
   import { fetchMarketStatus, fetchEmitenJson } from './shared/api.js'
+  import { saveTokenEverywhere, syncTokenFromSheetsIfNeeded } from './shared/header.js'
 
   // ============================================================
   // SEKSI 1: RENDER FEATURE LIST
@@ -383,7 +384,7 @@
   tokenSaveBtn.addEventListener('click', () => {
     const v = tokenInput.value.trim()
     if (!v) return
-    TOKEN.set(v)
+    saveTokenEverywhere(v) // localStorage + Sheets + event — sebelumnya cuma localStorage (bug)
     _renderTokenBtn()
     tokenBox.classList.add('hidden')
     tokenInput.value = ''
@@ -393,6 +394,11 @@
   tokenInput.addEventListener('keydown', e => { if (e.key === 'Enter') tokenSaveBtn.click() })
 
   _renderTokenBtn()
+
+  // Token lokal kosong/expired? Coba ambil dari Sheets (mungkin baru diisi
+  // dari device lain) — sama seperti yang sudah jalan di semua halaman fitur.
+  window.addEventListener('ihsg:token-saved', () => { _renderTokenBtn(); _loadMarketStatus() })
+  syncTokenFromSheetsIfNeeded()
 
   // ============================================================
   // SEKSI 4: STATUS PASAR
