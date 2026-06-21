@@ -23,8 +23,10 @@
 
 import { TOKEN } from './store.js'
 import { fetchMarketStatus } from './api.js'
+import { gsLoad, gsSave } from './sheets.js'
 
 const TOKEN_TTL_MS = 24 * 60 * 60 * 1000 // fallback kalau token bukan JWT / tanpa claim exp
+const SHEET_TOKEN = 'user-token'
 
 /**
  * Render header ke dalam container yang diberikan.
@@ -51,8 +53,32 @@ export function renderHeader(container, crumbs) {
     </div>
   `
   _bindTokenUI()
-  _renderStatus()
+  // Kalau token lokal kosong/expired, coba ambil dari Sheets dulu (mungkin
+  // baru diisi dari device lain) — SEBELUM render status, supaya tidak
+  // sempat tampil "Token belum diisi" lalu berubah lagi sesaat kemudian.
+  _syncTokenFromSheetsIfNeeded().then(_renderStatus)
   setInterval(_renderStatus, 60_000)
+}
+
+/**
+ * Kalau token lokal tidak ada / sudah pasti expired, coba ambil dari Sheets
+ * (sinkron antar device). Tidak menimpa token lokal yang masih valid.
+ */
+async function _syncTokenFromSheetsIfNeeded() {
+  if (TOKEN.isSet()) {
+    const expMs = TOKEN.getExpiryMs()
+    if (expMs === null || expMs > Date.now()) return // token lokal masih oke (atau tak bisa dicek), jangan ganggu
+  }
+  try {
+    const rows = await gsLoad(SHEET_TOKEN)
+    const remoteToken = rows?.[0]?.token
+    if (!remoteToken) return
+    TOKEN.set(remoteToken)
+    const remoteExp = TOKEN.getExpiryMs()
+    if (remoteExp !== null && remoteExp <= Date.now()) TOKEN.clear() // token di Sheets juga sudah expired
+  } catch (e) {
+    console.warn('[header] gagal sync token dari Sheets:', e.message)
+  }
 }
 
 function _bindTokenUI() {
@@ -79,6 +105,7 @@ function _bindTokenUI() {
     const v = input.value.trim()
     if (!v) return
     TOKEN.set(v)
+    gsSave(SHEET_TOKEN, [{ token: v }]).catch(e => console.warn('[header] gagal simpan token ke Sheets:', e.message))
     input.value = ''
     popover.classList.add('hidden')
     _renderStatus()
