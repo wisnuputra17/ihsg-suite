@@ -64,6 +64,17 @@
     .dropdown-row input[type=checkbox] { accent-color: var(--phosphor); cursor: pointer; }
     .dropdown-row label { cursor: pointer; user-select: none; flex: 1; }
     .num-input { width: 50px; }
+
+    .ind-section-label {
+      font-family: var(--f-mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--ghost); margin: 10px 0 6px;
+    }
+    .ind-section-label:first-child { margin-top: 0; }
+
+    .ma-add-row { display: flex; gap: 6px; align-items: center; padding: 4px 0; }
+    .ma-add-row .num-input { width: 60px; }
+    .ma-chip-row { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 0 6px; }
+    .ma-chip-row .chip { font-size: 10px; padding: 2px 6px 2px 8px; }
     .mode-select {
       background: #0f0e0c; border: 1px solid var(--line); border-radius: var(--radius);
       padding: 3px 5px; font-family: var(--f-mono); font-size: 10px; color: var(--paper); outline: none;
@@ -147,13 +158,32 @@
     <div class="dropdown-wrap">
       <button class="btn btn-sm" id="btn-indicators">Indicators ▾</button>
       <div class="dropdown-panel hidden" id="ind-dropdown">
+
+        <div class="ind-section-label">Overlay</div>
+
+        <!-- MA — multi periode, bisa lebih dari 1 sekaligus -->
+        <div class="ma-add-row">
+          <input type="number" class="input num-input" id="ma-period-input" value="20" min="2" max="500" placeholder="Periode">
+          <button class="btn btn-sm" id="ma-add-btn">+ MA</button>
+        </div>
+        <div class="ma-chip-row" id="ma-chip-row"></div>
+
         <div class="dropdown-row">
-          <input type="checkbox" id="ind-ma"><label for="ind-ma">MA</label>
-          <input type="number" class="input num-input" id="ma-period" value="20" min="2" max="200">
+          <input type="checkbox" id="ind-ema"><label for="ind-ema">EMA</label>
+          <input type="number" class="input num-input" id="ema-period" value="20" min="2" max="500">
         </div>
         <div class="dropdown-row">
           <input type="checkbox" id="ind-bollinger"><label for="ind-bollinger">Bollinger Bands</label>
         </div>
+        <div class="dropdown-row">
+          <input type="checkbox" id="ind-supertrend"><label for="ind-supertrend">Supertrend</label>
+        </div>
+        <div class="dropdown-row">
+          <input type="checkbox" id="ind-lpm-overlay"><label for="ind-lpm-overlay">LPM (Garis %, overlay)</label>
+        </div>
+
+        <div class="ind-section-label">Oscillator / Panel</div>
+
         <div class="dropdown-row">
           <input type="checkbox" id="ind-volume" checked><label for="ind-volume">Volume</label>
         </div>
@@ -164,11 +194,10 @@
           <input type="checkbox" id="ind-macd"><label for="ind-macd">MACD</label>
         </div>
         <div class="dropdown-row">
-          <input type="checkbox" id="ind-lpm"><label for="ind-lpm">LPM</label>
-          <select class="mode-select" id="lpm-mode">
-            <option value="bar">Bar</option>
-            <option value="line">Garis %</option>
-          </select>
+          <input type="checkbox" id="ind-atr"><label for="ind-atr">ATR</label>
+        </div>
+        <div class="dropdown-row">
+          <input type="checkbox" id="ind-lpm"><label for="ind-lpm">LPM (Bar, panel)</label>
         </div>
       </div>
     </div>
@@ -199,7 +228,7 @@
   import { TOKEN, EMITEN_INFO, has, setEmitenInfo } from '../../shared/store.js'
   import { fetchDaily, fetchAbsorption, fetchMarketStatus, fetchEmitenJson } from '../../shared/api.js'
   import { renderHeader, refreshTokenStatus, openTokenPopover } from '../../shared/header.js'
-  import { calcSMA, calcRSI, calcMACD, calcBollinger } from '../../shared/indicators.js'
+  import { calcSMA, calcEMA, calcRSI, calcMACD, calcBollinger, calcATR, calcSupertrend } from '../../shared/indicators.js'
   import { DB, savePrefs, loadPrefs, loadDrawings, addDrawing, removeDrawing } from './db.js'
 
   let _loading = false
@@ -207,9 +236,18 @@
   let candleSeries = null
   let _dateToIndex = {}
 
-  // Registry indikator aktif — {key: {series:[], overlay:bool, legend:fn}}
+  // Registry indikator aktif (single-instance) — {key: {series:[], overlay:bool, legend:fn}}
   const ACTIVE = {}
-  const PANE_ORDER = ['volume', 'rsi', 'macd', 'lpm']
+  const PANE_ORDER = ['volume', 'rsi', 'macd', 'atr', 'lpm']
+
+  // MA multi-periode — beda dari ACTIVE karena bisa lebih dari 1 sekaligus
+  const MA_COLORS = ['#ece7de', '#60a5fa', '#4ade80', '#d98e2b', '#f0635c', '#a78bfa', '#fb923c', '#34d399']
+  let _maPeriods = []      // [5, 10, 20, ...] urut menaik
+  const _maSeries = {}     // {period: {series, color}}
+
+  // LPM — data fetch dibagi (cache bersama), tapi render terpisah: bar (panel) & overlay (garis %)
+  let _lpmBarSeries     = null
+  let _lpmOverlaySeries = null
 
   // Drawing tools state
   let _drawMode = 'cursor'         // 'cursor' | 'trendline'
@@ -234,6 +272,7 @@
     _bindSymSearch()
     _bindDrawToolbar()
     _applyPrefs(loadPrefs())
+    _renderMaChips()
     window.addEventListener('resize', () => { _layoutPanes(); _repositionDeleteBtn() })
     _loadEmitenInfo()
     loadDrawings().then(() => { if (DB.sym) _renderDrawingsForSym() })
@@ -256,26 +295,32 @@
   }
 
   function _applyPrefs(p) {
-    if (p.ma)         document.getElementById('ind-ma').checked = true
-    if (p.bollinger)  document.getElementById('ind-bollinger').checked = true
+    if (Array.isArray(p.maPeriods)) _maPeriods = [...p.maPeriods].sort((a, b) => a - b)
+    if (p.ema)         document.getElementById('ind-ema').checked = true
+    if (p.emaPeriod)   document.getElementById('ema-period').value = p.emaPeriod
+    if (p.bollinger)   document.getElementById('ind-bollinger').checked = true
+    if (p.supertrend)  document.getElementById('ind-supertrend').checked = true
+    if (p.lpmOverlay)  document.getElementById('ind-lpm-overlay').checked = true
     if (p.volume !== undefined) document.getElementById('ind-volume').checked = p.volume
-    if (p.rsi)        document.getElementById('ind-rsi').checked = true
-    if (p.macd)       document.getElementById('ind-macd').checked = true
-    if (p.lpm)        document.getElementById('ind-lpm').checked = true
-    if (p.lpmMode)    document.getElementById('lpm-mode').value = p.lpmMode
-    if (p.maPeriod)   document.getElementById('ma-period').value = p.maPeriod
+    if (p.rsi)         document.getElementById('ind-rsi').checked = true
+    if (p.macd)        document.getElementById('ind-macd').checked = true
+    if (p.atr)         document.getElementById('ind-atr').checked = true
+    if (p.lpm)         document.getElementById('ind-lpm').checked = true
   }
 
   function _savePrefsNow() {
     savePrefs({
-      ma: document.getElementById('ind-ma').checked,
+      maPeriods: _maPeriods,
+      ema: document.getElementById('ind-ema').checked,
+      emaPeriod: document.getElementById('ema-period').value,
       bollinger: document.getElementById('ind-bollinger').checked,
+      supertrend: document.getElementById('ind-supertrend').checked,
+      lpmOverlay: document.getElementById('ind-lpm-overlay').checked,
       volume: document.getElementById('ind-volume').checked,
       rsi: document.getElementById('ind-rsi').checked,
       macd: document.getElementById('ind-macd').checked,
-      lpm: document.getElementById('ind-lpm').checked,
-      lpmMode: document.getElementById('lpm-mode').value,
-      maPeriod: document.getElementById('ma-period').value
+      atr: document.getElementById('ind-atr').checked,
+      lpm: document.getElementById('ind-lpm').checked
     })
   }
 
@@ -353,21 +398,31 @@
       if (e.key === 'Escape') document.getElementById('sym-dropdown').classList.add('hidden')
     })
 
-    document.getElementById('ind-ma').addEventListener('change', e => _toggleIndicator('ma', e.target.checked))
-    document.getElementById('ma-period').addEventListener('change', () => {
+    // MA — multi periode, tambah via input+tombol, hapus via × di chip
+    document.getElementById('ma-add-btn').addEventListener('click', () => {
+      const period = parseInt(document.getElementById('ma-period-input').value)
+      if (!period || period < 2) return
+      _addMA(period)
+    })
+    document.getElementById('ma-period-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') document.getElementById('ma-add-btn').click()
+    })
+
+    document.getElementById('ind-ema').addEventListener('change', e => _toggleIndicator('ema', e.target.checked))
+    document.getElementById('ema-period').addEventListener('change', () => {
       _savePrefsNow()
-      if (ACTIVE.ma) { _removeIndicator('ma'); _addIndicator('ma') }
+      if (ACTIVE.ema) { _removeIndicator('ema'); _addIndicator('ema') }
     })
     document.getElementById('ind-bollinger').addEventListener('change', e => _toggleIndicator('bollinger', e.target.checked))
+    document.getElementById('ind-supertrend').addEventListener('change', e => _toggleIndicator('supertrend', e.target.checked))
     document.getElementById('ind-volume').addEventListener('change', e => _toggleIndicator('volume', e.target.checked))
     document.getElementById('ind-rsi').addEventListener('change', e => _toggleIndicator('rsi', e.target.checked))
     document.getElementById('ind-macd').addEventListener('change', e => _toggleIndicator('macd', e.target.checked))
-    document.getElementById('ind-lpm').addEventListener('change', e => _toggleIndicator('lpm', e.target.checked))
+    document.getElementById('ind-atr').addEventListener('change', e => _toggleIndicator('atr', e.target.checked))
 
-    document.getElementById('lpm-mode').addEventListener('change', () => {
-      _savePrefsNow()
-      if (ACTIVE.lpm) { _removeIndicator('lpm'); _addIndicator('lpm') }
-    })
+    // LPM — 2 toggle independen (bar/panel & garis%/overlay), data fetch dibagi
+    document.getElementById('ind-lpm').addEventListener('change', () => { _savePrefsNow(); _layoutPanes(); _updateLpmForVisibleRange() })
+    document.getElementById('ind-lpm-overlay').addEventListener('change', () => { _savePrefsNow(); _updateLpmForVisibleRange() })
   }
 
   function _toggleIndicator(key, checked) {
@@ -375,6 +430,52 @@
     if (!DB.daily.length) return
     if (checked) _addIndicator(key)
     else         _removeIndicator(key)
+  }
+
+  // ============================================================
+  // SEKSI 4b: MA MULTI-PERIODE
+  // ============================================================
+
+  function _addMA(period) {
+    _maPeriods = _maPeriods.filter(p => p !== period)
+    _maPeriods.push(period)
+    _maPeriods.sort((a, b) => a - b)
+    _savePrefsNow()
+    _renderMaChips()
+    if (DB.daily.length) _createMaSeries(period)
+  }
+
+  function _removeMA(period) {
+    _maPeriods = _maPeriods.filter(p => p !== period)
+    const entry = _maSeries[period]
+    if (entry) { try { chart.removeSeries(entry.series) } catch (_) {} delete _maSeries[period] }
+    _savePrefsNow()
+    _renderMaChips()
+  }
+
+  function _createMaSeries(period) {
+    if (_maSeries[period] || !chart) return
+    const closes = DB.daily.map(d => d.close)
+    const ma     = calcSMA(closes, period)
+    const colorIdx = _maPeriods.indexOf(period)
+    const color  = MA_COLORS[colorIdx >= 0 ? colorIdx % MA_COLORS.length : 0]
+    const s = chart.addSeries(LightweightCharts.LineSeries, {
+      color, lineWidth: 1.5, priceLineVisible: true, lastValueVisible: true, title: 'MA' + period
+    })
+    s.setData(_align(DB.daily, ma))
+    _maSeries[period] = { series: s, color, values: ma }
+    _renderMaChips()
+  }
+
+  function _renderMaChips() {
+    const row = document.getElementById('ma-chip-row')
+    row.innerHTML = _maPeriods.map(p => {
+      const color = _maSeries[p]?.color || '#666'
+      return `<span class="chip" style="border-color:${color}66; color:${color}">MA${p}<button class="chip-remove" data-period="${p}">×</button></span>`
+    }).join('')
+    row.querySelectorAll('.chip-remove').forEach(btn => {
+      btn.addEventListener('click', () => _removeMA(parseInt(btn.dataset.period)))
+    })
   }
 
   // ============================================================
@@ -431,9 +532,20 @@
     candleSeries.setData(days.map(d => ({ time: d.date, open: d.open, high: d.high, low: d.low, close: d.close })))
     ACTIVE._candle = { series: [candleSeries], overlay: true }
 
-    ;['ma','bollinger','volume','rsi','macd','lpm'].forEach(key => {
+    // Restore semua MA periode yang aktif (chart baru → series lama sudah hilang)
+    Object.keys(_maSeries).forEach(k => delete _maSeries[k])
+    _maPeriods.forEach(p => _createMaSeries(p))
+
+    // Restore indikator single-instance lain
+    ;['ema','bollinger','supertrend','volume','rsi','macd','atr'].forEach(key => {
       if (document.getElementById(`ind-${key}`).checked) _addIndicator(key)
     })
+
+    // LPM (bar & overlay) — fetch+render ditangani terpisah, dipicu setelah chart siap
+    _lpmBarSeries = null
+    _lpmOverlaySeries = null
+    chart.timeScale().subscribeVisibleLogicalRangeChange(_debouncedLpmUpdate)
+    _updateLpmForVisibleRange()
 
     chart.timeScale().fitContent()
 
@@ -464,10 +576,15 @@
     _updateInfoAndLegend(days.length - 1)
   }
 
+  function _isSubpaneActive(key) {
+    if (key === 'lpm') return document.getElementById('ind-lpm').checked
+    return !!ACTIVE[key]
+  }
+
+  /** Slot pane TETAP per indikator — bukan dihitung dinamis, supaya tidak konflik
+   *  kalau user menyalakan indikator tidak berurutan (misal RSI dulu baru Volume). */
   function _paneIndexFor(key) {
-    const activeNonOverlay = PANE_ORDER.filter(k => ACTIVE[k])
-    const idx = activeNonOverlay.indexOf(key)
-    return idx >= 0 ? idx + 1 : activeNonOverlay.length + 1
+    return PANE_ORDER.indexOf(key) + 1
   }
 
   function _addIndicator(key) {
@@ -475,12 +592,12 @@
     const days   = DB.daily
     const closes = days.map(d => d.close)
 
-    if (key === 'ma') {
-      const period = parseInt(document.getElementById('ma-period').value) || 20
-      const ma = calcSMA(closes, period)
-      const s = chart.addSeries(LightweightCharts.LineSeries, { color: '#d98e2b', lineWidth: 1.5, priceLineVisible: true, lastValueVisible: true, title: 'MA' + period })
-      s.setData(_align(days, ma))
-      ACTIVE.ma = { series: [s], overlay: true, legend: idx => [{ label: 'MA' + period, color: '#d98e2b', value: ma[idx], fmt: 'price' }] }
+    if (key === 'ema') {
+      const period = parseInt(document.getElementById('ema-period').value) || 20
+      const ema = calcEMA(closes, period)
+      const s = chart.addSeries(LightweightCharts.LineSeries, { color: '#60a5fa', lineWidth: 1.5, priceLineVisible: true, lastValueVisible: true, title: 'EMA' + period })
+      s.setData(_align(days, ema))
+      ACTIVE.ema = { series: [s], overlay: true, legend: idx => [{ label: 'EMA' + period, color: '#60a5fa', value: ema[idx], fmt: 'price' }] }
     }
 
     else if (key === 'bollinger') {
@@ -490,6 +607,17 @@
       const lo  = chart.addSeries(LightweightCharts.LineSeries, { color: 'rgba(217,142,43,0.4)', lineWidth: 1, priceLineVisible: false, lastValueVisible: false })
       mid.setData(_align(days, middle)); up.setData(_align(days, upper)); lo.setData(_align(days, lower))
       ACTIVE.bollinger = { series: [mid, up, lo], overlay: true, legend: idx => [{ label: 'BB(20,2)', color: 'rgba(217,142,43,0.8)', value: middle[idx], fmt: 'price' }] }
+    }
+
+    else if (key === 'supertrend') {
+      const { value, direction } = calcSupertrend(days, 10, 3)
+      // 2 series terpisah (naik/turun) supaya warna beda per arah — gap di mana tidak relevan
+      const upPts = days.map((d, i) => direction[i] === 'up'   ? { time: d.date, value: value[i] } : null).filter(Boolean)
+      const dnPts = days.map((d, i) => direction[i] === 'down' ? { time: d.date, value: value[i] } : null).filter(Boolean)
+      const sUp = chart.addSeries(LightweightCharts.LineSeries, { color: '#4ade80', lineWidth: 1.5, priceLineVisible: false, lastValueVisible: false, title: 'ST' })
+      const sDn = chart.addSeries(LightweightCharts.LineSeries, { color: '#f0635c', lineWidth: 1.5, priceLineVisible: false, lastValueVisible: false })
+      sUp.setData(upPts); sDn.setData(dnPts)
+      ACTIVE.supertrend = { series: [sUp, sDn], overlay: true, legend: idx => [{ label: 'Supertrend', color: direction[idx] === 'down' ? '#f0635c' : '#4ade80', value: value[idx], fmt: 'price' }] }
     }
 
     else if (key === 'volume') {
@@ -521,22 +649,12 @@
       ]}
     }
 
-    else if (key === 'lpm') {
-      const pIdx = _paneIndexFor('lpm')
-      ACTIVE.lpm = {
-        series: [], overlay: false, paneIdx: pIdx,
-        legend: idx => {
-          const date = days[idx]?.date
-          const v = date ? DB.lpmCache[date] : null
-          if (!v) return [{ label: 'LPM', color: '#d98e2b', value: null, fmt: 'rp' }]
-          const mode = document.getElementById('lpm-mode').value
-          if (mode === 'bar') return [{ label: 'LPM', color: '#d98e2b', value: v.net, fmt: 'rp' }]
-          const total = v.buy + v.sell
-          return [{ label: 'LPM', color: '#d98e2b', value: total > 0 ? (v.buy/total)*100 : 50, fmt: 'pct' }]
-        }
-      }
-      chart.timeScale().subscribeVisibleLogicalRangeChange(_debouncedLpmUpdate)
-      _updateLpmForVisibleRange()
+    else if (key === 'atr') {
+      const pIdx = _paneIndexFor('atr')
+      const atr = calcATR(days, 14)
+      const s = chart.addSeries(LightweightCharts.LineSeries, { color: '#a78bfa', lineWidth: 1.5, priceLineVisible: true, lastValueVisible: true, title: 'ATR' }, pIdx)
+      s.setData(_align(days, atr))
+      ACTIVE.atr = { series: [s], overlay: false, legend: idx => [{ label: 'ATR(14)', color: '#a78bfa', value: atr[idx], fmt: 'price2' }] }
     }
 
     _layoutPanes()
@@ -557,16 +675,28 @@
   }
 
   /** Proporsi tinggi pane: candle 60% dari tinggi kontainer, indikator bagi rata sisanya. */
+  /**
+   * Atur tinggi tiap pane. Slot pane TETAP (lihat _paneIndexFor) — pane yang
+   * sedang tidak aktif diberi tinggi 0 (bukan dihapus), supaya tidak perlu
+   * pindah-pindah series antar pane saat indikator dinyalakan tidak berurutan.
+   */
   function _layoutPanes() {
     if (!chart) return
     const panes = chart.panes()
     const containerH = document.getElementById('chart-main').clientHeight
     if (!containerH) return
-    const nInd = panes.length - 1
-    const candleH = nInd > 0 ? Math.floor(containerH * 0.6) : containerH
-    const indH    = nInd > 0 ? Math.floor((containerH - candleH) / nInd) : 0
+
+    const activeKeys = PANE_ORDER.filter(_isSubpaneActive)
+    const nActive = activeKeys.length
+    const candleH = nActive > 0 ? Math.floor(containerH * 0.6) : containerH
+    const indH    = nActive > 0 ? Math.floor((containerH - candleH) / nActive) : 0
+
     try { panes[0].setHeight(candleH) } catch (_) {}
-    panes.slice(1).forEach(p => { try { p.setHeight(indH) } catch (_) {} })
+    PANE_ORDER.forEach((key, i) => {
+      const paneIdx = i + 1
+      if (paneIdx >= panes.length) return // pane belum pernah dipakai sama sekali
+      try { panes[paneIdx].setHeight(_isSubpaneActive(key) ? indH : 0) } catch (_) {}
+    })
   }
 
   // ============================================================
@@ -753,9 +883,19 @@
   // ============================================================
   // SEKSI 7: LPM
   // ============================================================
+  // Net agresif (buy-sell) per HARI dari endpoint trade-book/chart (1 request =
+  // 1 tanggal, tidak bisa banyak hari sekaligus seperti fetchDaily). Data di-cache
+  // di DB.lpmCache (dibagi bersama), tapi punya 2 cara tampil INDEPENDEN:
+  //   - Bar (panel)   → histogram di sub-pane sendiri, seperti Volume
+  //   - Garis % (overlay) → menempel di chart utama dgn skala terpisah, seperti MA
+
   const LPM_MAX_DAYS    = 90
   const LPM_BATCH_SIZE  = 5
   const LPM_BATCH_DELAY = 400
+
+  function _lpmNeeded() {
+    return document.getElementById('ind-lpm').checked || document.getElementById('ind-lpm-overlay').checked
+  }
 
   let _lpmDebounceTimer = null
   function _debouncedLpmUpdate() {
@@ -764,7 +904,11 @@
   }
 
   async function _updateLpmForVisibleRange() {
-    if (!chart || !DB.daily.length || !ACTIVE.lpm) return
+    if (!chart || !DB.daily.length || !_lpmNeeded()) {
+      _renderLpmBarFromCache()
+      _renderLpmOverlayFromCache()
+      return
+    }
     const range = chart.timeScale().getVisibleLogicalRange()
     if (!range) return
     const fromIdx = Math.max(0, Math.floor(range.from))
@@ -777,7 +921,7 @@
 
     if (missing.length > LPM_MAX_DAYS) {
       statusEl.textContent = `Zoom in untuk LPM (maks ${LPM_MAX_DAYS} hari)`
-      _renderLpmFromCache()
+      _renderLpmBarFromCache(); _renderLpmOverlayFromCache()
       return
     }
     if (missing.length) {
@@ -785,7 +929,8 @@
       await _fetchLpmDates(missing)
     }
     statusEl.textContent = ''
-    _renderLpmFromCache()
+    _renderLpmBarFromCache()
+    _renderLpmOverlayFromCache()
   }
 
   async function _fetchLpmDates(dates) {
@@ -804,26 +949,36 @@
     }
   }
 
-  function _renderLpmFromCache() {
-    if (!chart || !ACTIVE.lpm) return
-    const mode = document.getElementById('lpm-mode').value
-    ACTIVE.lpm.series.forEach(s => { try { chart.removeSeries(s) } catch (_) {} })
-    ACTIVE.lpm.series = []
-    const points = DB.daily.map(d => ({ date: d.date, lpm: DB.lpmCache[d.date] })).filter(p => p.lpm)
-    const pIdx = ACTIVE.lpm.paneIdx
+  /** LPM bentuk Bar — sub-pane sendiri, seperti Volume. */
+  function _renderLpmBarFromCache() {
+    if (_lpmBarSeries) { try { chart.removeSeries(_lpmBarSeries) } catch (_) {} _lpmBarSeries = null }
+    if (!chart || !document.getElementById('ind-lpm').checked) { if (DB.daily.length) _updateInfoAndLegend(DB.daily.length - 1); return }
 
-    if (mode === 'bar') {
-      const s = chart.addSeries(LightweightCharts.HistogramSeries, { priceFormat: { type: 'volume' }, title: 'LPM' }, pIdx)
-      s.setData(points.map(p => ({ time: p.date, value: p.lpm.net, color: p.lpm.net >= 0 ? '#4ade80' : '#f0635c' })))
-      ACTIVE.lpm.series.push(s)
-    } else {
-      const s = chart.addSeries(LightweightCharts.LineSeries, { color: '#d98e2b', lineWidth: 1.5, title: 'LPM %' }, pIdx)
-      s.setData(points.map(p => {
-        const total = p.lpm.buy + p.lpm.sell
-        return { time: p.date, value: total > 0 ? (p.lpm.buy / total) * 100 : 50 }
-      }))
-      ACTIVE.lpm.series.push(s)
-    }
+    const pIdx = _paneIndexFor('lpm')
+    const points = DB.daily.map(d => ({ date: d.date, lpm: DB.lpmCache[d.date] })).filter(p => p.lpm)
+    const s = chart.addSeries(LightweightCharts.HistogramSeries, { priceFormat: { type: 'volume' }, title: 'LPM' }, pIdx)
+    s.setData(points.map(p => ({ time: p.date, value: p.lpm.net, color: p.lpm.net >= 0 ? '#4ade80' : '#f0635c' })))
+    _lpmBarSeries = s
+    _layoutPanes()
+    if (DB.daily.length) _updateInfoAndLegend(DB.daily.length - 1)
+  }
+
+  /** LPM bentuk Garis % — OVERLAY di chart utama (pane 0), skala terpisah dari harga (seperti MA). */
+  function _renderLpmOverlayFromCache() {
+    if (_lpmOverlaySeries) { try { chart.removeSeries(_lpmOverlaySeries) } catch (_) {} _lpmOverlaySeries = null }
+    if (!chart || !document.getElementById('ind-lpm-overlay').checked) { if (DB.daily.length) _updateInfoAndLegend(DB.daily.length - 1); return }
+
+    const points = DB.daily.map(d => ({ date: d.date, lpm: DB.lpmCache[d.date] })).filter(p => p.lpm)
+    const s = chart.addSeries(LightweightCharts.LineSeries, {
+      color: '#d98e2b', lineWidth: 1.5, title: 'LPM%',
+      priceScaleId: 'lpm-pct-scale' // skala sendiri (0-100%), TIDAK ikut skala harga candle
+    }, 0) // pane 0 = overlay bareng candle
+    s.setData(points.map(p => {
+      const total = p.lpm.buy + p.lpm.sell
+      return { time: p.date, value: total > 0 ? (p.lpm.buy / total) * 100 : 50 }
+    }))
+    try { s.priceScale().applyOptions({ scaleMargins: { top: 0.05, bottom: 0.05 } }) } catch (_) {}
+    _lpmOverlaySeries = s
     if (DB.daily.length) _updateInfoAndLegend(DB.daily.length - 1)
   }
 
@@ -851,12 +1006,31 @@
     `
 
     const rows = []
+
+    // MA multi-periode
+    _maPeriods.forEach(p => {
+      const entry = _maSeries[p]
+      if (!entry) return
+      rows.push({ label: 'MA' + p, color: entry.color, value: entry.values[idx], fmt: 'price' })
+    })
+
+    // Indikator single-instance (EMA, Bollinger, Supertrend, Volume, RSI, MACD, ATR)
     Object.keys(ACTIVE).forEach(key => {
       if (key === '_candle') return
       const ind = ACTIVE[key]
       if (!ind.legend) return
       rows.push(...ind.legend(idx))
     })
+
+    // LPM — bar & overlay, masing-masing independen, tampilkan kalau aktif
+    const lpmVal = DB.lpmCache[d.date]
+    if (document.getElementById('ind-lpm').checked) {
+      rows.push({ label: 'LPM', color: '#d98e2b', value: lpmVal ? lpmVal.net : null, fmt: 'rp' })
+    }
+    if (document.getElementById('ind-lpm-overlay').checked) {
+      const pct = lpmVal && (lpmVal.buy + lpmVal.sell) > 0 ? (lpmVal.buy / (lpmVal.buy + lpmVal.sell)) * 100 : null
+      rows.push({ label: 'LPM%', color: '#d98e2b', value: pct, fmt: 'pct' })
+    }
 
     document.getElementById('chart-legend').innerHTML = rows.map(r => `
       <div class="legend-row">
