@@ -436,9 +436,13 @@
     chart.timeScale().fitContent()
 
     chart.subscribeCrosshairMove(param => {
+      // Saat sedang menggambar (menunggu klik ke-2) → fokus performa, HANYA
+      // update posisi garis preview. Skip update legend/OHLC (rebuild HTML
+      // tiap gerakan mouse itu yang bikin lag saat menarik garis).
+      if (_pendingPoint) { _updatePreviewLine(param); return }
+
       const idx = param.time ? _dateToIndex[param.time] : days.length - 1
       _updateInfoAndLegend(idx !== undefined ? idx : days.length - 1)
-      _updatePreviewLine(param)
     })
 
     // Klik chart → tempatkan titik trend line (mode 'trendline') atau pilih garis (mode 'cursor')
