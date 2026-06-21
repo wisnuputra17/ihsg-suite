@@ -22,9 +22,20 @@ export const TOKEN = {
     const raw = localStorage.getItem('ihsglab_token') || ''
     return raw.replace(/[^\x00-\x7F]/g, '') // sanitize non-ASCII wajib
   },
-  set: (v) => localStorage.setItem('ihsglab_token', v.replace(/[^\x00-\x7F]/g, '')),
-  clear: () => localStorage.removeItem('ihsglab_token'),
-  isSet: () => !!localStorage.getItem('ihsglab_token')
+  set: (v) => {
+    localStorage.setItem('ihsglab_token', v.replace(/[^\x00-\x7F]/g, ''))
+    localStorage.setItem('ihsglab_token_set_at', String(Date.now()))
+  },
+  clear: () => {
+    localStorage.removeItem('ihsglab_token')
+    localStorage.removeItem('ihsglab_token_set_at')
+  },
+  isSet: () => !!localStorage.getItem('ihsglab_token'),
+  /** Sudah berapa lama sejak token diset (ms). null kalau tidak ada timestamp (token lama). */
+  elapsedMs: () => {
+    const t = localStorage.getItem('ihsglab_token_set_at')
+    return t ? Date.now() - parseInt(t) : null
+  }
 }
 
 // ============================================================

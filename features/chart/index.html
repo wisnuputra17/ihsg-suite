@@ -59,6 +59,13 @@
       padding: 10px; display: flex; gap: 6px; min-width: 280px;
     }
 
+    .token-status {
+      display: flex; align-items: center; gap: 6px; cursor: pointer;
+      font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.05em;
+    }
+    .token-status .status-dot.wait { animation: pulse 1.6s infinite; }
+    @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:.35 } }
+
     .lpm-status { font-family: var(--f-mono); font-size: 10px; color: var(--ghost); margin-left: 4px; }
 
     /* ── AREA CHART — mengisi sisa layar ── */
@@ -104,7 +111,14 @@
       <div class="header-divider"></div>
       <span class="app-name">Chart</span>
     </div>
-    <div class="app-clock" id="clock">––:––:––</div>
+    <div class="token-status" id="tokenStatus" style="position:relative;">
+      <span class="status-dot" id="tokenDot"></span>
+      <span id="tokenLabel">–––</span>
+      <div class="token-popover hidden" id="tokenPopover">
+        <input type="password" class="input" id="tokenInput" placeholder="Bearer token Stockbit..." style="flex:1;">
+        <button class="btn btn-primary btn-sm" id="tokenSave">Simpan</button>
+      </div>
+    </div>
   </header>
 
   <div class="chart-toolbar">
@@ -144,14 +158,6 @@
 
     <span class="lpm-status" id="lpm-status"></span>
     <span id="status" style="font-family:var(--f-mono); font-size:10px; color:var(--ghost); margin-left:4px;"></span>
-
-    <div class="dropdown-wrap" style="margin-left:auto;">
-      <button class="btn btn-sm" id="btn-token">Token</button>
-      <div class="token-popover hidden" id="tokenPopover">
-        <input type="password" class="input" id="tokenInput" placeholder="Bearer token Stockbit..." style="flex:1;">
-        <button class="btn btn-primary btn-sm" id="tokenSave">Simpan</button>
-      </div>
-    </div>
   </div>
 
   <div class="chart-wrap">
@@ -164,7 +170,7 @@
 
 <script type="module">
   import { TOKEN }            from '../../shared/store.js'
-  import { fetchDaily, fetchAbsorption } from '../../shared/api.js'
+  import { fetchDaily, fetchAbsorption, fetchMarketStatus } from '../../shared/api.js'
   import { calcSMA, calcRSI, calcMACD, calcBollinger } from '../../shared/indicators.js'
   import { DB, savePrefs, loadPrefs } from './db.js'
 
@@ -180,13 +186,19 @@
   // SEKSI 1: INIT
   // ============================================================
   function init() {
-    _renderTokenBtn()
+    _renderTokenStatus()
     _bindToken()
     _bindDropdowns()
     _bindControls()
-    _startClock()
+    _startTokenStatusLoop()
     _applyPrefs(loadPrefs())
     window.addEventListener('resize', () => _layoutPanes())
+
+    // Tampilkan IHSG sebagai default, supaya chart tidak kosong sebelum pilih saham
+    if (TOKEN.isSet()) {
+      document.getElementById('sym-input').value = 'IHSG'
+      _loadSym()
+    }
   }
 
   function _applyPrefs(p) {
@@ -214,15 +226,51 @@
   }
 
   // ============================================================
-  // SEKSI 2: TOKEN (popover kecil, bukan bar peringatan lebar)
+  // SEKSI 2: TOKEN — status durasi + verifikasi real ke API
   // ============================================================
-  function _renderTokenBtn() {
-    const btn = document.getElementById('btn-token')
-    btn.textContent = TOKEN.isSet() ? '✓ Token' : 'Token'
-    btn.classList.toggle('btn-primary', TOKEN.isSet())
+  function _renderTokenStatus() {
+    const dot   = document.getElementById('tokenDot')
+    const label = document.getElementById('tokenLabel')
+
+    if (!TOKEN.isSet()) {
+      dot.className = 'status-dot'
+      label.textContent = 'Token belum diisi'
+      return
+    }
+
+    const ms = TOKEN.elapsedMs()
+    const durasi = ms !== null ? _fmtDuration(ms) : ''
+    dot.className = 'status-dot wait'
+    label.textContent = durasi ? `Memeriksa · ${durasi}` : 'Memeriksa...'
+
+    // Verifikasi real — panggil endpoint ringan, lihat apakah token masih diterima
+    fetchMarketStatus().then(() => {
+      dot.className = 'status-dot live'
+      label.textContent = durasi ? `Token aktif · ${durasi}` : 'Token aktif'
+    }).catch(e => {
+      if (e.code === 'TOKEN_EXPIRED') {
+        dot.className = 'status-dot down'
+        label.textContent = 'Token expired'
+      } else {
+        dot.className = 'status-dot wait'
+        label.textContent = durasi ? `Token · ${durasi}` : 'Status tidak diketahui'
+      }
+    })
   }
+
+  function _fmtDuration(ms) {
+    const totalMin = Math.floor(ms / 60000)
+    const h = Math.floor(totalMin / 60)
+    const m = totalMin % 60
+    return h > 0 ? `${h}j ${m}m` : `${m}m`
+  }
+
+  function _startTokenStatusLoop() {
+    setInterval(_renderTokenStatus, 60_000) // cek ulang tiap menit
+  }
+
   function _bindToken() {
-    document.getElementById('btn-token').addEventListener('click', e => {
+    document.getElementById('tokenStatus').addEventListener('click', e => {
       e.stopPropagation()
       document.getElementById('tokenPopover').classList.toggle('hidden')
     })
@@ -230,8 +278,9 @@
       const v = document.getElementById('tokenInput').value.trim()
       if (!v) return
       TOKEN.set(v)
-      _renderTokenBtn()
+      _renderTokenStatus()
       document.getElementById('tokenPopover').classList.add('hidden')
+      if (!DB.sym) { document.getElementById('sym-input').value = 'IHSG'; _loadSym() }
     })
   }
 
@@ -245,7 +294,7 @@
     document.addEventListener('click', e => {
       if (!panel.contains(e.target) && e.target !== btn) panel.classList.add('hidden')
       const tp = document.getElementById('tokenPopover')
-      if (!tp.contains(e.target) && e.target.id !== 'btn-token') tp.classList.add('hidden')
+      if (!tp.contains(e.target) && !document.getElementById('tokenStatus').contains(e.target)) tp.classList.add('hidden')
     })
   }
 
@@ -303,7 +352,7 @@
       _rebuildChart()
     } catch (e) {
       status.textContent = e.code === 'TOKEN_EXPIRED' ? 'Token expired' : 'Error: ' + e.message
-      if (e.code === 'TOKEN_EXPIRED') { TOKEN.clear(); _renderTokenBtn() }
+      if (e.code === 'TOKEN_EXPIRED') { TOKEN.clear(); _renderTokenStatus() }
     } finally {
       _loading = false
     }
@@ -578,18 +627,6 @@
     if (fmt === 'num1')   return v.toFixed(1)
     if (fmt === 'price2') return v.toFixed(2)
     return new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 }).format(v)
-  }
-
-  // ============================================================
-  // SEKSI 9: CLOCK
-  // ============================================================
-  function _startClock() {
-    const el = document.getElementById('clock')
-    function tick() {
-      el.textContent = new Date().toLocaleTimeString('id-ID',
-        { timeZone:'Asia/Jakarta', hour:'2-digit', minute:'2-digit', second:'2-digit' }) + ' WIB'
-    }
-    tick(); setInterval(tick, 1000)
   }
 
   init()
