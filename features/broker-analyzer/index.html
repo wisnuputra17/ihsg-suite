@@ -35,6 +35,8 @@
 
     .selected-chip-row { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
     .selected-chip-row .chip { font-size: 10px; }
+    .display-mode-row { display: flex; gap: 4px; }
+    .display-mode-row .pill { padding: 4px 10px; font-size: 9px; }
 
     .status-text { font-family: var(--f-mono); font-size: 10px; color: var(--ghost); margin-left: 4px; }
 
@@ -91,6 +93,10 @@
       <input type="text" id="sym-input" placeholder="cari saham..." maxlength="10" autocomplete="off">
       <div class="sym-dropdown hidden" id="sym-dropdown"></div>
     </div>
+    <div class="display-mode-row" id="display-mode-row">
+      <button class="pill active" data-mode="cumulative">Kumulatif</button>
+      <button class="pill" data-mode="bar">Bar Harian</button>
+    </div>
     <div class="selected-chip-row" id="selected-chip-row"></div>
     <span class="status-text" id="status"></span>
   </div>
@@ -138,6 +144,7 @@
 
   const BROKER_COLORS = ['#ece7de', '#60a5fa', '#4ade80', '#d98e2b', '#f0635c', '#a78bfa', '#fb923c', '#34d399', '#22d3ee', '#f472b6']
   const _brokerSeries = {} // {brokerCode: seriesObject}
+  let _displayMode = 'cumulative' // 'cumulative' | 'bar'
 
   const AUTO_FETCH_MAX = 40
   const BATCH_SIZE      = 5
@@ -155,6 +162,7 @@
 
     _bindSymSearch()
     _bindTop10RangeControls()
+    _bindDisplayModeToggle()
     _loadEmitenInfo()
   }
 
@@ -219,6 +227,23 @@
     const prefs = loadPrefs()
     prefs[DB.sym] = DB.selectedBrokers
     savePrefs(prefs)
+  }
+
+  /** Mode tampil (kumulatif/bar) — preferensi GLOBAL, bukan per-saham. */
+  function _bindDisplayModeToggle() {
+    const prefs = loadPrefs()
+    if (prefs._displayMode) _displayMode = prefs._displayMode
+    document.querySelectorAll('#display-mode-row .pill').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.mode === _displayMode)
+      btn.addEventListener('click', () => {
+        _displayMode = btn.dataset.mode
+        document.querySelectorAll('#display-mode-row .pill').forEach(b => b.classList.toggle('active', b === btn))
+        const p = loadPrefs()
+        p._displayMode = _displayMode
+        savePrefs(p)
+        if (DB.selectedBrokers.length) _renderAllBrokerLines()
+      })
+    })
   }
 
   // ============================================================
@@ -352,6 +377,7 @@
     _savePrefsNow()
     _renderSelectedChips()
     _renderTop10Lists()
+    _layoutBrokerPane()
   }
 
   function _renderSelectedChips() {
@@ -482,25 +508,59 @@
   function _renderAllBrokerLines() {
     DB.selectedBrokers.forEach((broker, i) => {
       if (_brokerSeries[broker]) { try { chart.removeSeries(_brokerSeries[broker]) } catch (_) {} }
-      let cum = 0
-      const points = []
-      DB.daily.forEach(d => {
-        const dayMap = DB.brokerCache[d.date]
-        const v = dayMap ? dayMap[broker] : null
-        if (!v) return
-        cum += v.net
-        points.push({ time: d.date, value: cum })
-      })
       const color = BROKER_COLORS[i % BROKER_COLORS.length]
-      const s = chart.addSeries(LightweightCharts.LineSeries, {
-        color, lineWidth: 1.5, title: broker,
-        priceScaleId: 'broker-cum-scale'
-      }, 0)
-      s.setData(points)
-      try { s.priceScale().applyOptions({ scaleMargins: { top: 0.05, bottom: 0.05 } }) } catch (_) {}
-      _brokerSeries[broker] = s
+
+      if (_displayMode === 'bar') {
+        // Bar harian — net per hari APA ADANYA (bukan kumulatif), supaya hari
+        // dengan masuk/keluar besar langsung kelihatan sebagai bar tinggi,
+        // tanpa perlu baca kemiringan garis kumulatif.
+        const points = []
+        DB.daily.forEach(d => {
+          const dayMap = DB.brokerCache[d.date]
+          const v = dayMap ? dayMap[broker] : null
+          if (!v) return
+          points.push({ time: d.date, value: v.net, color: color + '99' }) // sedikit transparan, banyak broker bisa tumpang tindih
+        })
+        const s = chart.addSeries(LightweightCharts.HistogramSeries, {
+          title: broker, priceFormat: { type: 'volume' }
+        }, 1) // pane 1 = panel bar harian, terpisah dari candle
+        s.setData(points)
+        _brokerSeries[broker] = s
+      } else {
+        // Kumulatif — net harian ditambah terus-menerus, bergerak seperti
+        // garis harga/MA, menunjukkan tren akumulasi/distribusi broker ini.
+        let cum = 0
+        const points = []
+        DB.daily.forEach(d => {
+          const dayMap = DB.brokerCache[d.date]
+          const v = dayMap ? dayMap[broker] : null
+          if (!v) return
+          cum += v.net
+          points.push({ time: d.date, value: cum })
+        })
+        const s = chart.addSeries(LightweightCharts.LineSeries, {
+          color, lineWidth: 1.5, title: broker,
+          priceScaleId: 'broker-cum-scale'
+        }, 0) // pane 0 = overlay bareng candle
+        s.setData(points)
+        try { s.priceScale().applyOptions({ scaleMargins: { top: 0.05, bottom: 0.05 } }) } catch (_) {}
+        _brokerSeries[broker] = s
+      }
     })
+    _layoutBrokerPane()
     if (DB.daily.length) _updateInfoAndLegend(DB.daily.length - 1)
+  }
+
+  /** Atur tinggi pane 1 (bar harian) — cuma muncul kalau mode='bar' DAN ada broker terpilih. */
+  function _layoutBrokerPane() {
+    if (!chart) return
+    const panes = chart.panes()
+    const containerH = document.getElementById('chart-main').clientHeight
+    if (!containerH) return
+    const showBarPane = _displayMode === 'bar' && DB.selectedBrokers.length > 0
+    const candleH = showBarPane ? Math.floor(containerH * 0.65) : containerH
+    try { panes[0].setHeight(candleH) } catch (_) {}
+    if (panes[1]) { try { panes[1].setHeight(showBarPane ? containerH - candleH : 0) } catch (_) {} }
   }
 
   // ============================================================
@@ -515,6 +575,11 @@
 
     const rows = DB.selectedBrokers.map((broker, i) => {
       const color = BROKER_COLORS[i % BROKER_COLORS.length]
+      if (_displayMode === 'bar') {
+        const dayMap = DB.brokerCache[d.date]
+        const v = dayMap ? dayMap[broker] : null
+        return { label: broker, color, value: v ? v.net : null }
+      }
       let cum = 0
       for (let k = 0; k <= idx; k++) {
         const dayMap = DB.brokerCache[days[k].date]
