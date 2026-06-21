@@ -69,19 +69,6 @@
       padding: 3px 5px; font-family: var(--f-mono); font-size: 10px; color: var(--paper); outline: none;
     }
 
-    .token-popover {
-      position: absolute; top: calc(100% + 4px); right: 0; z-index: 20;
-      background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
-      padding: 10px; display: flex; gap: 6px; min-width: 280px;
-    }
-
-    .token-status {
-      display: flex; align-items: center; gap: 6px; cursor: pointer;
-      font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.05em;
-    }
-    .token-status .status-dot.wait { animation: pulse 1.6s infinite; }
-    @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:.35 } }
-
     .lpm-status { font-family: var(--f-mono); font-size: 10px; color: var(--ghost); margin-left: 4px; }
 
     /* ── AREA CHART — mengisi sisa layar ── */
@@ -121,21 +108,7 @@
 
 <div class="page">
 
-  <header class="app-header">
-    <div class="app-header-left">
-      <a class="back-link" href="../../index.html">← Suite</a>
-      <div class="header-divider"></div>
-      <span class="app-name">Chart</span>
-    </div>
-    <div class="token-status" id="tokenStatus" style="position:relative;">
-      <span class="status-dot" id="tokenDot"></span>
-      <span id="tokenLabel">–––</span>
-      <div class="token-popover hidden" id="tokenPopover">
-        <input type="password" class="input" id="tokenInput" placeholder="Bearer token Stockbit..." style="flex:1;">
-        <button class="btn btn-primary btn-sm" id="tokenSave">Simpan</button>
-      </div>
-    </div>
-  </header>
+  <header class="app-header" id="app-header"></header>
 
   <div class="chart-toolbar">
     <div class="sym-search">
@@ -188,6 +161,7 @@
 <script type="module">
   import { TOKEN, EMITEN_INFO, has, setEmitenInfo } from '../../shared/store.js'
   import { fetchDaily, fetchAbsorption, fetchMarketStatus, fetchEmitenJson } from '../../shared/api.js'
+  import { renderHeader, refreshTokenStatus, openTokenPopover } from '../../shared/header.js'
   import { calcSMA, calcRSI, calcMACD, calcBollinger } from '../../shared/indicators.js'
   import { DB, savePrefs, loadPrefs } from './db.js'
 
@@ -203,12 +177,17 @@
   // SEKSI 1: INIT
   // ============================================================
   function init() {
-    _renderTokenStatus()
-    _bindToken()
+    renderHeader(document.getElementById('app-header'), [
+      { label: 'IHSG Suite', href: '../../index.html' },
+      { label: 'Chart' }
+    ])
+    window.addEventListener('ihsg:token-saved', () => {
+      if (!DB.sym) { document.getElementById('sym-input').value = 'IHSG'; _loadSym() }
+    })
+
     _bindDropdowns()
     _bindControls()
     _bindSymSearch()
-    _startTokenStatusLoop()
     _applyPrefs(loadPrefs())
     window.addEventListener('resize', () => _layoutPanes())
     _loadEmitenInfo()
@@ -255,84 +234,6 @@
   }
 
   // ============================================================
-  // SEKSI 2: TOKEN — kadaluarsa ASLI dari claim `exp` JWT + verifikasi live
-  // ============================================================
-  const TOKEN_TTL_MS = 24 * 60 * 60 * 1000 // fallback kalau token bukan JWT / tanpa exp
-
-  function _renderTokenStatus() {
-    const dot   = document.getElementById('tokenDot')
-    const label = document.getElementById('tokenLabel')
-
-    if (!TOKEN.isSet()) {
-      dot.className = 'status-dot'
-      label.textContent = 'Token belum diisi'
-      return
-    }
-
-    const expMs = TOKEN.getExpiryMs() // waktu pasti dari dalam token, kalau JWT
-    let remaining
-    if (expMs !== null) {
-      remaining = expMs - Date.now()
-    } else {
-      const elapsed = TOKEN.elapsedMs()
-      remaining = elapsed !== null ? TOKEN_TTL_MS - elapsed : null
-    }
-    const sisaTxt = remaining !== null
-      ? (remaining > 0 ? `sisa ${_fmtDuration(remaining)}` : 'kadaluarsa')
-      : ''
-
-    // Sudah pasti kadaluarsa dari claim exp — tidak perlu tunggu API call
-    if (remaining !== null && remaining <= 0) {
-      dot.className = 'status-dot down'
-      label.textContent = 'Token expired'
-      return
-    }
-
-    dot.className = 'status-dot wait'
-    label.textContent = sisaTxt ? `Memeriksa · ${sisaTxt}` : 'Memeriksa...'
-
-    // Verifikasi real — panggil endpoint ringan, lihat apakah token masih diterima
-    fetchMarketStatus().then(() => {
-      dot.className = 'status-dot live'
-      label.textContent = sisaTxt ? `Token · ${sisaTxt}` : 'Token aktif'
-    }).catch(e => {
-      if (e.code === 'TOKEN_EXPIRED') {
-        dot.className = 'status-dot down'
-        label.textContent = 'Token expired'
-      } else {
-        dot.className = 'status-dot wait'
-        label.textContent = sisaTxt || 'Status tidak diketahui'
-      }
-    })
-  }
-
-  function _fmtDuration(ms) {
-    const totalMin = Math.floor(ms / 60000)
-    const h = Math.floor(totalMin / 60)
-    const m = totalMin % 60
-    return h > 0 ? `${h}j ${m}m` : `${m}m`
-  }
-
-  function _startTokenStatusLoop() {
-    setInterval(_renderTokenStatus, 60_000) // cek ulang tiap menit
-  }
-
-  function _bindToken() {
-    document.getElementById('tokenStatus').addEventListener('click', e => {
-      e.stopPropagation()
-      document.getElementById('tokenPopover').classList.toggle('hidden')
-    })
-    document.getElementById('tokenSave').addEventListener('click', () => {
-      const v = document.getElementById('tokenInput').value.trim()
-      if (!v) return
-      TOKEN.set(v)
-      _renderTokenStatus()
-      document.getElementById('tokenPopover').classList.add('hidden')
-      if (!DB.sym) { document.getElementById('sym-input').value = 'IHSG'; _loadSym() }
-    })
-  }
-
-  // ============================================================
   // SEKSI 3: DROPDOWN INDICATORS — buka/tutup, klik luar menutup
   // ============================================================
   function _bindDropdowns() {
@@ -341,8 +242,6 @@
     btn.addEventListener('click', e => { e.stopPropagation(); panel.classList.toggle('hidden') })
     document.addEventListener('click', e => {
       if (!panel.contains(e.target) && e.target !== btn) panel.classList.add('hidden')
-      const tp = document.getElementById('tokenPopover')
-      if (!tp.contains(e.target) && !document.getElementById('tokenStatus').contains(e.target)) tp.classList.add('hidden')
     })
   }
 
@@ -440,7 +339,7 @@
     const sym = document.getElementById('sym-input').value.trim().toUpperCase()
     const status = document.getElementById('status')
     if (!sym) return
-    if (!TOKEN.isSet()) { document.getElementById('tokenPopover').classList.remove('hidden'); return }
+    if (!TOKEN.isSet()) { openTokenPopover(); return }
 
     _loading = true
     status.textContent = 'Memuat...'
@@ -455,7 +354,7 @@
       _rebuildChart()
     } catch (e) {
       status.textContent = e.code === 'TOKEN_EXPIRED' ? 'Token expired' : 'Error: ' + e.message
-      if (e.code === 'TOKEN_EXPIRED') { TOKEN.clear(); _renderTokenStatus() }
+      if (e.code === 'TOKEN_EXPIRED') { TOKEN.clear(); refreshTokenStatus() }
     } finally {
       _loading = false
     }

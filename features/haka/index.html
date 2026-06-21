@@ -12,15 +12,6 @@
        ========================================================= */
     .page { max-width: 1100px; }
 
-    .token-bar {
-      padding: 10px 0; border-bottom: 1px solid var(--line);
-      display: flex; align-items: center; gap: 8px;
-    }
-    .token-bar-label {
-      font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.12em;
-      text-transform: uppercase; color: var(--down); white-space: nowrap;
-    }
-
     .tabs { display: flex; border-bottom: 1px solid var(--line); padding-top: 4px; }
     .tab-btn {
       font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
@@ -71,20 +62,7 @@
 
 <div class="page">
 
-  <header class="app-header">
-    <div class="app-header-left">
-      <a class="back-link" href="../../index.html">← Suite</a>
-      <div class="header-divider"></div>
-      <span class="app-name">HAKA & HAKI</span>
-    </div>
-    <div class="app-clock" id="clock">––:––:––</div>
-  </header>
-
-  <div class="token-bar hidden" id="tokenBar">
-    <span class="token-bar-label">Token belum diisi</span>
-    <input type="password" class="input" id="tokenInput" placeholder="Bearer token Stockbit..." style="flex:1; max-width:320px;">
-    <button class="btn btn-primary btn-sm" id="tokenSave">Simpan</button>
-  </div>
+  <header class="app-header" id="app-header"></header>
 
   <nav class="tabs">
     <button class="tab-btn active" data-tab="haka">HAKA — Alert Entry</button>
@@ -182,6 +160,7 @@
 
 <script type="module">
   import { TOKEN } from '../../shared/store.js'
+  import { renderHeader, refreshTokenStatus } from '../../shared/header.js'
   import { createMonitor } from './poll.js'
   import {
     DB, loadAll,
@@ -203,14 +182,16 @@
   // SEKSI 2: INIT
   // ============================================================
   async function init() {
-    _renderTokenBar()
-    _bindTokenInput()
+    renderHeader(document.getElementById('app-header'), [
+      { label: 'IHSG Suite', href: '../../index.html' },
+      { label: 'HAKA & HAKI' }
+    ])
+
     _bindTabs()
     _bindWatchlistInputs()
     _bindNamedListControls()
     _bindThresholdPills()
     _bindMonitorButtons()
-    _startClock()
 
     hakaMonitor.init({
       onAlert:    (a) => { alertAdd(a); _renderAlerts('haka') },
@@ -227,21 +208,6 @@
     _renderNamedSelect('haka')
     _renderNamedSelect('hakahaki')
     _renderThresholdPills()
-  }
-
-  // ============================================================
-  // SEKSI 3: TOKEN
-  // ============================================================
-  function _renderTokenBar() {
-    document.getElementById('tokenBar').classList.toggle('hidden', TOKEN.isSet())
-  }
-  function _bindTokenInput() {
-    document.getElementById('tokenSave').addEventListener('click', () => {
-      const v = document.getElementById('tokenInput').value.trim()
-      if (!v) return
-      TOKEN.set(v)
-      _renderTokenBar()
-    })
   }
 
   // ============================================================
@@ -433,7 +399,7 @@
   function handleError(e) {
     if (e.code === 'TOKEN_EXPIRED' || e.code === 'TOKEN_NOT_SET') {
       if (e.code === 'TOKEN_EXPIRED') TOKEN.clear()
-      _renderTokenBar()
+      refreshTokenStatus()
       _renderMonitorStatus('haka', false)
       _renderMonitorStatus('hakahaki', false)
     }
@@ -449,15 +415,6 @@
     return new Intl.NumberFormat('id-ID').format(Math.round(v))
   }
   function _fmtNum(v) { return new Intl.NumberFormat('id-ID').format(Math.round(v)) }
-
-  function _startClock() {
-    const el = document.getElementById('clock')
-    function tick() {
-      el.textContent = new Date().toLocaleTimeString('id-ID',
-        { timeZone:'Asia/Jakarta', hour:'2-digit', minute:'2-digit', second:'2-digit' }) + ' WIB'
-    }
-    tick(); setInterval(tick, 1000)
-  }
 
   init()
   window._haka = { DB, hakaMonitor, hakahakiMonitor }
