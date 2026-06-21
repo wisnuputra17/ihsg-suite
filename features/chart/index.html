@@ -74,7 +74,48 @@
     .ma-add-row { display: flex; gap: 6px; align-items: center; padding: 4px 0; }
     .ma-add-row .num-input { width: 60px; }
     .ma-chip-row { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 0 6px; }
-    .ma-chip-row .chip { font-size: 10px; padding: 2px 6px 2px 8px; }
+    .ma-chip-row .chip { font-size: 10px; padding: 2px 4px 2px 8px; }
+    .ma-chip-gear { background: none; border: none; color: inherit; opacity: 0.6; cursor: pointer; font-size: 10px; padding: 0 2px; }
+    .ma-chip-gear:hover { opacity: 1; }
+
+    .ind-gear {
+      background: none; border: none; color: var(--ghost); cursor: pointer;
+      font-size: 12px; padding: 2px 4px; opacity: 0.7; transition: opacity var(--ease);
+    }
+    .ind-gear:hover { opacity: 1; color: var(--phosphor); }
+
+    /* ── Modal setting indikator ── */
+    .ind-settings-overlay {
+      position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,0.6);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .ind-settings-modal {
+      background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+      width: 320px; max-width: 90vw;
+    }
+    .ind-settings-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 16px; border-bottom: 1px solid var(--line);
+      font-family: var(--f-mono); font-size: 13px; color: var(--paper); font-weight: 500;
+    }
+    .ind-settings-header button {
+      background: none; border: none; color: var(--ghost); font-size: 16px; cursor: pointer;
+    }
+    .ind-settings-header button:hover { color: var(--paper); }
+    .ind-settings-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+    .ind-settings-field { display: flex; flex-direction: column; gap: 4px; }
+    .ind-settings-field label {
+      font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ghost);
+    }
+    .ind-settings-field select, .ind-settings-field input {
+      background: #0f0e0c; border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 7px 10px; font-family: var(--f-mono); font-size: 12px; color: var(--paper); outline: none;
+    }
+    .ind-settings-field input[type=color] { padding: 3px; height: 32px; cursor: pointer; }
+    .ind-settings-footer {
+      display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px;
+      border-top: 1px solid var(--line);
+    }
     .mode-select {
       background: #0f0e0c; border: 1px solid var(--line); border-radius: var(--radius);
       padding: 3px 5px; font-family: var(--f-mono); font-size: 10px; color: var(--paper); outline: none;
@@ -170,13 +211,15 @@
 
         <div class="dropdown-row">
           <input type="checkbox" id="ind-ema"><label for="ind-ema">EMA</label>
-          <input type="number" class="input num-input" id="ema-period" value="20" min="2" max="500">
+          <button class="ind-gear" data-settings="ema" title="Setting">⚙</button>
         </div>
         <div class="dropdown-row">
           <input type="checkbox" id="ind-bollinger"><label for="ind-bollinger">Bollinger Bands</label>
+          <button class="ind-gear" data-settings="bollinger" title="Setting">⚙</button>
         </div>
         <div class="dropdown-row">
           <input type="checkbox" id="ind-supertrend"><label for="ind-supertrend">Supertrend</label>
+          <button class="ind-gear" data-settings="supertrend" title="Setting">⚙</button>
         </div>
         <div class="dropdown-row">
           <input type="checkbox" id="ind-lpm-overlay"><label for="ind-lpm-overlay">LPM (Garis %, overlay)</label>
@@ -189,12 +232,15 @@
         </div>
         <div class="dropdown-row">
           <input type="checkbox" id="ind-rsi"><label for="ind-rsi">RSI</label>
+          <button class="ind-gear" data-settings="rsi" title="Setting">⚙</button>
         </div>
         <div class="dropdown-row">
           <input type="checkbox" id="ind-macd"><label for="ind-macd">MACD</label>
+          <button class="ind-gear" data-settings="macd" title="Setting">⚙</button>
         </div>
         <div class="dropdown-row">
           <input type="checkbox" id="ind-atr"><label for="ind-atr">ATR</label>
+          <button class="ind-gear" data-settings="atr" title="Setting">⚙</button>
         </div>
         <div class="dropdown-row">
           <input type="checkbox" id="ind-lpm"><label for="ind-lpm">LPM (Bar, panel)</label>
@@ -204,6 +250,22 @@
 
     <span class="lpm-status" id="lpm-status"></span>
     <span id="status" style="font-family:var(--f-mono); font-size:10px; color:var(--ghost); margin-left:4px;"></span>
+  </div>
+
+  <!-- MODAL SETTING INDIKATOR — gaya TradingView (Length/Source/dst), 1 panel
+       (tanpa tab Style/Visibility — discoped untuk fokus ke parameter inti) -->
+  <div class="ind-settings-overlay hidden" id="ind-settings-overlay">
+    <div class="ind-settings-modal">
+      <div class="ind-settings-header">
+        <span id="ind-settings-title">Setting</span>
+        <button id="ind-settings-close">×</button>
+      </div>
+      <div class="ind-settings-body" id="ind-settings-body"></div>
+      <div class="ind-settings-footer">
+        <button class="btn btn-sm" id="ind-settings-cancel">Batal</button>
+        <button class="btn btn-primary btn-sm" id="ind-settings-ok">OK</button>
+      </div>
+    </div>
   </div>
 
   <div class="chart-wrap">
@@ -242,12 +304,57 @@
 
   // MA multi-periode — beda dari ACTIVE karena bisa lebih dari 1 sekaligus
   const MA_COLORS = ['#ece7de', '#60a5fa', '#4ade80', '#d98e2b', '#f0635c', '#a78bfa', '#fb923c', '#34d399']
-  let _maPeriods = []      // [5, 10, 20, ...] urut menaik
-  const _maSeries = {}     // {period: {series, color}}
+  let _maPeriods = []            // [5, 10, 20, ...] urut menaik
+  const _maSeries = {}           // {period: {series, values}} — dibangun ulang tiap rebuild chart
+  const _maPeriodSettings = {}   // {period: {source, color}} — PERSIST lintas ganti saham (beda dari _maSeries)
 
   // LPM — data fetch dibagi (cache bersama), tapi render terpisah: bar (panel) & overlay (garis %)
   let _lpmBarSeries     = null
   let _lpmOverlaySeries = null
+
+  // ============================================================
+  // SETTING INDIKATOR — Length/Source/dst, gaya TradingView (1 panel,
+  // tanpa tab Style/Visibility — discoped fokus ke parameter inti)
+  // ============================================================
+  const _indSettings = {
+    ema:        { length: 20, source: 'close' },
+    bollinger:  { length: 20, stddev: 2, source: 'close' },
+    supertrend: { atrLength: 10, multiplier: 3 },
+    rsi:        { length: 14 },
+    macd:       { fast: 12, slow: 26, signal: 9 },
+    atr:        { length: 14 }
+  }
+
+  const SOURCE_OPTIONS = [
+    ['close', 'Close'], ['open', 'Open'], ['high', 'High'], ['low', 'Low'],
+    ['hl2', 'HL2'], ['hlc3', 'HLC3'], ['ohlc4', 'OHLC4']
+  ]
+
+  const SETTINGS_FIELDS = {
+    ma:         [{ key: 'source', label: 'Source', type: 'select', options: SOURCE_OPTIONS }, { key: 'color', label: 'Warna', type: 'color' }],
+    ema:        [{ key: 'length', label: 'Length', type: 'number' }, { key: 'source', label: 'Source', type: 'select', options: SOURCE_OPTIONS }],
+    bollinger:  [{ key: 'length', label: 'Length', type: 'number' }, { key: 'stddev', label: 'StdDev', type: 'number', step: '0.1' }, { key: 'source', label: 'Source', type: 'select', options: SOURCE_OPTIONS }],
+    supertrend: [{ key: 'atrLength', label: 'ATR Length', type: 'number' }, { key: 'multiplier', label: 'Multiplier', type: 'number', step: '0.1' }],
+    rsi:        [{ key: 'length', label: 'Length', type: 'number' }],
+    macd:       [{ key: 'fast', label: 'Fast', type: 'number' }, { key: 'slow', label: 'Slow', type: 'number' }, { key: 'signal', label: 'Signal', type: 'number' }],
+    atr:        [{ key: 'length', label: 'Length', type: 'number' }]
+  }
+  const SETTINGS_LABELS = { ma: 'Moving Average', ema: 'EMA', bollinger: 'Bollinger Bands', supertrend: 'Supertrend', rsi: 'RSI', macd: 'MACD', atr: 'ATR' }
+
+  let _settingsTarget = null // {type, period?} — period hanya relevan utk type='ma'
+
+  /** Ambil array harga sesuai source terpilih (close/open/high/low/hl2/hlc3/ohlc4). */
+  function _sourceArray(days, source) {
+    switch (source) {
+      case 'open':  return days.map(d => d.open)
+      case 'high':  return days.map(d => d.high)
+      case 'low':   return days.map(d => d.low)
+      case 'hl2':   return days.map(d => (d.high + d.low) / 2)
+      case 'hlc3':  return days.map(d => (d.high + d.low + d.close) / 3)
+      case 'ohlc4': return days.map(d => (d.open + d.high + d.low + d.close) / 4)
+      default:      return days.map(d => d.close)
+    }
+  }
 
   // Drawing tools state
   let _drawMode = 'cursor'         // 'cursor' | 'trendline'
@@ -268,6 +375,7 @@
     })
 
     _bindDropdowns()
+    _bindSettingsModal()
     _bindControls()
     _bindSymSearch()
     _bindDrawToolbar()
@@ -296,8 +404,11 @@
 
   function _applyPrefs(p) {
     if (Array.isArray(p.maPeriods)) _maPeriods = [...p.maPeriods].sort((a, b) => a - b)
+    if (p.maPeriodSettings) Object.assign(_maPeriodSettings, p.maPeriodSettings)
+    if (p.indSettings) {
+      Object.keys(p.indSettings).forEach(k => { if (_indSettings[k]) Object.assign(_indSettings[k], p.indSettings[k]) })
+    }
     if (p.ema)         document.getElementById('ind-ema').checked = true
-    if (p.emaPeriod)   document.getElementById('ema-period').value = p.emaPeriod
     if (p.bollinger)   document.getElementById('ind-bollinger').checked = true
     if (p.supertrend)  document.getElementById('ind-supertrend').checked = true
     if (p.lpmOverlay)  document.getElementById('ind-lpm-overlay').checked = true
@@ -311,8 +422,9 @@
   function _savePrefsNow() {
     savePrefs({
       maPeriods: _maPeriods,
+      maPeriodSettings: _maPeriodSettings,
+      indSettings: _indSettings,
       ema: document.getElementById('ind-ema').checked,
-      emaPeriod: document.getElementById('ema-period').value,
       bollinger: document.getElementById('ind-bollinger').checked,
       supertrend: document.getElementById('ind-supertrend').checked,
       lpmOverlay: document.getElementById('ind-lpm-overlay').checked,
@@ -334,6 +446,77 @@
     document.addEventListener('click', e => {
       if (!panel.contains(e.target) && e.target !== btn) panel.classList.add('hidden')
     })
+  }
+
+  // ============================================================
+  // SEKSI 3c: MODAL SETTING INDIKATOR
+  // ============================================================
+  function _bindSettingsModal() {
+    document.querySelectorAll('.ind-gear[data-settings]').forEach(btn => {
+      btn.addEventListener('click', e => { e.stopPropagation(); _openSettings(btn.dataset.settings) })
+    })
+    document.getElementById('ind-settings-close').addEventListener('click', _closeSettings)
+    document.getElementById('ind-settings-cancel').addEventListener('click', _closeSettings)
+    document.getElementById('ind-settings-ok').addEventListener('click', _applySettings)
+    document.getElementById('ind-settings-overlay').addEventListener('click', e => {
+      if (e.target.id === 'ind-settings-overlay') _closeSettings()
+    })
+  }
+
+  /** Buka modal setting untuk 1 indikator. period hanya dipakai utk type='ma'. */
+  function _openSettings(type, period) {
+    _settingsTarget = { type, period }
+    const fields  = SETTINGS_FIELDS[type]
+    const current = type === 'ma' ? (_maPeriodSettings[period] || {}) : _indSettings[type]
+
+    document.getElementById('ind-settings-title').textContent =
+      type === 'ma' ? `Moving Average — MA${period}` : SETTINGS_LABELS[type]
+
+    document.getElementById('ind-settings-body').innerHTML = fields.map(f => {
+      const val = current[f.key] ?? ''
+      if (f.type === 'select') {
+        return `<div class="ind-settings-field"><label>${f.label}</label>
+          <select id="set-${f.key}">${f.options.map(([v, l]) => `<option value="${v}" ${v === val ? 'selected' : ''}>${l}</option>`).join('')}</select>
+        </div>`
+      }
+      if (f.type === 'color') {
+        return `<div class="ind-settings-field"><label>${f.label}</label><input type="color" id="set-${f.key}" value="${val || '#d98e2b'}"></div>`
+      }
+      return `<div class="ind-settings-field"><label>${f.label}</label><input type="number" id="set-${f.key}" value="${val}" step="${f.step || 1}"></div>`
+    }).join('')
+
+    document.getElementById('ind-settings-overlay').classList.remove('hidden')
+  }
+
+  function _closeSettings() {
+    document.getElementById('ind-settings-overlay').classList.add('hidden')
+    _settingsTarget = null
+  }
+
+  /** Terapkan setting dari modal — update state, simpan prefs, render ulang kalau sedang aktif. */
+  function _applySettings() {
+    if (!_settingsTarget) return
+    const { type, period } = _settingsTarget
+    const fields = SETTINGS_FIELDS[type]
+    const values = {}
+    fields.forEach(f => {
+      const el = document.getElementById(`set-${f.key}`)
+      values[f.key] = f.type === 'number' ? parseFloat(el.value) : el.value
+    })
+
+    if (type === 'ma') {
+      _maPeriodSettings[period] = { ..._maPeriodSettings[period], ...values }
+      _savePrefsNow()
+      _closeSettings()
+      if (_maSeries[period]) { try { chart.removeSeries(_maSeries[period].series) } catch (_) {} delete _maSeries[period] }
+      if (DB.daily.length) _createMaSeries(period)
+      _renderMaChips()
+    } else {
+      Object.assign(_indSettings[type], values)
+      _savePrefsNow()
+      _closeSettings()
+      if (ACTIVE[type]) { _removeIndicator(type); _addIndicator(type) }
+    }
   }
 
   // ============================================================
@@ -409,10 +592,6 @@
     })
 
     document.getElementById('ind-ema').addEventListener('change', e => _toggleIndicator('ema', e.target.checked))
-    document.getElementById('ema-period').addEventListener('change', () => {
-      _savePrefsNow()
-      if (ACTIVE.ema) { _removeIndicator('ema'); _addIndicator('ema') }
-    })
     document.getElementById('ind-bollinger').addEventListener('change', e => _toggleIndicator('bollinger', e.target.checked))
     document.getElementById('ind-supertrend').addEventListener('change', e => _toggleIndicator('supertrend', e.target.checked))
     document.getElementById('ind-volume').addEventListener('change', e => _toggleIndicator('volume', e.target.checked))
@@ -436,10 +615,17 @@
   // SEKSI 4b: MA MULTI-PERIODE
   // ============================================================
 
+  function _maColorFor(period) {
+    if (_maPeriodSettings[period]?.color) return _maPeriodSettings[period].color
+    const idx = _maPeriods.indexOf(period)
+    return MA_COLORS[idx >= 0 ? idx % MA_COLORS.length : 0]
+  }
+
   function _addMA(period) {
     _maPeriods = _maPeriods.filter(p => p !== period)
     _maPeriods.push(period)
     _maPeriods.sort((a, b) => a - b)
+    if (!_maPeriodSettings[period]) _maPeriodSettings[period] = { source: 'close', color: _maColorFor(period) }
     _savePrefsNow()
     _renderMaChips()
     if (DB.daily.length) _createMaSeries(period)
@@ -447,6 +633,7 @@
 
   function _removeMA(period) {
     _maPeriods = _maPeriods.filter(p => p !== period)
+    delete _maPeriodSettings[period]
     const entry = _maSeries[period]
     if (entry) { try { chart.removeSeries(entry.series) } catch (_) {} delete _maSeries[period] }
     _savePrefsNow()
@@ -455,26 +642,31 @@
 
   function _createMaSeries(period) {
     if (_maSeries[period] || !chart) return
-    const closes = DB.daily.map(d => d.close)
-    const ma     = calcSMA(closes, period)
-    const colorIdx = _maPeriods.indexOf(period)
-    const color  = MA_COLORS[colorIdx >= 0 ? colorIdx % MA_COLORS.length : 0]
+    const settings = _maPeriodSettings[period] || { source: 'close', color: _maColorFor(period) }
+    const src = _sourceArray(DB.daily, settings.source)
+    const ma  = calcSMA(src, period)
     const s = chart.addSeries(LightweightCharts.LineSeries, {
-      color, lineWidth: 1.5, priceLineVisible: true, lastValueVisible: true, title: 'MA' + period
+      color: settings.color, lineWidth: 1.5, priceLineVisible: true, lastValueVisible: true, title: 'MA' + period
     })
     s.setData(_align(DB.daily, ma))
-    _maSeries[period] = { series: s, color, values: ma }
+    _maSeries[period] = { series: s, values: ma }
     _renderMaChips()
   }
 
   function _renderMaChips() {
     const row = document.getElementById('ma-chip-row')
     row.innerHTML = _maPeriods.map(p => {
-      const color = _maSeries[p]?.color || '#666'
-      return `<span class="chip" style="border-color:${color}66; color:${color}">MA${p}<button class="chip-remove" data-period="${p}">×</button></span>`
+      const color = _maColorFor(p)
+      return `<span class="chip" style="border-color:${color}66; color:${color}">MA${p}
+        <button class="ma-chip-gear" data-period="${p}" title="Setting">⚙</button>
+        <button class="chip-remove" data-period="${p}">×</button>
+      </span>`
     }).join('')
     row.querySelectorAll('.chip-remove').forEach(btn => {
       btn.addEventListener('click', () => _removeMA(parseInt(btn.dataset.period)))
+    })
+    row.querySelectorAll('.ma-chip-gear').forEach(btn => {
+      btn.addEventListener('click', e => { e.stopPropagation(); _openSettings('ma', parseInt(btn.dataset.period)) })
     })
   }
 
@@ -593,24 +785,28 @@
     const closes = days.map(d => d.close)
 
     if (key === 'ema') {
-      const period = parseInt(document.getElementById('ema-period').value) || 20
-      const ema = calcEMA(closes, period)
-      const s = chart.addSeries(LightweightCharts.LineSeries, { color: '#60a5fa', lineWidth: 1.5, priceLineVisible: true, lastValueVisible: true, title: 'EMA' + period })
+      const { length, source } = _indSettings.ema
+      const src = _sourceArray(days, source)
+      const ema = calcEMA(src, length)
+      const s = chart.addSeries(LightweightCharts.LineSeries, { color: '#60a5fa', lineWidth: 1.5, priceLineVisible: true, lastValueVisible: true, title: 'EMA' + length })
       s.setData(_align(days, ema))
-      ACTIVE.ema = { series: [s], overlay: true, legend: idx => [{ label: 'EMA' + period, color: '#60a5fa', value: ema[idx], fmt: 'price' }] }
+      ACTIVE.ema = { series: [s], overlay: true, legend: idx => [{ label: 'EMA' + length, color: '#60a5fa', value: ema[idx], fmt: 'price' }] }
     }
 
     else if (key === 'bollinger') {
-      const { upper, middle, lower } = calcBollinger(closes, 20, 2)
+      const { length, stddev, source } = _indSettings.bollinger
+      const src = _sourceArray(days, source)
+      const { upper, middle, lower } = calcBollinger(src, length, stddev)
       const mid = chart.addSeries(LightweightCharts.LineSeries, { color: 'rgba(217,142,43,0.8)', lineWidth: 1, priceLineVisible: true, lastValueVisible: true, title: 'BB' })
       const up  = chart.addSeries(LightweightCharts.LineSeries, { color: 'rgba(217,142,43,0.4)', lineWidth: 1, priceLineVisible: false, lastValueVisible: false })
       const lo  = chart.addSeries(LightweightCharts.LineSeries, { color: 'rgba(217,142,43,0.4)', lineWidth: 1, priceLineVisible: false, lastValueVisible: false })
       mid.setData(_align(days, middle)); up.setData(_align(days, upper)); lo.setData(_align(days, lower))
-      ACTIVE.bollinger = { series: [mid, up, lo], overlay: true, legend: idx => [{ label: 'BB(20,2)', color: 'rgba(217,142,43,0.8)', value: middle[idx], fmt: 'price' }] }
+      ACTIVE.bollinger = { series: [mid, up, lo], overlay: true, legend: idx => [{ label: `BB(${length},${stddev})`, color: 'rgba(217,142,43,0.8)', value: middle[idx], fmt: 'price' }] }
     }
 
     else if (key === 'supertrend') {
-      const { value, direction } = calcSupertrend(days, 10, 3)
+      const { atrLength, multiplier } = _indSettings.supertrend
+      const { value, direction } = calcSupertrend(days, atrLength, multiplier)
       // 2 series terpisah (naik/turun) supaya warna beda per arah — gap di mana tidak relevan
       const upPts = days.map((d, i) => direction[i] === 'up'   ? { time: d.date, value: value[i] } : null).filter(Boolean)
       const dnPts = days.map((d, i) => direction[i] === 'down' ? { time: d.date, value: value[i] } : null).filter(Boolean)
@@ -628,33 +824,36 @@
     }
 
     else if (key === 'rsi') {
+      const { length } = _indSettings.rsi
       const pIdx = _paneIndexFor('rsi')
-      const rsi = calcRSI(closes, 14)
+      const rsi = calcRSI(closes, length)
       const s = chart.addSeries(LightweightCharts.LineSeries, { color: '#ece7de', lineWidth: 1.5, priceLineVisible: true, lastValueVisible: true, title: 'RSI' }, pIdx)
       s.setData(_align(days, rsi))
-      ACTIVE.rsi = { series: [s], overlay: false, legend: idx => [{ label: 'RSI(14)', color: '#ece7de', value: rsi[idx], fmt: 'num1' }] }
+      ACTIVE.rsi = { series: [s], overlay: false, legend: idx => [{ label: `RSI(${length})`, color: '#ece7de', value: rsi[idx], fmt: 'num1' }] }
     }
 
     else if (key === 'macd') {
+      const { fast, slow, signal } = _indSettings.macd
       const pIdx = _paneIndexFor('macd')
-      const { macd, signal, hist } = calcMACD(closes)
+      const { macd, signal: sig, hist } = calcMACD(closes, fast, slow, signal)
       const macdLine = chart.addSeries(LightweightCharts.LineSeries, { color: '#60a5fa', lineWidth: 1, priceLineVisible: true, lastValueVisible: true, title: 'MACD' }, pIdx)
       const sigLine  = chart.addSeries(LightweightCharts.LineSeries, { color: '#d98e2b', lineWidth: 1, priceLineVisible: true, lastValueVisible: true }, pIdx)
       const histS    = chart.addSeries(LightweightCharts.HistogramSeries, { priceLineVisible: false, lastValueVisible: false }, pIdx)
-      macdLine.setData(_align(days, macd)); sigLine.setData(_align(days, signal))
+      macdLine.setData(_align(days, macd)); sigLine.setData(_align(days, sig))
       histS.setData(days.map((d, i) => hist[i] !== null ? { time: d.date, value: hist[i], color: hist[i] >= 0 ? 'rgba(74,222,128,0.5)' : 'rgba(240,99,92,0.5)' } : null).filter(Boolean))
       ACTIVE.macd = { series: [macdLine, sigLine, histS], overlay: false, legend: idx => [
         { label: 'MACD', color: '#60a5fa', value: macd[idx], fmt: 'price2' },
-        { label: 'Signal', color: '#d98e2b', value: signal[idx], fmt: 'price2' }
+        { label: 'Signal', color: '#d98e2b', value: sig[idx], fmt: 'price2' }
       ]}
     }
 
     else if (key === 'atr') {
+      const { length } = _indSettings.atr
       const pIdx = _paneIndexFor('atr')
-      const atr = calcATR(days, 14)
+      const atr = calcATR(days, length)
       const s = chart.addSeries(LightweightCharts.LineSeries, { color: '#a78bfa', lineWidth: 1.5, priceLineVisible: true, lastValueVisible: true, title: 'ATR' }, pIdx)
       s.setData(_align(days, atr))
-      ACTIVE.atr = { series: [s], overlay: false, legend: idx => [{ label: 'ATR(14)', color: '#a78bfa', value: atr[idx], fmt: 'price2' }] }
+      ACTIVE.atr = { series: [s], overlay: false, legend: idx => [{ label: `ATR(${length})`, color: '#a78bfa', value: atr[idx], fmt: 'price2' }] }
     }
 
     _layoutPanes()
@@ -1039,7 +1238,7 @@
     _maPeriods.forEach(p => {
       const entry = _maSeries[p]
       if (!entry) return
-      rows.push({ label: 'MA' + p, color: entry.color, value: entry.values[idx], fmt: 'price' })
+      rows.push({ label: 'MA' + p, color: _maColorFor(p), value: entry.values[idx], fmt: 'price' })
     })
 
     // Indikator single-instance (EMA, Bollinger, Supertrend, Volume, RSI, MACD, ATR)
