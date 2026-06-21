@@ -625,7 +625,8 @@
   /** Buat 1 series LineSeries 2-titik untuk 1 drawing, simpan referensinya. */
   function _createLineSeriesFor(d) {
     const s = chart.addSeries(LightweightCharts.LineSeries, {
-      color: '#d98e2b', lineWidth: 1.5, priceLineVisible: false, lastValueVisible: false
+      color: '#d98e2b', lineWidth: 1.5, priceLineVisible: false, lastValueVisible: false,
+      autoscaleInfoProvider: () => null // garis trend tidak pernah pengaruhi skala harga
     })
     // Urutkan titik berdasarkan waktu — LineSeries butuh data terurut menaik
     const pts = d.t1 <= d.t2
@@ -661,7 +662,8 @@
         // Buat garis preview (putus-putus) — akan diupdate tiap mouse bergerak
         _previewSeries = chart.addSeries(LightweightCharts.LineSeries, {
           color: '#d98e2b', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed,
-          priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false
+          priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+          autoscaleInfoProvider: () => null // jangan pernah pengaruhi skala harga — cegah lag & lompat skala
         })
         _previewSeries.setData([{ time: param.time, value: price }])
         return
