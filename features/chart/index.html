@@ -24,6 +24,7 @@
     }
 
     .sym-search {
+      position: relative;
       display: flex; align-items: center; gap: 6px;
       background: #0f0e0c; border: 1px solid var(--line); border-radius: var(--radius);
       padding: 6px 10px; min-width: 140px;
@@ -34,6 +35,21 @@
       font-family: var(--f-mono); font-size: 12px; color: var(--paper); text-transform: uppercase;
     }
     .sym-search input::placeholder { color: var(--ghost); text-transform: none; }
+
+    .sym-dropdown {
+      position: absolute; top: calc(100% + 4px); left: 0; z-index: 30;
+      background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+      width: 260px; max-height: 280px; overflow-y: auto;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+    .sym-option {
+      display: flex; align-items: baseline; gap: 8px; padding: 7px 10px;
+      cursor: pointer; transition: background 120ms ease;
+    }
+    .sym-option:hover, .sym-option.is-active { background: var(--panel-hi); }
+    .sym-option-code { font-family: var(--f-mono); font-size: 12px; color: var(--paper); flex-shrink: 0; }
+    .sym-option-name { font-size: 11px; color: var(--ghost); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sym-dropdown-empty { padding: 10px; font-family: var(--f-mono); font-size: 11px; color: var(--ghost); }
 
     .dropdown-wrap { position: relative; }
     .dropdown-panel {
@@ -124,7 +140,8 @@
   <div class="chart-toolbar">
     <div class="sym-search">
       <span class="sym-search-icon">⌕</span>
-      <input type="text" id="sym-input" placeholder="cari saham..." maxlength="10">
+      <input type="text" id="sym-input" placeholder="cari saham..." maxlength="10" autocomplete="off">
+      <div class="sym-dropdown hidden" id="sym-dropdown"></div>
     </div>
 
     <div class="dropdown-wrap">
@@ -169,8 +186,8 @@
 </div>
 
 <script type="module">
-  import { TOKEN }            from '../../shared/store.js'
-  import { fetchDaily, fetchAbsorption, fetchMarketStatus } from '../../shared/api.js'
+  import { TOKEN, EMITEN_INFO, has, setEmitenInfo } from '../../shared/store.js'
+  import { fetchDaily, fetchAbsorption, fetchMarketStatus, fetchEmitenJson } from '../../shared/api.js'
   import { calcSMA, calcRSI, calcMACD, calcBollinger } from '../../shared/indicators.js'
   import { DB, savePrefs, loadPrefs } from './db.js'
 
@@ -190,14 +207,26 @@
     _bindToken()
     _bindDropdowns()
     _bindControls()
+    _bindSymSearch()
     _startTokenStatusLoop()
     _applyPrefs(loadPrefs())
     window.addEventListener('resize', () => _layoutPanes())
+    _loadEmitenInfo()
 
     // Tampilkan IHSG sebagai default, supaya chart tidak kosong sebelum pilih saham
     if (TOKEN.isSet()) {
       document.getElementById('sym-input').value = 'IHSG'
       _loadSym()
+    }
+  }
+
+  async function _loadEmitenInfo() {
+    if (has.emitenInfo()) return
+    try {
+      const raw = await fetchEmitenJson()
+      setEmitenInfo(raw)
+    } catch (e) {
+      console.warn('[chart] gagal load emiten.json:', e.message)
     }
   }
 
@@ -226,8 +255,10 @@
   }
 
   // ============================================================
-  // SEKSI 2: TOKEN — status durasi + verifikasi real ke API
+  // SEKSI 2: TOKEN — hitung mundur kadaluarsa + verifikasi real ke API
   // ============================================================
+  const TOKEN_TTL_MS = 24 * 60 * 60 * 1000 // estimasi 24 jam (Stockbit tidak publikasikan TTL pasti)
+
   function _renderTokenStatus() {
     const dot   = document.getElementById('tokenDot')
     const label = document.getElementById('tokenLabel')
@@ -238,22 +269,26 @@
       return
     }
 
-    const ms = TOKEN.elapsedMs()
-    const durasi = ms !== null ? _fmtDuration(ms) : ''
+    const elapsed   = TOKEN.elapsedMs()
+    const remaining = elapsed !== null ? TOKEN_TTL_MS - elapsed : null
+    const sisaTxt   = remaining !== null
+      ? (remaining > 0 ? `sisa ~${_fmtDuration(remaining)}` : 'kemungkinan expired')
+      : ''
+
     dot.className = 'status-dot wait'
-    label.textContent = durasi ? `Memeriksa · ${durasi}` : 'Memeriksa...'
+    label.textContent = sisaTxt ? `Memeriksa · ${sisaTxt}` : 'Memeriksa...'
 
     // Verifikasi real — panggil endpoint ringan, lihat apakah token masih diterima
     fetchMarketStatus().then(() => {
       dot.className = 'status-dot live'
-      label.textContent = durasi ? `Token aktif · ${durasi}` : 'Token aktif'
+      label.textContent = sisaTxt ? `Token · ${sisaTxt}` : 'Token aktif'
     }).catch(e => {
       if (e.code === 'TOKEN_EXPIRED') {
         dot.className = 'status-dot down'
         label.textContent = 'Token expired'
       } else {
         dot.className = 'status-dot wait'
-        label.textContent = durasi ? `Token · ${durasi}` : 'Status tidak diketahui'
+        label.textContent = sisaTxt || 'Status tidak diketahui'
       }
     })
   }
@@ -299,11 +334,66 @@
   }
 
   // ============================================================
+  // SEKSI 3b: SEARCH SAHAM — dropdown saran, scrollable, tetap bisa mengetik
+  // ============================================================
+  function _bindSymSearch() {
+    const input    = document.getElementById('sym-input')
+    const dropdown = document.getElementById('sym-dropdown')
+
+    input.addEventListener('input', () => _renderSymDropdown(input.value.trim()))
+    input.addEventListener('focus', () => { if (input.value.trim()) _renderSymDropdown(input.value.trim()) })
+
+    document.addEventListener('click', e => {
+      if (!dropdown.contains(e.target) && e.target !== input) dropdown.classList.add('hidden')
+    })
+  }
+
+  function _renderSymDropdown(query) {
+    const dropdown = document.getElementById('sym-dropdown')
+    if (!query) { dropdown.classList.add('hidden'); return }
+
+    const q = query.toUpperCase()
+    const all = Object.entries(EMITEN_INFO) // [code, {name, sector, ...}]
+
+    // Prioritas: kode yang AWALAN-nya cocok dulu, baru nama yang mengandung query
+    const codeMatches = all.filter(([code]) => code.startsWith(q))
+    const nameMatches  = all.filter(([code, info]) =>
+      !code.startsWith(q) && info.name && info.name.toUpperCase().includes(q)
+    )
+    const results = [...codeMatches, ...nameMatches].slice(0, 30)
+
+    if (!results.length) {
+      dropdown.innerHTML = `<div class="sym-dropdown-empty">Tidak ditemukan</div>`
+      dropdown.classList.remove('hidden')
+      return
+    }
+
+    dropdown.innerHTML = results.map(([code, info]) => `
+      <div class="sym-option" data-code="${code}">
+        <span class="sym-option-code">${code}</span>
+        <span class="sym-option-name">${info.name || ''}</span>
+      </div>
+    `).join('')
+    dropdown.classList.remove('hidden')
+
+    dropdown.querySelectorAll('.sym-option').forEach(el => {
+      el.addEventListener('click', () => {
+        document.getElementById('sym-input').value = el.dataset.code
+        dropdown.classList.add('hidden')
+        _loadSym()
+      })
+    })
+  }
+
+  // ============================================================
   // SEKSI 4: CONTROLS
   // ============================================================
   function _bindControls() {
     const symInput = document.getElementById('sym-input')
-    symInput.addEventListener('keydown', e => { if (e.key === 'Enter') _loadSym() })
+    symInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { document.getElementById('sym-dropdown').classList.add('hidden'); _loadSym() }
+      if (e.key === 'Escape') document.getElementById('sym-dropdown').classList.add('hidden')
+    })
 
     document.getElementById('ind-ma').addEventListener('change', e => _toggleIndicator('ma', e.target.checked))
     document.getElementById('ma-period').addEventListener('change', () => {
