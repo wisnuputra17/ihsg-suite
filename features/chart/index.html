@@ -88,7 +88,8 @@
     .draw-toolbar-sep { height: 1px; background: var(--line); margin: 2px 0; }
 
     /* ── Overlay canvas garis gambar — murni visual, klik diteruskan ke chart ── */
-    #draw-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 4; pointer-events: none; }
+    /* (canvas overlay manual sudah dihapus — trend line sekarang series chart native,
+       library urus reposisi otomatis saat pan/zoom, jauh lebih efisien) */
 
     .draw-delete-btn {
       position: absolute; z-index: 7; transform: translate(-50%, -50%);
@@ -186,7 +187,6 @@
     <div class="ohlc-bar" id="ohlc-bar"></div>
     <div class="chart-legend" id="chart-legend"></div>
     <div id="chart-main"></div>
-    <canvas id="draw-overlay"></canvas>
     <button class="draw-delete-btn" id="draw-delete-btn">×</button>
   </div>
 
@@ -209,10 +209,10 @@
   const PANE_ORDER = ['volume', 'rsi', 'macd', 'lpm']
 
   // Drawing tools state
-  let _drawMode = 'cursor'      // 'cursor' | 'trendline'
-  let _pendingPoint = null      // titik pertama saat menggambar trend line
-  let _selectedDrawingId = null // id drawing yang sedang dipilih (untuk tombol hapus)
-  let _overlayCtx = null
+  let _drawMode = 'cursor'         // 'cursor' | 'trendline'
+  let _pendingPoint = null         // titik pertama saat menggambar trend line
+  let _selectedDrawingId = null    // id drawing yang sedang dipilih (untuk tombol hapus)
+  const _drawingSeries = {}        // {drawingId: seriesObject} — referensi series native chart
 
   // ============================================================
   // SEKSI 1: INIT
@@ -231,9 +231,9 @@
     _bindSymSearch()
     _bindDrawToolbar()
     _applyPrefs(loadPrefs())
-    window.addEventListener('resize', () => { _layoutPanes(); _resizeOverlay(); _redrawDrawings() })
+    window.addEventListener('resize', () => { _layoutPanes(); _repositionDeleteBtn() })
     _loadEmitenInfo()
-    loadDrawings().then(_redrawDrawings)
+    loadDrawings().then(() => { if (DB.sym) _renderDrawingsForSym() })
 
     // Tampilkan IHSG sebagai default, supaya chart tidak kosong sebelum pilih saham
     if (TOKEN.isSet()) {
@@ -442,11 +442,15 @@
     // Klik chart → tempatkan titik trend line (mode 'trendline') atau pilih garis (mode 'cursor')
     chart.subscribeClick(param => _onChartClick(param))
 
-    // Pan/zoom → garis gambar harus ikut redraw posisinya
-    chart.timeScale().subscribeVisibleLogicalRangeChange(() => _redrawDrawings())
+    // Pan/zoom → garis trend sendiri otomatis ikut (series native chart, bukan canvas
+    // manual), HANYA tombol hapus (elemen HTML terpisah) yang perlu direposisi.
+    chart.timeScale().subscribeVisibleLogicalRangeChange(() => _repositionDeleteBtn())
 
-    _resizeOverlay()
-    _redrawDrawings()
+    // Render ulang trend line milik saham ini sebagai series native baru
+    Object.keys(_drawingSeries).forEach(k => delete _drawingSeries[k]) // chart lama sudah di-remove() di atas
+    _selectedDrawingId = null
+    _renderDrawingsForSym()
+
     _updateInfoAndLegend(days.length - 1)
   }
 
@@ -558,59 +562,66 @@
   // ============================================================
   // SEKSI 6b: DRAWING TOOLS — Trend Line
   // ============================================================
-  // Pendekatan: canvas overlay TERPISAH (murni visual, pointer-events:none),
-  // semua interaksi (klik utk taruh titik / pilih garis) lewat chart.subscribeClick()
-  // yang merupakan API standar & stabil — bukan lewat Primitives API yang lebih
-  // rapuh dan belum sempat ditest langsung ke browser nyata.
+  // Pendekatan (dipelajari dari implementasi lama yang sudah terbukti efisien):
+  // trend line = SERIES NATIVE chart (chart.addSeries(LineSeries) dengan 2 titik
+  // data), BUKAN canvas overlay yang digambar manual. Keuntungan: library urus
+  // reposisi/scaling otomatis saat pan/zoom — kita tidak perlu redraw apapun.
   //
-  // Koordinat disimpan sebagai {time, price} (bukan pixel) supaya garis tetap
-  // benar posisinya walau di-pan/zoom — dikonversi ke pixel ulang tiap redraw
-  // lewat timeToCoordinate()/priceToCoordinate().
+  // Hit-testing (klik untuk pilih garis) tetap pakai konversi koordinat manual
+  // (timeToCoordinate/priceToCoordinate) karena LineSeries 2-titik tidak punya
+  // data di tiap hari yang dilewati garisnya — jadi param.seriesData tidak bisa
+  // diandalkan untuk deteksi klik di sembarang titik sepanjang garis.
 
   function _bindDrawToolbar() {
     document.querySelectorAll('.draw-tool[data-tool]').forEach(btn => {
       btn.addEventListener('click', () => {
         _drawMode = btn.dataset.tool
         _pendingPoint = null
-        _selectedDrawingId = null
         document.querySelectorAll('.draw-tool[data-tool]').forEach(b => b.classList.toggle('active', b === btn))
-        _redrawDrawings()
       })
     })
 
     document.getElementById('draw-clear-all').addEventListener('click', () => {
       if (!DB.sym) return
       if (!confirm(`Hapus semua garis di ${DB.sym}?`)) return
-      DB.drawings.filter(d => d.sym === DB.sym).forEach(d => removeDrawing(d.id))
-      _selectedDrawingId = null
-      _redrawDrawings()
+      DB.drawings.filter(d => d.sym === DB.sym).forEach(d => _deleteDrawing(d.id))
     })
 
     document.getElementById('draw-delete-btn').addEventListener('click', () => {
-      if (!_selectedDrawingId) return
-      removeDrawing(_selectedDrawingId)
-      _selectedDrawingId = null
-      _redrawDrawings()
+      if (_selectedDrawingId) _deleteDrawing(_selectedDrawingId)
     })
   }
 
-  /** Samakan ukuran canvas overlay dengan #chart-main, termasuk devicePixelRatio supaya garis tidak buram. */
-  function _resizeOverlay() {
-    const canvas = document.getElementById('draw-overlay')
-    const rect   = document.getElementById('chart-main').getBoundingClientRect()
-    const dpr    = window.devicePixelRatio || 1
-    canvas.width  = Math.round(rect.width * dpr)
-    canvas.height = Math.round(rect.height * dpr)
-    canvas.style.width  = rect.width + 'px'
-    canvas.style.height = rect.height + 'px'
-    _overlayCtx = canvas.getContext('2d')
-    _overlayCtx.setTransform(dpr, 0, 0, dpr, 0, 0) // gambar pakai satuan CSS px setelah ini
+  /** Buat series native chart untuk semua drawing milik DB.sym saat ini. */
+  function _renderDrawingsForSym() {
+    DB.drawings.filter(d => d.sym === DB.sym).forEach(d => _createLineSeriesFor(d))
+  }
+
+  /** Buat 1 series LineSeries 2-titik untuk 1 drawing, simpan referensinya. */
+  function _createLineSeriesFor(d) {
+    const s = chart.addSeries(LightweightCharts.LineSeries, {
+      color: '#d98e2b', lineWidth: 1.5, priceLineVisible: false, lastValueVisible: false
+    })
+    // Urutkan titik berdasarkan waktu — LineSeries butuh data terurut menaik
+    const pts = d.t1 <= d.t2
+      ? [{ time: d.t1, value: d.p1 }, { time: d.t2, value: d.p2 }]
+      : [{ time: d.t2, value: d.p2 }, { time: d.t1, value: d.p1 }]
+    s.setData(pts)
+    _drawingSeries[d.id] = s
+  }
+
+  /** Hapus 1 drawing — dari chart (series native) + dari data (Sheets). */
+  function _deleteDrawing(id) {
+    const s = _drawingSeries[id]
+    if (s) { try { chart.removeSeries(s) } catch (_) {} delete _drawingSeries[id] }
+    removeDrawing(id)
+    if (_selectedDrawingId === id) { _selectedDrawingId = null; _repositionDeleteBtn() }
   }
 
   /**
    * Tangani klik di chart — tergantung mode aktif:
-   *   'trendline' → klik 1: simpan titik pertama. klik 2: selesaikan garis, simpan, balik ke cursor.
-   *   'cursor'    → hit-test ke garis yang ada, pilih kalau dekat (untuk tombol hapus).
+   *   'trendline' → klik 1: simpan titik pertama. klik 2: buat garis + simpan.
+   *   'cursor'    → hit-test ke garis yang ada (jarak titik-ke-segmen), pilih kalau dekat.
    */
   function _onChartClick(param) {
     if (!candleSeries || !param.point) return
@@ -624,19 +635,21 @@
         _pendingPoint = { time: param.time, price }
         return
       }
-      // Titik kedua — selesaikan garis
-      addDrawing({
+      // Titik kedua — buat drawing baru
+      const drawing = {
         id:  Date.now() + '-' + Math.random().toString(36).slice(2, 7),
         sym: DB.sym,
         type: 'trendline',
         t1: _pendingPoint.time, p1: _pendingPoint.price,
         t2: param.time,         p2: price
-      })
+      }
+      addDrawing(drawing)           // simpan data + sinkron Sheets
+      _createLineSeriesFor(drawing) // render langsung, tanpa nunggu rebuild
       _pendingPoint = null
+
       // Balik ke mode cursor otomatis setelah selesai 1 garis
       _drawMode = 'cursor'
       document.querySelectorAll('.draw-tool[data-tool]').forEach(b => b.classList.toggle('active', b.dataset.tool === 'cursor'))
-      _redrawDrawings()
       return
     }
 
@@ -654,11 +667,23 @@
       if (dist < closestDist) { closestDist = dist; closest = d.id }
     })
 
-    _selectedDrawingId = closest
-    _redrawDrawings()
+    _setSelectedDrawing(closest)
   }
 
-  /** Jarak titik (px,py) ke segmen garis (x1,y1)-(x2,y2). */
+  /** Pilih/batalkan pilih 1 drawing — ubah warna series-nya jadi terang, posisikan tombol hapus. */
+  function _setSelectedDrawing(id) {
+    // Kembalikan warna default ke selection lama (kalau ada)
+    if (_selectedDrawingId && _drawingSeries[_selectedDrawingId]) {
+      try { _drawingSeries[_selectedDrawingId].applyOptions({ color: '#d98e2b', lineWidth: 1.5 }) } catch (_) {}
+    }
+    _selectedDrawingId = id
+    if (id && _drawingSeries[id]) {
+      try { _drawingSeries[id].applyOptions({ color: '#ece7de', lineWidth: 2 }) } catch (_) {}
+    }
+    _repositionDeleteBtn()
+  }
+
+  /** Jarak titik (px,py) ke segmen garis (x1,y1)-(x2,y2) — untuk hit-test klik. */
   function _distToSegment(px, py, x1, y1, x2, y2) {
     const dx = x2 - x1, dy = y2 - y1
     const lenSq = dx * dx + dy * dy
@@ -668,41 +693,26 @@
     return Math.hypot(px - cx, py - cy)
   }
 
-  /** Gambar ulang semua garis milik saham aktif ke canvas overlay. Murni render, tidak fetch apapun. */
-  function _redrawDrawings() {
-    if (!_overlayCtx || !chart || !candleSeries) return
-    const canvas = document.getElementById('draw-overlay')
-    const rect   = canvas.getBoundingClientRect()
-    _overlayCtx.clearRect(0, 0, rect.width, rect.height)
+  /**
+   * Posisikan ulang tombol hapus (elemen HTML, bukan bagian dari chart) sesuai
+   * posisi garis yang sedang dipilih saat ini. Dipanggil setelah memilih, dan
+   * tiap pan/zoom (karena posisi pixel garis berubah, walau garisnya sendiri
+   * sudah otomatis ikut tanpa kita lakukan apapun).
+   */
+  function _repositionDeleteBtn() {
+    const btn = document.getElementById('draw-delete-btn')
+    const d = DB.drawings.find(x => x.id === _selectedDrawingId)
+    if (!d || !chart || !candleSeries) { btn.style.display = 'none'; return }
 
-    const deleteBtn = document.getElementById('draw-delete-btn')
-    let selectedMid = null
+    const x1 = chart.timeScale().timeToCoordinate(d.t1)
+    const y1 = candleSeries.priceToCoordinate(d.p1)
+    const x2 = chart.timeScale().timeToCoordinate(d.t2)
+    const y2 = candleSeries.priceToCoordinate(d.p2)
+    if (x1 === null || y1 === null || x2 === null || y2 === null) { btn.style.display = 'none'; return }
 
-    DB.drawings.filter(d => d.sym === DB.sym).forEach(d => {
-      const x1 = chart.timeScale().timeToCoordinate(d.t1)
-      const y1 = candleSeries.priceToCoordinate(d.p1)
-      const x2 = chart.timeScale().timeToCoordinate(d.t2)
-      const y2 = candleSeries.priceToCoordinate(d.p2)
-      if (x1 === null || y1 === null || x2 === null || y2 === null) return
-
-      const isSelected = d.id === _selectedDrawingId
-      _overlayCtx.strokeStyle = isSelected ? '#ece7de' : '#d98e2b'
-      _overlayCtx.lineWidth   = isSelected ? 2 : 1.5
-      _overlayCtx.beginPath()
-      _overlayCtx.moveTo(x1, y1)
-      _overlayCtx.lineTo(x2, y2)
-      _overlayCtx.stroke()
-
-      if (isSelected) selectedMid = { x: (x1 + x2) / 2, y: (y1 + y2) / 2 }
-    })
-
-    if (selectedMid) {
-      deleteBtn.style.display = 'flex'
-      deleteBtn.style.left = selectedMid.x + 'px'
-      deleteBtn.style.top  = selectedMid.y + 'px'
-    } else {
-      deleteBtn.style.display = 'none'
-    }
+    btn.style.display = 'flex'
+    btn.style.left = ((x1 + x2) / 2) + 'px'
+    btn.style.top  = ((y1 + y2) / 2) + 'px'
   }
 
   // ============================================================
