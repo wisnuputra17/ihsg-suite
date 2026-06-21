@@ -255,9 +255,9 @@
   }
 
   // ============================================================
-  // SEKSI 2: TOKEN — hitung mundur kadaluarsa + verifikasi real ke API
+  // SEKSI 2: TOKEN — kadaluarsa ASLI dari claim `exp` JWT + verifikasi live
   // ============================================================
-  const TOKEN_TTL_MS = 24 * 60 * 60 * 1000 // estimasi 24 jam (Stockbit tidak publikasikan TTL pasti)
+  const TOKEN_TTL_MS = 24 * 60 * 60 * 1000 // fallback kalau token bukan JWT / tanpa exp
 
   function _renderTokenStatus() {
     const dot   = document.getElementById('tokenDot')
@@ -269,11 +269,24 @@
       return
     }
 
-    const elapsed   = TOKEN.elapsedMs()
-    const remaining = elapsed !== null ? TOKEN_TTL_MS - elapsed : null
-    const sisaTxt   = remaining !== null
-      ? (remaining > 0 ? `sisa ~${_fmtDuration(remaining)}` : 'kemungkinan expired')
+    const expMs = TOKEN.getExpiryMs() // waktu pasti dari dalam token, kalau JWT
+    let remaining
+    if (expMs !== null) {
+      remaining = expMs - Date.now()
+    } else {
+      const elapsed = TOKEN.elapsedMs()
+      remaining = elapsed !== null ? TOKEN_TTL_MS - elapsed : null
+    }
+    const sisaTxt = remaining !== null
+      ? (remaining > 0 ? `sisa ${_fmtDuration(remaining)}` : 'kadaluarsa')
       : ''
+
+    // Sudah pasti kadaluarsa dari claim exp — tidak perlu tunggu API call
+    if (remaining !== null && remaining <= 0) {
+      dot.className = 'status-dot down'
+      label.textContent = 'Token expired'
+      return
+    }
 
     dot.className = 'status-dot wait'
     label.textContent = sisaTxt ? `Memeriksa · ${sisaTxt}` : 'Memeriksa...'

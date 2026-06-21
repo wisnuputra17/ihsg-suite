@@ -17,6 +17,21 @@
 // SEKSI 1: TOKEN
 // ============================================================
 
+/**
+ * Decode payload JWT (bagian tengah, base64url) tanpa verifikasi signature —
+ * cukup untuk baca claim seperti `exp`, tidak dipakai untuk validasi keamanan.
+ */
+function _decodeJwtPayload(token) {
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+    const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+    return JSON.parse(atob(b64))
+  } catch (_) {
+    return null
+  }
+}
+
 export const TOKEN = {
   get: () => {
     const raw = localStorage.getItem('ihsglab_token') || ''
@@ -35,6 +50,18 @@ export const TOKEN = {
   elapsedMs: () => {
     const t = localStorage.getItem('ihsglab_token_set_at')
     return t ? Date.now() - parseInt(t) : null
+  },
+  /**
+   * Waktu kadaluarsa ASLI dari dalam token (claim `exp`, JWT standar) dalam ms.
+   * Ini lebih akurat dari estimasi — diambil langsung dari Stockbit, bukan
+   * dihitung dari kapan token di-input ke aplikasi ini.
+   * @returns {number|null} timestamp ms, atau null kalau token bukan JWT / tidak ada exp
+   */
+  getExpiryMs: () => {
+    const t = TOKEN.get()
+    if (!t) return null
+    const payload = _decodeJwtPayload(t)
+    return payload && payload.exp ? payload.exp * 1000 : null
   }
 }
 
