@@ -187,6 +187,9 @@
     <div class="ohlc-bar" id="ohlc-bar"></div>
     <div class="chart-legend" id="chart-legend"></div>
     <div id="chart-main"></div>
+    <svg id="draw-preview-svg" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:4;">
+      <line id="draw-preview-line" stroke="#d98e2b" stroke-width="1" stroke-dasharray="4,4" visibility="hidden"></line>
+    </svg>
     <button class="draw-delete-btn" id="draw-delete-btn">×</button>
   </div>
 
@@ -210,8 +213,7 @@
 
   // Drawing tools state
   let _drawMode = 'cursor'         // 'cursor' | 'trendline'
-  let _pendingPoint = null         // titik pertama saat menggambar trend line
-  let _previewSeries = null        // garis putus-putus yang ikut kursor sebelum klik ke-2
+  let _pendingPoint = null         // titik pertama saat menggambar trend line {time, price}
   let _selectedDrawingId = null    // id drawing yang sedang dipilih (untuk tombol hapus)
   const _drawingSeries = {}        // {drawingId: seriesObject} — referensi series native chart
 
@@ -456,7 +458,7 @@
     Object.keys(_drawingSeries).forEach(k => delete _drawingSeries[k]) // chart lama sudah di-remove() di atas
     _selectedDrawingId = null
     _pendingPoint = null
-    _previewSeries = null // chart lama sudah dihancurkan, referensi lama tidak valid lagi
+    document.getElementById('draw-preview-line').setAttribute('visibility', 'hidden')
     _renderDrawingsForSym()
 
     _updateInfoAndLegend(days.length - 1)
@@ -585,7 +587,7 @@
       btn.addEventListener('click', () => {
         _drawMode = btn.dataset.tool
         _pendingPoint = null
-        if (_previewSeries) { try { chart.removeSeries(_previewSeries) } catch (_) {} _previewSeries = null }
+        document.getElementById('draw-preview-line').setAttribute('visibility', 'hidden')
         document.querySelectorAll('.draw-tool[data-tool]').forEach(b => b.classList.toggle('active', b === btn))
       })
     })
@@ -602,19 +604,17 @@
   }
 
   /**
-   * Update garis preview (putus-putus) agar ikut posisi kursor — dipanggil
-   * tiap crosshair bergerak, hanya aktif saat sedang menunggu klik ke-2.
+   * Update garis preview SVG agar ujungnya ikut posisi kursor — dipanggil tiap
+   * crosshair bergerak. SENGAJA cuma setAttribute (super ringan), TIDAK sentuh
+   * series/data chart sama sekali — itu yang dulu bikin lag & klik tidak terdeteksi
+   * (setData() di chart asli tiap gerakan mouse terlalu berat, bikin browser
+   * kewalahan sampai event klik pun salah terbaca sebagai drag).
    */
   function _updatePreviewLine(param) {
-    if (!_previewSeries || !_pendingPoint) return
-    if (!param.time || !param.point) return
-    const price = candleSeries.coordinateToPrice(param.point.y)
-    if (price === null) return
-
-    const pts = _pendingPoint.time <= param.time
-      ? [{ time: _pendingPoint.time, value: _pendingPoint.price }, { time: param.time, value: price }]
-      : [{ time: param.time, value: price }, { time: _pendingPoint.time, value: _pendingPoint.price }]
-    _previewSeries.setData(pts)
+    if (!_pendingPoint || !param.point) return
+    const line = document.getElementById('draw-preview-line')
+    line.setAttribute('x2', param.point.x)
+    line.setAttribute('y2', param.point.y)
   }
 
   /** Buat series native chart untuk semua drawing milik DB.sym saat ini. */
@@ -659,16 +659,17 @@
 
       if (!_pendingPoint) {
         _pendingPoint = { time: param.time, price }
-        // Buat garis preview (putus-putus) — akan diupdate tiap mouse bergerak
-        _previewSeries = chart.addSeries(LightweightCharts.LineSeries, {
-          color: '#d98e2b', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed,
-          priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
-          autoscaleInfoProvider: () => null // jangan pernah pengaruhi skala harga — cegah lag & lompat skala
-        })
-        _previewSeries.setData([{ time: param.time, value: price }])
+        // Tampilkan garis preview SVG — titik awal tetap (x1,y1), titik akhir
+        // (x2,y2) ikut kursor langsung dari param.point (sudah pixel, tanpa konversi)
+        const x1 = chart.timeScale().timeToCoordinate(param.time)
+        const y1 = candleSeries.priceToCoordinate(price)
+        const line = document.getElementById('draw-preview-line')
+        line.setAttribute('x1', x1); line.setAttribute('y1', y1)
+        line.setAttribute('x2', x1); line.setAttribute('y2', y1)
+        line.setAttribute('visibility', 'visible')
         return
       }
-      // Titik kedua — buat drawing baru, hapus preview
+      // Titik kedua — buat drawing baru, sembunyikan preview
       const drawing = {
         id:  Date.now() + '-' + Math.random().toString(36).slice(2, 7),
         sym: DB.sym,
@@ -676,9 +677,9 @@
         t1: _pendingPoint.time, p1: _pendingPoint.price,
         t2: param.time,         p2: price
       }
-      if (_previewSeries) { try { chart.removeSeries(_previewSeries) } catch (_) {} _previewSeries = null }
-      addDrawing(drawing)           // simpan data + sinkron Sheets
-      _createLineSeriesFor(drawing) // render langsung, tanpa nunggu rebuild
+      document.getElementById('draw-preview-line').setAttribute('visibility', 'hidden')
+      addDrawing(drawing)           // simpan data + sinkron Sheets (1x saja, bukan per-frame)
+      _createLineSeriesFor(drawing) // render permanen (1x saja, bukan per-frame)
       _pendingPoint = null
 
       // Balik ke mode cursor otomatis setelah selesai 1 garis
