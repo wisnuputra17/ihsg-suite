@@ -211,6 +211,7 @@
   // Drawing tools state
   let _drawMode = 'cursor'         // 'cursor' | 'trendline'
   let _pendingPoint = null         // titik pertama saat menggambar trend line
+  let _previewSeries = null        // garis putus-putus yang ikut kursor sebelum klik ke-2
   let _selectedDrawingId = null    // id drawing yang sedang dipilih (untuk tombol hapus)
   const _drawingSeries = {}        // {drawingId: seriesObject} — referensi series native chart
 
@@ -437,6 +438,7 @@
     chart.subscribeCrosshairMove(param => {
       const idx = param.time ? _dateToIndex[param.time] : days.length - 1
       _updateInfoAndLegend(idx !== undefined ? idx : days.length - 1)
+      _updatePreviewLine(param)
     })
 
     // Klik chart → tempatkan titik trend line (mode 'trendline') atau pilih garis (mode 'cursor')
@@ -449,6 +451,8 @@
     // Render ulang trend line milik saham ini sebagai series native baru
     Object.keys(_drawingSeries).forEach(k => delete _drawingSeries[k]) // chart lama sudah di-remove() di atas
     _selectedDrawingId = null
+    _pendingPoint = null
+    _previewSeries = null // chart lama sudah dihancurkan, referensi lama tidak valid lagi
     _renderDrawingsForSym()
 
     _updateInfoAndLegend(days.length - 1)
@@ -577,6 +581,7 @@
       btn.addEventListener('click', () => {
         _drawMode = btn.dataset.tool
         _pendingPoint = null
+        if (_previewSeries) { try { chart.removeSeries(_previewSeries) } catch (_) {} _previewSeries = null }
         document.querySelectorAll('.draw-tool[data-tool]').forEach(b => b.classList.toggle('active', b === btn))
       })
     })
@@ -590,6 +595,22 @@
     document.getElementById('draw-delete-btn').addEventListener('click', () => {
       if (_selectedDrawingId) _deleteDrawing(_selectedDrawingId)
     })
+  }
+
+  /**
+   * Update garis preview (putus-putus) agar ikut posisi kursor — dipanggil
+   * tiap crosshair bergerak, hanya aktif saat sedang menunggu klik ke-2.
+   */
+  function _updatePreviewLine(param) {
+    if (!_previewSeries || !_pendingPoint) return
+    if (!param.time || !param.point) return
+    const price = candleSeries.coordinateToPrice(param.point.y)
+    if (price === null) return
+
+    const pts = _pendingPoint.time <= param.time
+      ? [{ time: _pendingPoint.time, value: _pendingPoint.price }, { time: param.time, value: price }]
+      : [{ time: param.time, value: price }, { time: _pendingPoint.time, value: _pendingPoint.price }]
+    _previewSeries.setData(pts)
   }
 
   /** Buat series native chart untuk semua drawing milik DB.sym saat ini. */
@@ -633,9 +654,15 @@
 
       if (!_pendingPoint) {
         _pendingPoint = { time: param.time, price }
+        // Buat garis preview (putus-putus) — akan diupdate tiap mouse bergerak
+        _previewSeries = chart.addSeries(LightweightCharts.LineSeries, {
+          color: '#d98e2b', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed,
+          priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false
+        })
+        _previewSeries.setData([{ time: param.time, value: price }])
         return
       }
-      // Titik kedua — buat drawing baru
+      // Titik kedua — buat drawing baru, hapus preview
       const drawing = {
         id:  Date.now() + '-' + Math.random().toString(36).slice(2, 7),
         sym: DB.sym,
@@ -643,6 +670,7 @@
         t1: _pendingPoint.time, p1: _pendingPoint.price,
         t2: param.time,         p2: price
       }
+      if (_previewSeries) { try { chart.removeSeries(_previewSeries) } catch (_) {} _previewSeries = null }
       addDrawing(drawing)           // simpan data + sinkron Sheets
       _createLineSeriesFor(drawing) // render langsung, tanpa nunggu rebuild
       _pendingPoint = null
