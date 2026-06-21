@@ -51,6 +51,13 @@ export const FEATURES = [
     status: 'ready'
   },
   {
+    id:     'broker-analyzer',
+    name:   'Broker Analyzer',
+    desc:   'Bandingkan pergerakan net akumulasi beberapa broker sekaligus — pilih dari top 10 buyer/seller.',
+    tags:   ['broker', 'akumulasi', 'distribusi', 'top buyer', 'top seller', 'kumulatif'],
+    status: 'ready'
+  },
+  {
     id:     'win-rate',
     name:   'Win Rate Scanner',
     desc:   'Backtest probabilitas 27 kondisi entry pagi terhadap 9 titik exit sepanjang hari.',

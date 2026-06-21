@@ -1,0 +1,72 @@
+/**
+ * features/broker-analyzer/db.js
+ * ================================
+ * Database in-memory untuk fitur Broker Analyzer.
+ *
+ * PENTING soal efisiensi: 1 request marketdetectors (from=to=1 tanggal) sudah
+ * kasih SEMUA broker sekaligus (~70+ broker) — bukan per-broker. Jadi cache
+ * di sini SENGAJA disusun per-TANGGAL dulu (bukan per-broker dulu), supaya
+ * fetch 1 hari bisa langsung dipakai utk BERAPAPUN broker yang dibandingkan,
+ * tanpa fetch ulang tanggal yang sama berkali-kali per broker.
+ */
+
+import { gsLoad, gsAppend } from '../../shared/sheets.js'
+
+export const DB = {
+  sym:    null,
+  daily:  [],                          // candle harian, konteks harga
+  brokerTop: { buys: [], sells: [] },  // snapshot top broker hari terakhir tersedia (1 request, murah)
+  selectedBrokers: [],                 // ['BK','XL',...] kode broker yang dipilih utk dibandingkan
+  brokerCache: {}                      // {date: {brokerCode: {buy,sell,net}} | null} — null = sudah dicek, API tidak punya data hari itu
+}
+
+const SHEET_BROKER_CACHE = 'broker-analyzer-cache'
+const PREF_KEY = 'broker_analyzer_prefs'
+
+/** Load histori broker (HANYA broker yang relevan utk sym ini) dari Sheets — dipanggil tiap ganti saham. */
+export async function loadBrokerCacheForSym(sym) {
+  try {
+    const rows = await gsLoad(SHEET_BROKER_CACHE)
+    const cache = {}
+    rows.filter(r => r.sym === sym).forEach(r => {
+      if (r.broker === '__none__') { cache[r.date] = null; return }
+      if (!cache[r.date]) cache[r.date] = {}
+      cache[r.date][r.broker] = { buy: Number(r.buy), sell: Number(r.sell), net: Number(r.net) }
+    })
+    DB.brokerCache = cache
+  } catch (e) {
+    console.warn('[broker-analyzer/db] load cache gagal:', e.message)
+    DB.brokerCache = {}
+  }
+}
+
+/**
+ * Simpan permanen data broker yang BARU di-fetch (append, bukan timpa semua).
+ * HANYA broker yang sedang dipilih user — supaya tidak membengkak nyimpan
+ * 70+ broker/hari yang tidak pernah dilihat siapa-siapa.
+ * @param {string} sym
+ * @param {{date, broker, buy, sell, net}[]} entries
+ */
+export function appendBrokerCache(sym, entries) {
+  if (!entries.length) return
+  const rows = entries.map(e => ({ sym, date: e.date, broker: e.broker, buy: e.buy, sell: e.sell, net: e.net }))
+  gsAppend(SHEET_BROKER_CACHE, rows).catch(e =>
+    console.warn('[broker-analyzer/db] append cache gagal:', e.message)
+  )
+}
+
+/** Tandai 1 tanggal "sudah dicek, API tidak punya data sama sekali" — sentinel broker='__none__'. */
+export function appendNoDataDates(sym, dates) {
+  if (!dates.length) return
+  const rows = dates.map(date => ({ sym, date, broker: '__none__', buy: -1, sell: -1, net: 0 }))
+  gsAppend(SHEET_BROKER_CACHE, rows).catch(e =>
+    console.warn('[broker-analyzer/db] append no-data gagal:', e.message)
+  )
+}
+
+export function savePrefs(prefs) {
+  try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)) } catch (_) {}
+}
+export function loadPrefs() {
+  try { return JSON.parse(localStorage.getItem(PREF_KEY) || '{}') } catch (_) { return {} }
+}

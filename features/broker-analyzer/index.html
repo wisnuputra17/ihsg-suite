@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Broker Analyzer · IHSG Suite</title>
+  <link rel="stylesheet" href="../../shared/ui.css">
+  <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@5.2.0/dist/lightweight-charts.standalone.production.js"></script>
+
+  <style>
+    html, body { overflow: hidden; height: 100%; }
+    .page { max-width: none; padding: 0 10px; height: 100vh; display: flex; flex-direction: column; }
+    .app-header { flex-shrink: 0; padding: 10px 0; }
+
+    .toolbar {
+      flex-shrink: 0; display: flex; align-items: center; gap: 8px;
+      padding-bottom: 8px; flex-wrap: wrap; position: relative;
+    }
+
+    .sym-search { position: relative; display: flex; align-items: center; gap: 6px;
+      background: #0f0e0c; border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 6px 10px; min-width: 140px; }
+    .sym-search-icon { color: var(--ghost); font-size: 12px; }
+    .sym-search input { background: transparent; border: none; outline: none; width: 90px;
+      font-family: var(--f-mono); font-size: 12px; color: var(--paper); text-transform: uppercase; }
+    .sym-search input::placeholder { color: var(--ghost); text-transform: none; }
+    .sym-dropdown { position: absolute; top: calc(100% + 4px); left: 0; z-index: 30;
+      background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+      width: 260px; max-height: 280px; overflow-y: auto; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+    .sym-option { display: flex; align-items: baseline; gap: 8px; padding: 7px 10px; cursor: pointer; }
+    .sym-option:hover { background: var(--panel-hi); }
+    .sym-option-code { font-family: var(--f-mono); font-size: 12px; color: var(--paper); flex-shrink: 0; }
+    .sym-option-name { font-size: 11px; color: var(--ghost); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .selected-chip-row { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+    .selected-chip-row .chip { font-size: 10px; }
+
+    .status-text { font-family: var(--f-mono); font-size: 10px; color: var(--ghost); margin-left: 4px; }
+
+    .main-area { flex: 1; min-height: 0; display: flex; gap: 8px; }
+    .chart-wrap { flex: 1; min-width: 0; border: 1px solid var(--line); position: relative; }
+    #chart-main { width: 100%; height: 100%; }
+
+    .top10-panel { width: 280px; flex-shrink: 0; border: 1px solid var(--line); overflow-y: auto; padding: 10px; }
+    .top10-col { margin-bottom: 16px; }
+    .top10-title { font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--ghost); margin-bottom: 6px; }
+    .top10-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 6px;
+      padding: 6px 8px; border-radius: var(--radius); cursor: pointer; transition: background var(--ease);
+      font-family: var(--f-mono); font-size: 11px;
+    }
+    .top10-row:hover { background: var(--panel-hi); }
+    .top10-row.is-selected { background: var(--phosphor-dim); color: var(--phosphor); }
+    .top10-row-code { font-weight: 500; }
+    .top10-row-val { color: var(--dim); }
+    .top10-row.is-selected .top10-row-val { color: var(--phosphor); }
+
+    .ohlc-bar {
+      position: absolute; top: 6px; left: 8px; z-index: 5;
+      font-family: var(--f-mono); font-size: 12px; color: var(--paper);
+      pointer-events: none; text-shadow: 0 0 4px rgba(10,9,8,0.9);
+    }
+    .chart-legend {
+      position: absolute; top: 28px; left: 8px; z-index: 5;
+      display: flex; flex-direction: column; gap: 2px; pointer-events: none; max-width: 260px;
+    }
+    .legend-row { font-family: var(--f-mono); font-size: 11px; line-height: 1.5; white-space: nowrap;
+      text-shadow: 0 0 4px rgba(10,9,8,0.9); }
+    .legend-swatch { display: inline-block; width: 8px; height: 2px; margin-right: 5px; vertical-align: middle; }
+    .legend-value { font-weight: 500; }
+
+    @media (max-width: 760px) {
+      .main-area { flex-direction: column; }
+      .top10-panel { width: 100%; max-height: 200px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page">
+
+  <header class="app-header" id="app-header"></header>
+
+  <div class="toolbar">
+    <div class="sym-search">
+      <span class="sym-search-icon">⌕</span>
+      <input type="text" id="sym-input" placeholder="cari saham..." maxlength="10" autocomplete="off">
+      <div class="sym-dropdown hidden" id="sym-dropdown"></div>
+    </div>
+    <div class="selected-chip-row" id="selected-chip-row"></div>
+    <span class="status-text" id="status"></span>
+  </div>
+
+  <div class="main-area">
+    <div class="chart-wrap">
+      <div class="ohlc-bar" id="ohlc-bar"></div>
+      <div class="chart-legend" id="chart-legend"></div>
+      <div id="chart-main"></div>
+    </div>
+
+    <div class="top10-panel">
+      <div class="top10-col">
+        <div class="top10-title">Top 10 Buyer</div>
+        <div id="top10-buy"></div>
+      </div>
+      <div class="top10-col">
+        <div class="top10-title">Top 10 Seller</div>
+        <div id="top10-sell"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script type="module">
+  import { TOKEN, EMITEN_INFO, has, setEmitenInfo } from '../../shared/store.js'
+  import { fetchDaily, fetchBroker, fetchEmitenJson } from '../../shared/api.js'
+  import { renderHeader, refreshTokenStatus, openTokenPopover } from '../../shared/header.js'
+  import { DB, loadBrokerCacheForSym, appendBrokerCache, appendNoDataDates, savePrefs, loadPrefs } from './db.js'
+
+  let _loading = false
+  let chart = null
+  let candleSeries = null
+  let _dateToIndex = {}
+
+  const BROKER_COLORS = ['#ece7de', '#60a5fa', '#4ade80', '#d98e2b', '#f0635c', '#a78bfa', '#fb923c', '#34d399', '#22d3ee', '#f472b6']
+  const _brokerSeries = {} // {brokerCode: seriesObject}
+
+  const AUTO_FETCH_MAX = 40
+  const BATCH_SIZE      = 5
+  const BATCH_DELAY     = 400
+
+  // ============================================================
+  // SEKSI 1: INIT
+  // ============================================================
+  function init() {
+    renderHeader(document.getElementById('app-header'), [
+      { label: 'IHSG Suite', href: '../../index.html' },
+      { label: 'Broker Analyzer' }
+    ])
+    window.addEventListener('ihsg:token-saved', () => { if (DB.sym) _loadSym() })
+
+    _bindSymSearch()
+    _loadEmitenInfo()
+  }
+
+  async function _loadEmitenInfo() {
+    if (has.emitenInfo()) return
+    try { setEmitenInfo(await fetchEmitenJson()) } catch (e) { console.warn('[broker-analyzer] gagal load emiten.json:', e.message) }
+  }
+
+  // ============================================================
+  // SEKSI 2: SEARCH SAHAM
+  // ============================================================
+  function _bindSymSearch() {
+    const input = document.getElementById('sym-input')
+    input.addEventListener('input', () => _renderSymDropdown(input.value.trim()))
+    input.addEventListener('focus', () => { if (input.value.trim()) _renderSymDropdown(input.value.trim()) })
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { document.getElementById('sym-dropdown').classList.add('hidden'); _loadSym() }
+      if (e.key === 'Escape') document.getElementById('sym-dropdown').classList.add('hidden')
+    })
+    document.addEventListener('click', e => {
+      const dd = document.getElementById('sym-dropdown')
+      if (!dd.contains(e.target) && e.target !== input) dd.classList.add('hidden')
+    })
+  }
+
+  function _renderSymDropdown(query) {
+    const dropdown = document.getElementById('sym-dropdown')
+    if (!query) { dropdown.classList.add('hidden'); return }
+    const q = query.toUpperCase()
+    const all = Object.entries(EMITEN_INFO)
+    const codeMatches = all.filter(([code]) => code.startsWith(q))
+    const nameMatches  = all.filter(([code, info]) => !code.startsWith(q) && info.name && info.name.toUpperCase().includes(q))
+    const results = [...codeMatches, ...nameMatches].slice(0, 30)
+    if (!results.length) { dropdown.innerHTML = `<div class="sym-option" style="color:var(--ghost)">Tidak ditemukan</div>`; dropdown.classList.remove('hidden'); return }
+    dropdown.innerHTML = results.map(([code, info]) => `
+      <div class="sym-option" data-code="${code}">
+        <span class="sym-option-code">${code}</span><span class="sym-option-name">${info.name || ''}</span>
+      </div>`).join('')
+    dropdown.classList.remove('hidden')
+    dropdown.querySelectorAll('.sym-option').forEach(el => {
+      el.addEventListener('click', () => {
+        document.getElementById('sym-input').value = el.dataset.code
+        dropdown.classList.add('hidden')
+        _loadSym()
+      })
+    })
+  }
+
+  // ============================================================
+  // SEKSI 3: LOAD SAHAM
+  // ============================================================
+  async function _loadSym() {
+    if (_loading) return
+    const sym = document.getElementById('sym-input').value.trim().toUpperCase()
+    const status = document.getElementById('status')
+    if (!sym) return
+    if (!TOKEN.isSet()) { openTokenPopover(); return }
+
+    _loading = true
+    status.textContent = 'Memuat...'
+    try {
+      const raw = await fetchDaily(sym)
+      DB.sym   = sym
+      DB.daily = [...raw].sort((a, b) => a.date.localeCompare(b.date))
+      DB.selectedBrokers = []
+      await loadBrokerCacheForSym(sym)
+      document.getElementById('sym-input').value = sym
+      status.textContent = ''
+      _rebuildChart()
+      _fetchTop10Snapshot()
+      _applySavedSelection(sym)
+    } catch (e) {
+      status.textContent = e.code === 'TOKEN_EXPIRED' ? 'Token expired' : 'Error: ' + e.message
+      if (e.code === 'TOKEN_EXPIRED') { TOKEN.clear(); refreshTokenStatus() }
+    } finally {
+      _loading = false
+    }
+  }
+
+  function _applySavedSelection(sym) {
+    const prefs = loadPrefs()
+    const saved = prefs[sym]
+    if (Array.isArray(saved) && saved.length) {
+      DB.selectedBrokers = saved.slice(0, 10)
+      _renderSelectedChips()
+      _updateBrokerHistoryForVisibleRange()
+    }
+  }
+
+  function _savePrefsNow() {
+    const prefs = loadPrefs()
+    prefs[DB.sym] = DB.selectedBrokers
+    savePrefs(prefs)
+  }
+
+  // ============================================================
+  // SEKSI 4: TOP 10 SNAPSHOT (1 request, murah — bukan histori)
+  // ============================================================
+  async function _fetchTop10Snapshot() {
+    try {
+      const today = new Date().toISOString().slice(0, 10)
+      const { buys, sells } = await fetchBroker(DB.sym, today, today)
+      DB.brokerTop = { buys: buys.slice(0, 10), sells: sells.slice(0, 10) }
+      _renderTop10Lists()
+    } catch (e) {
+      console.warn('[broker-analyzer] gagal fetch top10:', e.message)
+    }
+  }
+
+  function _renderTop10Lists() {
+    const renderCol = (list, elId) => {
+      const el = document.getElementById(elId)
+      if (!list.length) { el.innerHTML = `<div class="empty-state" style="padding:10px 0;">Tidak ada data</div>`; return }
+      el.innerHTML = list.map(b => `
+        <div class="top10-row ${DB.selectedBrokers.includes(b.code) ? 'is-selected' : ''}" data-code="${b.code}">
+          <span class="top10-row-code">${b.code}</span>
+          <span class="top10-row-val">${_fmtRp(Math.abs(b.val))}</span>
+        </div>
+      `).join('')
+      el.querySelectorAll('.top10-row').forEach(row => {
+        row.addEventListener('click', () => _toggleBroker(row.dataset.code))
+      })
+    }
+    renderCol(DB.brokerTop.buys,  'top10-buy')
+    renderCol(DB.brokerTop.sells, 'top10-sell')
+  }
+
+  // ============================================================
+  // SEKSI 5: PILIH BROKER UTK DIBANDINGKAN
+  // ============================================================
+  function _toggleBroker(code) {
+    if (DB.selectedBrokers.includes(code)) _removeBroker(code)
+    else _addBroker(code)
+  }
+
+  function _addBroker(code) {
+    if (DB.selectedBrokers.length >= 10) { alert('Maksimal 10 broker sekaligus.'); return }
+    if (DB.selectedBrokers.includes(code)) return
+    DB.selectedBrokers.push(code)
+    _savePrefsNow()
+    _renderSelectedChips()
+    _renderTop10Lists()
+
+    // Catch-up: tanggal yang SUDAH pernah di-fetch (broker lain) mungkin sudah
+    // punya data broker baru ini juga di memori (1 fetch = semua broker) —
+    // simpan ke Sheets tanpa fetch API lagi, supaya sesi/device lain ikut dapat.
+    const catchUp = []
+    Object.keys(DB.brokerCache).forEach(date => {
+      const dayMap = DB.brokerCache[date]
+      if (dayMap && dayMap[code]) catchUp.push({ date, broker: code, ...dayMap[code] })
+    })
+    if (catchUp.length) appendBrokerCache(DB.sym, catchUp)
+
+    _updateBrokerHistoryForVisibleRange()
+  }
+
+  function _removeBroker(code) {
+    DB.selectedBrokers = DB.selectedBrokers.filter(c => c !== code)
+    if (_brokerSeries[code]) { try { chart.removeSeries(_brokerSeries[code]) } catch (_) {} delete _brokerSeries[code] }
+    _savePrefsNow()
+    _renderSelectedChips()
+    _renderTop10Lists()
+  }
+
+  function _renderSelectedChips() {
+    const row = document.getElementById('selected-chip-row')
+    row.innerHTML = DB.selectedBrokers.map((code, i) => {
+      const color = BROKER_COLORS[i % BROKER_COLORS.length]
+      return `<span class="chip" style="border-color:${color}66; color:${color}">${code}<button class="chip-remove" data-code="${code}">×</button></span>`
+    }).join('')
+    row.querySelectorAll('.chip-remove').forEach(btn => {
+      btn.addEventListener('click', () => _removeBroker(btn.dataset.code))
+    })
+  }
+
+  // ============================================================
+  // SEKSI 6: CHART — candlestick konteks + garis kumulatif per broker
+  // ============================================================
+  function _rebuildChart() {
+    if (chart) { chart.remove(); chart = null }
+    Object.keys(_brokerSeries).forEach(k => delete _brokerSeries[k])
+
+    const days = DB.daily
+    _dateToIndex = {}
+    days.forEach((d, i) => { _dateToIndex[d.date] = i })
+
+    chart = LightweightCharts.createChart(document.getElementById('chart-main'), {
+      autoSize: true,
+      layout:    { background: { color: '#0a0908' }, textColor: '#6b6557' },
+      grid:      { vertLines: { color: '#1a1815' }, horzLines: { color: '#1a1815' } },
+      timeScale: { timeVisible: false, rightOffset: 4 }
+    })
+
+    candleSeries = chart.addSeries(LightweightCharts.CandlestickSeries, {
+      upColor: '#4ade80', downColor: '#f0635c', borderVisible: false,
+      wickUpColor: '#4ade80', wickDownColor: '#f0635c'
+    })
+    candleSeries.setData(days.map(d => ({ time: d.date, open: d.open, high: d.high, low: d.low, close: d.close })))
+
+    chart.timeScale().fitContent()
+
+    chart.subscribeCrosshairMove(param => {
+      const idx = param.time ? _dateToIndex[param.time] : days.length - 1
+      _updateInfoAndLegend(idx !== undefined ? idx : days.length - 1)
+    })
+
+    chart.timeScale().subscribeVisibleLogicalRangeChange(_debouncedUpdate)
+
+    if (DB.selectedBrokers.length) _renderAllBrokerLines()
+    _updateInfoAndLegend(days.length - 1)
+  }
+
+  let _debounceTimer = null
+  function _debouncedUpdate() {
+    clearTimeout(_debounceTimer)
+    _debounceTimer = setTimeout(_updateBrokerHistoryForVisibleRange, 300)
+  }
+
+  // ============================================================
+  // SEKSI 7: FETCH HISTORI BROKER (MAHAL — 1 request = 1 hari, sama seperti LPM)
+  // ============================================================
+  // PENTING: 1 request fetchBroker(sym, date, date) sudah kasih SEMUA broker
+  // sekaligus — jadi 1 tanggal yang sama dipakai bersama oleh SEMUA broker yang
+  // dipilih, BUKAN di-fetch ulang per broker (itu yang bikin boros sebelumnya).
+  async function _updateBrokerHistoryForVisibleRange() {
+    if (!chart || !DB.daily.length || !DB.selectedBrokers.length) return
+    const range = chart.timeScale().getVisibleLogicalRange()
+    if (!range) return
+    const fromIdx = Math.max(0, Math.floor(range.from))
+    const toIdx   = Math.min(DB.daily.length - 1, Math.ceil(range.to))
+    if (fromIdx > toIdx) return
+    const visibleDates = DB.daily.slice(fromIdx, toIdx + 1).map(d => d.date)
+
+    // 1 tanggal dianggap "missing" kalau BELUM PERNAH di-fetch sama sekali
+    // (bukan per-broker) — karena 1 fetch sudah cukup utk semua broker.
+    const missing = visibleDates.filter(d => !(d in DB.brokerCache))
+    const statusEl = document.getElementById('status')
+
+    if (!missing.length) { statusEl.textContent = ''; _renderAllBrokerLines(); return }
+
+    if (missing.length <= AUTO_FETCH_MAX) {
+      statusEl.textContent = `Memuat histori broker ${missing.length}h...`
+      await _fetchDates(missing)
+      statusEl.textContent = ''
+      _renderAllBrokerLines()
+      return
+    }
+
+    const estSec = Math.ceil(missing.length / BATCH_SIZE) * (BATCH_DELAY / 1000)
+    const estTxt = estSec >= 60 ? `~${Math.ceil(estSec / 60)} menit` : `~${estSec} detik`
+    statusEl.innerHTML = `${missing.length} hari belum ter-cache (${estTxt}, sekali saja — berlaku utk semua broker yang dipilih). ` +
+      `<button class="btn btn-sm btn-primary" id="broker-confirm-fetch">Mulai Fetch</button>`
+    document.getElementById('broker-confirm-fetch').addEventListener('click', async () => {
+      statusEl.textContent = `Memuat histori broker...`
+      await _fetchDates(missing)
+      statusEl.textContent = ''
+      _renderAllBrokerLines()
+    })
+    _renderAllBrokerLines()
+  }
+
+  /**
+   * Fetch 1 batch tanggal — TIAP tanggal cuma 1 request fetchBroker, hasilnya
+   * (SEMUA broker yang muncul) disimpan, lalu ekstrak khusus utk broker yang
+   * sedang dipilih saja utk dipersist ke Sheets (hindari nyimpan 70+ broker/hari
+   * yang tidak pernah dilihat).
+   */
+  async function _fetchDates(dates) {
+    const newlyFetched = [] // {date, broker, buy, sell, net} — HANYA broker terpilih
+    const noDataDates  = []
+    const batches = []
+    for (let i = 0; i < dates.length; i += BATCH_SIZE) batches.push(dates.slice(i, i + BATCH_SIZE))
+
+    for (const batch of batches) {
+      await Promise.allSettled(batch.map(async date => {
+        try {
+          const { buys, sells } = await fetchBroker(DB.sym, date, date)
+          const hasData = buys.length > 0 || sells.length > 0
+          if (!hasData) { DB.brokerCache[date] = null; noDataDates.push(date); return }
+
+          const dayMap = {}
+          buys.forEach(b  => { dayMap[b.code] = { buy: b.val, sell: 0, net: 0 } })
+          sells.forEach(s => {
+            const sellVal = Math.abs(s.val) // sval/val sudah negatif, ambil magnitude
+            if (!dayMap[s.code]) dayMap[s.code] = { buy: 0, sell: 0, net: 0 }
+            dayMap[s.code].sell = sellVal
+          })
+          Object.keys(dayMap).forEach(code => { dayMap[code].net = dayMap[code].buy - dayMap[code].sell })
+          DB.brokerCache[date] = dayMap
+
+          // Persist HANYA broker yang sedang dipilih — bukan semua 70+ broker
+          DB.selectedBrokers.forEach(code => {
+            if (dayMap[code]) newlyFetched.push({ date, broker: code, ...dayMap[code] })
+          })
+        } catch (_) {
+          DB.brokerCache[date] = null
+        }
+      }))
+      if (batches.length > 1) await new Promise(r => setTimeout(r, BATCH_DELAY))
+    }
+    appendBrokerCache(DB.sym, newlyFetched)
+    if (noDataDates.length) appendNoDataDates(DB.sym, noDataDates)
+  }
+
+  // ============================================================
+  // SEKSI 8: RENDER GARIS KUMULATIF PER BROKER
+  // ============================================================
+  function _renderAllBrokerLines() {
+    DB.selectedBrokers.forEach((broker, i) => {
+      if (_brokerSeries[broker]) { try { chart.removeSeries(_brokerSeries[broker]) } catch (_) {} }
+      let cum = 0
+      const points = []
+      DB.daily.forEach(d => {
+        const dayMap = DB.brokerCache[d.date]
+        const v = dayMap ? dayMap[broker] : null
+        if (!v) return
+        cum += v.net
+        points.push({ time: d.date, value: cum })
+      })
+      const color = BROKER_COLORS[i % BROKER_COLORS.length]
+      const s = chart.addSeries(LightweightCharts.LineSeries, {
+        color, lineWidth: 1.5, title: broker,
+        priceScaleId: 'broker-cum-scale'
+      }, 0)
+      s.setData(points)
+      try { s.priceScale().applyOptions({ scaleMargins: { top: 0.05, bottom: 0.05 } }) } catch (_) {}
+      _brokerSeries[broker] = s
+    })
+    if (DB.daily.length) _updateInfoAndLegend(DB.daily.length - 1)
+  }
+
+  // ============================================================
+  // SEKSI 9: OHLC BAR + LEGEND
+  // ============================================================
+  function _updateInfoAndLegend(idx) {
+    const days = DB.daily
+    if (!days.length || idx === undefined || idx < 0 || idx >= days.length) return
+    const d = days[idx]
+
+    document.getElementById('ohlc-bar').innerHTML = `<b>${DB.sym}</b> · ${d.date} · C ${_fmtNum(d.close)}`
+
+    const rows = DB.selectedBrokers.map((broker, i) => {
+      const color = BROKER_COLORS[i % BROKER_COLORS.length]
+      let cum = 0
+      for (let k = 0; k <= idx; k++) {
+        const dayMap = DB.brokerCache[days[k].date]
+        const v = dayMap ? dayMap[broker] : null
+        if (v) cum += v.net
+      }
+      return { label: broker, color, value: cum }
+    })
+
+    document.getElementById('chart-legend').innerHTML = rows.map(r => `
+      <div class="legend-row">
+        <span class="legend-swatch" style="background:${r.color}"></span>
+        <span class="legend-value" style="color:${r.color}">${r.label}: ${_fmtRp(r.value)}</span>
+      </div>
+    `).join('')
+  }
+
+  function _fmtRp(v) {
+    if (v === null || v === undefined || isNaN(v)) return '–'
+    const sign = v < 0 ? '-' : ''
+    const abs  = Math.abs(v)
+    if (abs >= 1e9) return sign + (abs/1e9).toFixed(2) + 'M'
+    if (abs >= 1e6) return sign + (abs/1e6).toFixed(0) + 'jt'
+    return sign + new Intl.NumberFormat('id-ID').format(Math.round(abs))
+  }
+  function _fmtNum(v) { return new Intl.NumberFormat('id-ID').format(Math.round(v)) }
+
+  init()
+  window._ba = { DB, chart: () => chart }
+</script>
+
+</body>
+</html>
