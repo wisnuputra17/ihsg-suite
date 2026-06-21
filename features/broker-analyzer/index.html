@@ -43,6 +43,8 @@
     #chart-main { width: 100%; height: 100%; }
 
     .top10-panel { width: 280px; flex-shrink: 0; border: 1px solid var(--line); overflow-y: auto; padding: 10px; }
+    .top10-range-row { display: flex; gap: 4px; margin-bottom: 12px; }
+    .top10-range-row .pill { padding: 4px 10px; font-size: 9px; }
     .top10-col { margin-bottom: 16px; }
     .top10-title { font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
       color: var(--ghost); margin-bottom: 6px; }
@@ -101,6 +103,12 @@
     </div>
 
     <div class="top10-panel">
+      <div class="top10-range-row" id="top10-range-row">
+        <button class="pill active" data-days="1">1H</button>
+        <button class="pill" data-days="7">7H</button>
+        <button class="pill" data-days="30">30H</button>
+        <button class="pill" data-days="90">90H</button>
+      </div>
       <div class="top10-col">
         <div class="top10-title" id="top10-buy-title">Top 10 Buyer</div>
         <div id="top10-buy"></div>
@@ -146,6 +154,7 @@
     window.addEventListener('ihsg:token-saved', () => { if (DB.sym) _loadSym() })
 
     _bindSymSearch()
+    _bindTop10RangeControls()
     _loadEmitenInfo()
   }
 
@@ -215,35 +224,81 @@
   // ============================================================
   // SEKSI 4: TOP 10 SNAPSHOT (1 request, murah — bukan histori)
   // ============================================================
+  let _top10RangeDays = 1
+
+  function _bindTop10RangeControls() {
+    document.querySelectorAll('#top10-range-row .pill').forEach(btn => {
+      btn.addEventListener('click', () => {
+        _top10RangeDays = parseInt(btn.dataset.days)
+        document.querySelectorAll('#top10-range-row .pill').forEach(b => b.classList.toggle('active', b === btn))
+        if (DB.sym) _fetchTop10Snapshot()
+      })
+    })
+  }
+
+  /**
+   * Top 10 buyer/seller sekarang AGREGAT (jumlah) dari N hari trading terakhir,
+   * bukan snapshot 1 hari saja. 1 hari = 1 request (sama seperti histori broker
+   * biasa) — reuse _fetchDateBatch yang SUDAH simpan semua broker per hari,
+   * supaya tidak fetch dobel kalau tanggal yang sama juga dipakai utk garis
+   * broker yang sedang dibandingkan.
+   */
   async function _fetchTop10Snapshot() {
     if (!DB.daily.length) return
-    // Mulai dari hari TERAKHIR yang ada candle-nya (bukan tanggal kalender
-    // hari ini — itu bisa kosong di luar jam pasar/weekend/data belum siap).
-    // Mundur beberapa hari kalau data broker hari itu juga kosong (kadang
-    // proses data broker lag dibanding data harga).
-    const maxTries = 5
-    for (let i = 0; i < maxTries && i < DB.daily.length; i++) {
-      const date = DB.daily[DB.daily.length - 1 - i].date
-      try {
-        const { buys, sells } = await fetchBroker(DB.sym, date, date)
-        if (buys.length > 0 || sells.length > 0) {
-          DB.brokerTop = { buys: buys.slice(0, 10), sells: sells.slice(0, 10), date }
-          _renderTop10Lists()
-          return
-        }
-      } catch (e) {
-        console.warn('[broker-analyzer] gagal fetch top10 utk', date, ':', e.message)
-      }
+
+    // Tentukan N hari TRADING terakhir (bukan kalender) — kalau N=1, sama
+    // persis perilaku snapshot lama (1 hari saja).
+    const endIdx   = DB.daily.length - 1
+    const startIdx = Math.max(0, endIdx - _top10RangeDays + 1)
+    const rangeDates = DB.daily.slice(startIdx, endIdx + 1).map(d => d.date)
+
+    const missing = rangeDates.filter(d => !(d in DB.brokerCache))
+    _computeAndRenderTop10(rangeDates) // tampilkan dari cache yg sudah ada duluan
+
+    await fetchWithConfirm({
+      missingDates: missing,
+      statusEl: document.getElementById('status'),
+      autoMax: AUTO_FETCH_MAX,
+      batchSize: BATCH_SIZE,
+      batchDelay: BATCH_DELAY,
+      fetchFn: _fetchDateBatch,
+      onComplete: () => _computeAndRenderTop10(rangeDates)
+    })
+  }
+
+  /** Jumlahkan buy/sell per broker sepanjang rangeDates, ranking top 10 masing2. */
+  function _computeAndRenderTop10(rangeDates) {
+    const sums = {} // {brokerCode: {buy, sell}}
+    let anyData = false
+    rangeDates.forEach(date => {
+      const dayMap = DB.brokerCache[date]
+      if (!dayMap) return
+      anyData = true
+      Object.keys(dayMap).forEach(code => {
+        if (!sums[code]) sums[code] = { buy: 0, sell: 0 }
+        sums[code].buy  += dayMap[code].buy
+        sums[code].sell += dayMap[code].sell
+      })
+    })
+
+    if (!anyData) {
+      DB.brokerTop = { buys: [], sells: [], rangeDays: _top10RangeDays }
+      _renderTop10Lists()
+      return
     }
-    DB.brokerTop = { buys: [], sells: [] }
+
+    const entries = Object.entries(sums).map(([code, v]) => ({ code, buy: v.buy, sell: v.sell }))
+    const topBuyers  = [...entries].sort((a, b) => b.buy  - a.buy ).slice(0, 10).map(e => ({ code: e.code, val: e.buy }))
+    const topSellers = [...entries].sort((a, b) => b.sell - a.sell).slice(0, 10).map(e => ({ code: e.code, val: e.sell }))
+
+    DB.brokerTop = { buys: topBuyers, sells: topSellers, rangeDays: _top10RangeDays }
     _renderTop10Lists()
-    document.getElementById('status').textContent = `Tidak ada data broker dalam ${maxTries} hari terakhir`
   }
 
   function _renderTop10Lists() {
-    const dateSuffix = DB.brokerTop.date ? ` · ${DB.brokerTop.date}` : ''
-    document.getElementById('top10-buy-title').textContent  = 'Top 10 Buyer' + dateSuffix
-    document.getElementById('top10-sell-title').textContent = 'Top 10 Seller' + dateSuffix
+    const rangeTxt = DB.brokerTop.rangeDays > 1 ? ` · ${DB.brokerTop.rangeDays} hari` : ''
+    document.getElementById('top10-buy-title').textContent  = 'Top 10 Buyer' + rangeTxt
+    document.getElementById('top10-sell-title').textContent = 'Top 10 Seller' + rangeTxt
 
     const renderCol = (list, elId) => {
       const el = document.getElementById(elId)
