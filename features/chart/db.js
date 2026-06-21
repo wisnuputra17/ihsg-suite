@@ -29,7 +29,9 @@ export async function loadLpmCacheForSym(sym) {
     const rows = await gsLoad(SHEET_LPM_CACHE)
     const cache = {}
     rows.filter(r => r.sym === sym).forEach(r => {
-      cache[r.date] = { buy: Number(r.buy), sell: Number(r.sell), net: Number(r.net) }
+      // Sentinel buy=-1 → tanggal sudah pernah dicek, API memang tidak punya data
+      // (BUKAN net=0 sungguhan) — simpan null supaya tidak ikut hitungan kumulatif/bar.
+      cache[r.date] = Number(r.buy) === -1 ? null : { buy: Number(r.buy), sell: Number(r.sell), net: Number(r.net) }
     })
     DB.lpmCache = cache
   } catch (e) {

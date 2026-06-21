@@ -1210,6 +1210,7 @@
 
   async function _fetchLpmDates(dates, onProgress) {
     const newlyFetched = []
+    const noDataDates  = []
     const batches = []
     for (let i = 0; i < dates.length; i += LPM_BATCH_SIZE) batches.push(dates.slice(i, i + LPM_BATCH_SIZE))
     let done = 0
@@ -1217,6 +1218,17 @@
       await Promise.allSettled(batch.map(async date => {
         try {
           const data = await fetchAbsorption(DB.sym, date)
+          const hasData = data.buy.length > 0 || data.sell.length > 0
+
+          if (!hasData) {
+            // API memang tidak punya data utk tanggal ini (BUKAN error, BUKAN net=0
+            // sungguhan) — tandai null supaya tidak dihitung di kumulatif/bar, tapi
+            // tetap dicatat "sudah dicek" supaya tidak fetch ulang tiap sesi.
+            DB.lpmCache[date] = null
+            noDataDates.push(date)
+            return
+          }
+
           const buyTotal  = data.buy.length  ? data.buy[data.buy.length - 1].value   : 0
           const sellTotal = data.sell.length ? data.sell[data.sell.length - 1].value : 0
           const entry = { buy: buyTotal, sell: sellTotal, net: buyTotal - sellTotal }
@@ -1230,8 +1242,12 @@
       }))
       if (batches.length > 1) await new Promise(r => setTimeout(r, LPM_BATCH_DELAY))
     }
-    // Simpan permanen ke Sheets — HANYA yang baru, bukan seluruh histori (append, bukan timpa)
+    // Simpan permanen ke Sheets — data valid (append biasa) + tanggal "tidak ada
+    // data" (sentinel buy=-1, supaya tidak fetch ulang lagi di sesi/device lain)
     appendLpmCache(DB.sym, newlyFetched)
+    if (noDataDates.length) {
+      appendLpmCache(DB.sym, noDataDates.map(date => ({ date, buy: -1, sell: -1, net: 0 })))
+    }
   }
 
   /**
