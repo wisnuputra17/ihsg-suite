@@ -45,8 +45,6 @@
     #chart-main { width: 100%; height: 100%; }
 
     .top10-panel { width: 280px; flex-shrink: 0; border: 1px solid var(--line); overflow-y: auto; padding: 10px; }
-    .top10-range-row { display: flex; gap: 4px; margin-bottom: 12px; }
-    .top10-range-row .pill { padding: 4px 10px; font-size: 9px; }
     .top10-col { margin-bottom: 16px; }
     .top10-title { font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
       color: var(--ghost); margin-bottom: 6px; }
@@ -110,12 +108,6 @@
     </div>
 
     <div class="top10-panel">
-      <div class="top10-range-row" id="top10-range-row">
-        <button class="pill active" data-days="1">1H</button>
-        <button class="pill" data-days="7">7H</button>
-        <button class="pill" data-days="30">30H</button>
-        <button class="pill" data-days="90">90H</button>
-      </div>
       <div class="top10-col">
         <div class="top10-title" id="top10-buy-title">Top 10 Buyer</div>
         <div id="top10-buy"></div>
@@ -162,7 +154,6 @@
     window.addEventListener('ihsg:token-saved', () => { if (DB.sym) _loadSym() })
 
     _bindSymSearch()
-    _bindTop10RangeControls()
     _bindDisplayModeToggle()
     _loadEmitenInfo()
   }
@@ -249,38 +240,33 @@
   }
 
   // ============================================================
-  // SEKSI 4: TOP 10 SNAPSHOT (1 request, murah — bukan histori)
+  // SEKSI 4: TOP 10 — ikut viewport chart, BUKAN konsep rentang terpisah
   // ============================================================
-  let _top10RangeDays = 1
-
-  function _bindTop10RangeControls() {
-    document.querySelectorAll('#top10-range-row .pill').forEach(btn => {
-      btn.addEventListener('click', () => {
-        _top10RangeDays = parseInt(btn.dataset.days)
-        document.querySelectorAll('#top10-range-row .pill').forEach(b => b.classList.toggle('active', b === btn))
-        if (DB.sym) _fetchTop10Snapshot()
-      })
-    })
-  }
 
   /**
-   * Top 10 buyer/seller sekarang AGREGAT (jumlah) dari N hari trading terakhir,
-   * bukan snapshot 1 hari saja. 1 hari = 1 request (sama seperti histori broker
-   * biasa) — reuse _fetchDateBatch yang SUDAH simpan semua broker per hari,
-   * supaya tidak fetch dobel kalau tanggal yang sama juga dipakai utk garis
-   * broker yang sedang dibandingkan.
+   * SATU fungsi yang sama menentukan baik garis broker yang dibandingkan
+   * MAUPUN ranking Top 10 — keduanya ikut rentang yang sedang TERLIHAT di
+   * viewport chart (persis seperti LPM), bukan 2 konsep rentang yang beda.
+   * Tarik chart sejauh apapun (misal 300 hari) → Top 10 & garis broker
+   * sama-sama mengikuti 300 hari itu.
    */
-  async function _fetchTop10Snapshot() {
-    if (!DB.daily.length) return
+  async function _updateBrokerHistoryForVisibleRange() {
+    if (!chart || !DB.daily.length) return
+    const range = chart.timeScale().getVisibleLogicalRange()
+    if (!range) return
+    const fromIdx = Math.max(0, Math.floor(range.from))
+    const toIdx   = Math.min(DB.daily.length - 1, Math.ceil(range.to))
+    if (fromIdx > toIdx) return
+    const visibleDates = DB.daily.slice(fromIdx, toIdx + 1).map(d => d.date)
 
-    // Tentukan N hari TRADING terakhir (bukan kalender) — kalau N=1, sama
-    // persis perilaku snapshot lama (1 hari saja).
-    const endIdx   = DB.daily.length - 1
-    const startIdx = Math.max(0, endIdx - _top10RangeDays + 1)
-    const rangeDates = DB.daily.slice(startIdx, endIdx + 1).map(d => d.date)
+    // 1 tanggal dianggap "missing" kalau BELUM PERNAH di-fetch sama sekali
+    // (bukan per-broker) — karena 1 fetch sudah cukup utk semua broker DAN
+    // utk ranking Top 10 sekaligus (data yang sama dipakai berdua).
+    const missing = visibleDates.filter(d => !(d in DB.brokerCache))
 
-    const missing = rangeDates.filter(d => !(d in DB.brokerCache))
-    _computeAndRenderTop10(rangeDates) // tampilkan dari cache yg sudah ada duluan
+    // Tampilkan dari cache yang sudah ada duluan, sambil nunggu (kalau ada) konfirmasi
+    if (DB.selectedBrokers.length) _renderAllBrokerLines()
+    _computeAndRenderTop10(visibleDates)
 
     await fetchWithConfirm({
       missingDates: missing,
@@ -289,11 +275,14 @@
       batchSize: BATCH_SIZE,
       batchDelay: BATCH_DELAY,
       fetchFn: _fetchDateBatch,
-      onComplete: () => _computeAndRenderTop10(rangeDates)
+      onComplete: () => {
+        if (DB.selectedBrokers.length) _renderAllBrokerLines()
+        _computeAndRenderTop10(visibleDates)
+      }
     })
   }
 
-  /** Jumlahkan buy/sell per broker sepanjang rangeDates, ranking top 10 masing2. */
+  /** Jumlahkan buy/sell per broker sepanjang rangeDates (= rentang yang TERLIHAT di chart), ranking top 10 masing2. */
   function _computeAndRenderTop10(rangeDates) {
     const sums = {} // {brokerCode: {buy, sell}}
     let anyData = false
@@ -309,7 +298,7 @@
     })
 
     if (!anyData) {
-      DB.brokerTop = { buys: [], sells: [], rangeDays: _top10RangeDays }
+      DB.brokerTop = { buys: [], sells: [], rangeDays: rangeDates.length }
       _renderTop10Lists()
       return
     }
@@ -318,7 +307,7 @@
     const topBuyers  = [...entries].sort((a, b) => b.buy  - a.buy ).slice(0, 10).map(e => ({ code: e.code, val: e.buy }))
     const topSellers = [...entries].sort((a, b) => b.sell - a.sell).slice(0, 10).map(e => ({ code: e.code, val: e.sell }))
 
-    DB.brokerTop = { buys: topBuyers, sells: topSellers, rangeDays: _top10RangeDays }
+    DB.brokerTop = { buys: topBuyers, sells: topSellers, rangeDays: rangeDates.length }
     _renderTop10Lists()
   }
 
@@ -418,7 +407,11 @@
     })
     candleSeries.setData(days.map(d => ({ time: d.date, open: d.open, high: d.high, low: d.low, close: d.close })))
 
-    chart.timeScale().fitContent()
+    // Default zoom: 90 hari terakhir saja (bukan seluruh histori) — supaya
+    // Top 10 & garis broker tidak langsung minta fetch ribuan hari di awal.
+    // User tetap bisa zoom out manual kalau mau rentang lebih panjang.
+    const defaultBars = Math.min(90, days.length)
+    chart.timeScale().setVisibleLogicalRange({ from: days.length - defaultBars, to: days.length - 1 })
 
     chart.subscribeCrosshairMove(param => {
       const idx = param.time ? _dateToIndex[param.time] : days.length - 1
@@ -439,36 +432,11 @@
   }
 
   // ============================================================
-  // SEKSI 7: FETCH HISTORI BROKER (MAHAL — 1 request = 1 hari, sama seperti LPM)
+  // SEKSI 7b: FETCH HISTORI BROKER (MAHAL — 1 request = 1 hari, sama seperti LPM)
   // ============================================================
   // PENTING: 1 request fetchBroker(sym, date, date) sudah kasih SEMUA broker
   // sekaligus — jadi 1 tanggal yang sama dipakai bersama oleh SEMUA broker yang
-  // dipilih, BUKAN di-fetch ulang per broker (itu yang bikin boros sebelumnya).
-  async function _updateBrokerHistoryForVisibleRange() {
-    if (!chart || !DB.daily.length || !DB.selectedBrokers.length) return
-    const range = chart.timeScale().getVisibleLogicalRange()
-    if (!range) return
-    const fromIdx = Math.max(0, Math.floor(range.from))
-    const toIdx   = Math.min(DB.daily.length - 1, Math.ceil(range.to))
-    if (fromIdx > toIdx) return
-    const visibleDates = DB.daily.slice(fromIdx, toIdx + 1).map(d => d.date)
-
-    // 1 tanggal dianggap "missing" kalau BELUM PERNAH di-fetch sama sekali
-    // (bukan per-broker) — karena 1 fetch sudah cukup utk semua broker.
-    const missing = visibleDates.filter(d => !(d in DB.brokerCache))
-    _renderAllBrokerLines() // tampilkan yang sudah ada di cache duluan, sambil nunggu (kalau ada) konfirmasi
-
-    await fetchWithConfirm({
-      missingDates: missing,
-      statusEl: document.getElementById('status'),
-      autoMax: AUTO_FETCH_MAX,
-      batchSize: BATCH_SIZE,
-      batchDelay: BATCH_DELAY,
-      fetchFn: _fetchDateBatch,
-      onComplete: _renderAllBrokerLines
-    })
-  }
-
+  // dipilih DAN ranking Top 10, BUKAN di-fetch ulang per broker / per keperluan.
   /**
    * Fetch 1 batch tanggal — TIAP tanggal cuma 1 request fetchBroker, hasilnya
    * (SEMUA broker yang muncul) disimpan, lalu ekstrak khusus utk broker yang
