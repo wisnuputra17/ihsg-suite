@@ -29,12 +29,6 @@
     .watchlist-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; min-height: 30px; }
     .chip-count { font-family: var(--f-mono); font-size: 10px; color: var(--ghost); align-self: center; }
 
-    .named-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-    .named-select {
-      background: #0f0e0c; border: 1px solid var(--line); border-radius: var(--radius);
-      padding: 7px 10px; font-family: var(--f-mono); font-size: 12px; color: var(--paper); outline: none;
-    }
-
     .monitor-row { display: flex; align-items: center; gap: 12px; margin: 16px 0; }
     .monitor-status { font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.08em; }
 
@@ -81,16 +75,6 @@
       </div>
       <div class="watchlist-row" id="haka-watchlist"></div>
 
-      <div class="section-label">Watchlist Tersimpan</div>
-      <div class="named-row">
-        <select class="named-select" id="haka-named-select"><option value="">— pilih —</option></select>
-        <button class="btn btn-sm" id="haka-named-load">Muat</button>
-        <button class="btn btn-sm" id="haka-named-save">Simpan sbg baru</button>
-        <button class="btn btn-sm" id="haka-named-update">Perbarui</button>
-        <button class="btn btn-sm" id="haka-named-rename">Ganti nama</button>
-        <button class="btn btn-sm btn-danger" id="haka-named-delete">Hapus</button>
-      </div>
-
       <div class="section-label">Threshold</div>
       <div class="toolbar" data-threshold-group="haka">
         <button class="pill" data-threshold="100000000">100 jt</button>
@@ -123,16 +107,6 @@
       </div>
       <div class="watchlist-row" id="hakahaki-watchlist"></div>
 
-      <div class="section-label">Watchlist Tersimpan</div>
-      <div class="named-row">
-        <select class="named-select" id="hakahaki-named-select"><option value="">— pilih —</option></select>
-        <button class="btn btn-sm" id="hakahaki-named-load">Muat</button>
-        <button class="btn btn-sm" id="hakahaki-named-save">Simpan sbg baru</button>
-        <button class="btn btn-sm" id="hakahaki-named-update">Perbarui</button>
-        <button class="btn btn-sm" id="hakahaki-named-rename">Ganti nama</button>
-        <button class="btn btn-sm btn-danger" id="hakahaki-named-delete">Hapus</button>
-      </div>
-
       <div class="section-label">Threshold</div>
       <div class="toolbar" data-threshold-group="hakahaki">
         <button class="pill" data-threshold="100000000">100 jt</button>
@@ -164,10 +138,9 @@
   import { createMonitor } from './poll.js'
   import {
     DB, loadAll,
-    watchlistAdd, watchlistRemove, watchlistSet,
-    hakahakiWatchlistAdd, hakahakiWatchlistRemove, hakahakiWatchlistSet,
+    watchlistAdd, watchlistRemove,
+    hakahakiWatchlistAdd, hakahakiWatchlistRemove,
     setThreshold,
-    namedListSave, namedListDelete, namedListRename,
     alertAdd, hakahakiAlertAdd, clearAlerts
   } from './db.js'
 
@@ -189,7 +162,6 @@
 
     _bindTabs()
     _bindWatchlistInputs()
-    _bindNamedListControls()
     _bindThresholdPills()
     _bindMonitorButtons()
 
@@ -205,8 +177,6 @@
     await loadAll()
     _renderWatchlist('haka')
     _renderWatchlist('hakahaki')
-    _renderNamedSelect('haka')
-    _renderNamedSelect('hakahaki')
     _renderThresholdPills()
   }
 
@@ -259,67 +229,6 @@
     el.innerHTML = list.map(sym => `
       <span class="chip">${sym}<button class="chip-remove" data-remove-sym="${sym}">×</button></span>
     `).join('') + `<span class="chip-count">${list.length}/${max}</span>`
-  }
-
-  // ============================================================
-  // SEKSI 6: NAMED LISTS
-  // ============================================================
-  function _renderNamedSelect(prefix) {
-    const sel = document.getElementById(`${prefix}-named-select`)
-    const names = Object.keys(DB.namedLists)
-    sel.innerHTML = `<option value="">— pilih —</option>` +
-      names.map(n => `<option value="${n}">${n} (${DB.namedLists[n].length})</option>`).join('')
-  }
-
-  function _bindNamedListControls() {
-    ;['haka', 'hakahaki'].forEach(prefix => {
-      const sel       = document.getElementById(`${prefix}-named-select`)
-      const setFn     = prefix === 'haka' ? watchlistSet     : hakahakiWatchlistSet
-      const getActive = prefix === 'haka' ? () => DB.watchlist : () => DB.hakahakiWatchlist
-
-      document.getElementById(`${prefix}-named-load`).addEventListener('click', () => {
-        const name = sel.value
-        if (!name || !DB.namedLists[name]) return
-        setFn(DB.namedLists[name])
-        _renderWatchlist(prefix)
-      })
-
-      document.getElementById(`${prefix}-named-save`).addEventListener('click', () => {
-        const name = prompt('Nama watchlist baru:')
-        if (!name) return
-        if (DB.namedLists[name]) { alert('Nama sudah dipakai.'); return }
-        namedListSave(name, getActive())
-        _renderNamedSelect(prefix)
-        sel.value = name
-      })
-
-      document.getElementById(`${prefix}-named-update`).addEventListener('click', () => {
-        const name = sel.value
-        if (!name) { alert('Pilih watchlist dulu.'); return }
-        namedListSave(name, getActive())
-        _renderNamedSelect(prefix)
-        sel.value = name
-      })
-
-      document.getElementById(`${prefix}-named-rename`).addEventListener('click', () => {
-        const name = sel.value
-        if (!name) { alert('Pilih watchlist dulu.'); return }
-        const newName = prompt('Nama baru:', name)
-        if (!newName || newName === name) return
-        const ok = namedListRename(name, newName)
-        if (!ok) { alert('Nama baru sudah dipakai.'); return }
-        _renderNamedSelect(prefix)
-        sel.value = newName
-      })
-
-      document.getElementById(`${prefix}-named-delete`).addEventListener('click', () => {
-        const name = sel.value
-        if (!name) return
-        if (!confirm(`Hapus watchlist "${name}"?`)) return
-        namedListDelete(name)
-        _renderNamedSelect(prefix)
-      })
-    })
   }
 
   // ============================================================

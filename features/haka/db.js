@@ -25,7 +25,6 @@ export const DB = {
   watchlist:          [],        // ['BBCA','TLKM',...] — maks 100, untuk tab HAKA
   hakahakiWatchlist:   [],        // maks 20, untuk tab HAKA & HAKI
   threshold:           500e6,     // berlaku untuk kedua tab
-  namedLists:          {},        // {nama: ['BBCA','TLKM']} — watchlist tersimpan
   alerts:              [],        // feed HAKA — real-time, tidak disimpan
   hakahakiAlerts:      []         // feed HAKA & HAKI — real-time, tidak disimpan
 }
@@ -37,7 +36,6 @@ export const DB = {
 const SHEET_WATCHLIST   = 'haka-watchlist'
 const SHEET_HAKAHAKI_WL = 'haka-hakahaki-watchlist'
 const SHEET_CONFIG      = 'haka-config'
-const SHEET_NAMED_LISTS = 'haka-named-lists'
 
 // ============================================================
 // SEKSI 3: LOAD — dari Sheets ke in-memory, dipanggil sekali saat init
@@ -48,11 +46,10 @@ const SHEET_NAMED_LISTS = 'haka-named-lists'
  * Dipanggil koordinator sekali saat halaman dibuka.
  */
 export async function loadAll() {
-  const [wl, hhWl, cfg, named] = await Promise.allSettled([
+  const [wl, hhWl, cfg] = await Promise.allSettled([
     gsLoad(SHEET_WATCHLIST),
     gsLoad(SHEET_HAKAHAKI_WL),
-    gsLoad(SHEET_CONFIG),
-    gsLoad(SHEET_NAMED_LISTS)
+    gsLoad(SHEET_CONFIG)
   ])
 
   if (wl.status === 'fulfilled')    DB.watchlist          = wl.value.map(r => r.sym)
@@ -61,14 +58,6 @@ export async function loadAll() {
   if (cfg.status === 'fulfilled') {
     const row = cfg.value.find(r => r.key === 'threshold')
     if (row) DB.threshold = Number(row.value)
-  }
-
-  if (named.status === 'fulfilled') {
-    const obj = {}
-    named.value.forEach(r => {
-      obj[r.name] = String(r.syms || '').split(',').map(s => s.trim()).filter(Boolean)
-    })
-    DB.namedLists = obj
   }
 }
 
@@ -86,11 +75,6 @@ export function watchlistAdd(sym) {
 
 export function watchlistRemove(sym) {
   DB.watchlist = DB.watchlist.filter(s => s !== sym)
-  _syncWatchlist()
-}
-
-export function watchlistSet(syms) {
-  DB.watchlist = syms.slice(0, 100)
   _syncWatchlist()
 }
 
@@ -117,11 +101,6 @@ export function hakahakiWatchlistRemove(sym) {
   _syncHakahakiWatchlist()
 }
 
-export function hakahakiWatchlistSet(syms) {
-  DB.hakahakiWatchlist = syms.slice(0, 20)
-  _syncHakahakiWatchlist()
-}
-
 function _syncHakahakiWatchlist() {
   gsSave(SHEET_HAKAHAKI_WL, DB.hakahakiWatchlist.map(sym => ({ sym }))).catch(e =>
     console.warn('[haka/db] sync hakahaki watchlist gagal:', e.message)
@@ -140,40 +119,7 @@ export function setThreshold(val) {
 }
 
 // ============================================================
-// SEKSI 7: NAMED LISTS (watchlist tersimpan, bisa banyak)
-// ============================================================
-
-function _syncNamedLists() {
-  const rows = Object.keys(DB.namedLists).map(name => ({
-    name,
-    syms: DB.namedLists[name].join(',')
-  }))
-  gsSave(SHEET_NAMED_LISTS, rows).catch(e =>
-    console.warn('[haka/db] sync named lists gagal:', e.message)
-  )
-}
-
-/** Simpan watchlist baru dengan nama. Overwrite kalau nama sudah ada. */
-export function namedListSave(name, syms) {
-  DB.namedLists[name] = [...syms]
-  _syncNamedLists()
-}
-
-export function namedListDelete(name) {
-  delete DB.namedLists[name]
-  _syncNamedLists()
-}
-
-export function namedListRename(oldName, newName) {
-  if (!DB.namedLists[oldName] || DB.namedLists[newName]) return false
-  DB.namedLists[newName] = DB.namedLists[oldName]
-  delete DB.namedLists[oldName]
-  _syncNamedLists()
-  return true
-}
-
-// ============================================================
-// SEKSI 8: ALERTS — real-time saja, FIFO maks 200, tidak disimpan
+// SEKSI 7: ALERTS — real-time saja, FIFO maks 200, tidak disimpan
 // ============================================================
 
 export function alertAdd(alert) {
