@@ -95,6 +95,7 @@
     </div>
     <div class="display-mode-row" id="display-mode-row">
       <button class="pill active" data-mode="cumulative">Kumulatif</button>
+      <button class="pill" data-mode="line">Garis Harian</button>
       <button class="pill" data-mode="bar">Bar Harian</button>
     </div>
     <div class="selected-chip-row" id="selected-chip-row"></div>
@@ -242,6 +243,7 @@
         p._displayMode = _displayMode
         savePrefs(p)
         if (DB.selectedBrokers.length) _renderAllBrokerLines()
+        _layoutBrokerPane()
       })
     })
   }
@@ -357,6 +359,7 @@
     _savePrefsNow()
     _renderSelectedChips()
     _renderTop10Lists()
+    _layoutBrokerPane()
 
     // Catch-up: tanggal yang SUDAH pernah di-fetch (broker lain) mungkin sudah
     // punya data broker baru ini juga di memori (1 fetch = semua broker) —
@@ -425,6 +428,7 @@
     chart.timeScale().subscribeVisibleLogicalRangeChange(_debouncedUpdate)
 
     if (DB.selectedBrokers.length) _renderAllBrokerLines()
+    _layoutBrokerPane()
     _updateInfoAndLegend(days.length - 1)
   }
 
@@ -526,7 +530,29 @@
         }, 1) // pane 1 = panel bar harian, terpisah dari candle
         s.setData(points)
         _brokerSeries[broker] = s
-      } else {
+      }
+
+      else if (_displayMode === 'line') {
+        // Garis harian — net per hari APA ADANYA (sama datanya dengan Bar
+        // Harian), tapi digambar sebagai GARIS overlay di chart utama (pane 0),
+        // skala terpisah dari harga — sama seperti LPM mode Garis.
+        const points = []
+        DB.daily.forEach(d => {
+          const dayMap = DB.brokerCache[d.date]
+          const v = dayMap ? dayMap[broker] : null
+          if (!v) return
+          points.push({ time: d.date, value: v.net })
+        })
+        const s = chart.addSeries(LightweightCharts.LineSeries, {
+          color, lineWidth: 1.5, title: broker,
+          priceScaleId: 'broker-cum-scale' // skala sama dgn Kumulatif, supaya konsisten saat ganti mode
+        }, 0) // pane 0 = overlay bareng candle
+        s.setData(points)
+        try { s.priceScale().applyOptions({ scaleMargins: { top: 0.05, bottom: 0.05 } }) } catch (_) {}
+        _brokerSeries[broker] = s
+      }
+
+      else {
         // Kumulatif — net harian ditambah terus-menerus, bergerak seperti
         // garis harga/MA, menunjukkan tren akumulasi/distribusi broker ini.
         let cum = 0
@@ -547,7 +573,6 @@
         _brokerSeries[broker] = s
       }
     })
-    _layoutBrokerPane()
     if (DB.daily.length) _updateInfoAndLegend(DB.daily.length - 1)
   }
 
@@ -575,7 +600,7 @@
 
     const rows = DB.selectedBrokers.map((broker, i) => {
       const color = BROKER_COLORS[i % BROKER_COLORS.length]
-      if (_displayMode === 'bar') {
+      if (_displayMode === 'bar' || _displayMode === 'line') {
         const dayMap = DB.brokerCache[d.date]
         const v = dayMap ? dayMap[broker] : null
         return { label: broker, color, value: v ? v.net : null }
