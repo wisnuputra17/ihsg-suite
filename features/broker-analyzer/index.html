@@ -93,7 +93,6 @@
     </div>
     <div class="display-mode-row" id="display-mode-row">
       <button class="pill active" data-mode="cumulative">Kumulatif</button>
-      <button class="pill" data-mode="line">Garis Harian</button>
       <button class="pill" data-mode="bar">Bar Harian</button>
     </div>
     <div class="selected-chip-row" id="selected-chip-row"></div>
@@ -484,8 +483,9 @@
 
       if (_displayMode === 'bar') {
         // Bar harian — net per hari APA ADANYA (bukan kumulatif), supaya hari
-        // dengan masuk/keluar besar langsung kelihatan sebagai bar tinggi,
-        // tanpa perlu baca kemiringan garis kumulatif.
+        // dengan masuk/keluar besar langsung kelihatan sebagai bar tinggi.
+        // Bar boleh berdiri sendiri per hari (bar dipahami sebagai kejadian
+        // diskrit, bukan jalur yang menyambung seperti garis).
         const points = []
         DB.daily.forEach(d => {
           const dayMap = DB.brokerCache[d.date]
@@ -500,36 +500,25 @@
         _brokerSeries[broker] = s
       }
 
-      else if (_displayMode === 'line') {
-        // Garis harian — net per hari APA ADANYA (sama datanya dengan Bar
-        // Harian), tapi digambar sebagai GARIS overlay di chart utama (pane 0),
-        // skala terpisah dari harga — sama seperti LPM mode Garis.
-        const points = []
-        DB.daily.forEach(d => {
-          const dayMap = DB.brokerCache[d.date]
-          const v = dayMap ? dayMap[broker] : null
-          if (!v) return
-          points.push({ time: d.date, value: v.net })
-        })
-        const s = chart.addSeries(LightweightCharts.LineSeries, {
-          color, lineWidth: 1.5, title: broker,
-          priceScaleId: 'broker-cum-scale' // skala sama dgn Kumulatif, supaya konsisten saat ganti mode
-        }, 0) // pane 0 = overlay bareng candle
-        s.setData(points)
-        try { s.priceScale().applyOptions({ scaleMargins: { top: 0.05, bottom: 0.05 } }) } catch (_) {}
-        _brokerSeries[broker] = s
-      }
-
       else {
-        // Kumulatif — net harian ditambah terus-menerus, bergerak seperti
-        // garis harga/MA, menunjukkan tren akumulasi/distribusi broker ini.
+        // Kumulatif — net harian ditambah terus-menerus. PENTING: garis HARUS
+        // selalu sambung sebagai total berjalan — hari yang sudah DICEK tapi
+        // broker tidak aktif (dayMap ada, tapi broker tidak ada di dalamnya)
+        // tetap diberi titik DATAR (carry-forward), BUKAN dilewati. Kalau
+        // dilewati, LineSeries akan menyambungkan garis lurus diagonal ke
+        // titik valid berikutnya yang mungkin jauh — itu yang bikin garis
+        // kelihatan "lompat" tidak akurat. Hari yang BELUM PERNAH di-fetch
+        // sama sekali (dayMap itu sendiri undefined) tetap dilewati, karena
+        // memang belum tahu apa-apa soal hari itu.
         let cum = 0
         const points = []
         DB.daily.forEach(d => {
           const dayMap = DB.brokerCache[d.date]
-          const v = dayMap ? dayMap[broker] : null
-          if (!v) return
-          cum += v.net
+          if (dayMap === undefined) return // belum pernah di-fetch — benar2 tidak tahu, lewati
+          const v = dayMap[broker]
+          if (v) cum += v.net // ada transaksi hari ini → tambah ke total
+          // kalau v tidak ada (broker tidak aktif hari ini, TAPI hari ini sudah
+          // dicek) → cum TIDAK berubah, tetap push titik DATAR di nilai cum saat ini
           points.push({ time: d.date, value: cum })
         })
         const s = chart.addSeries(LightweightCharts.LineSeries, {
@@ -568,15 +557,18 @@
 
     const rows = DB.selectedBrokers.map((broker, i) => {
       const color = BROKER_COLORS[i % BROKER_COLORS.length]
-      if (_displayMode === 'bar' || _displayMode === 'line') {
+      if (_displayMode === 'bar') {
         const dayMap = DB.brokerCache[d.date]
         const v = dayMap ? dayMap[broker] : null
         return { label: broker, color, value: v ? v.net : null }
       }
+      // Kumulatif — sama persis dgn logic render: hari belum di-fetch dilewati,
+      // hari sudah dicek tapi broker tidak aktif tetap ikut hitungan (tidak nambah, tidak skip)
       let cum = 0
       for (let k = 0; k <= idx; k++) {
         const dayMap = DB.brokerCache[days[k].date]
-        const v = dayMap ? dayMap[broker] : null
+        if (dayMap === undefined) continue
+        const v = dayMap[broker]
         if (v) cum += v.net
       }
       return { label: broker, color, value: cum }
