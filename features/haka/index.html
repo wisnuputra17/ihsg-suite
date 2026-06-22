@@ -70,6 +70,34 @@
 
     .alert-bs-row { font-size: 9px; color: var(--ghost); font-family: var(--f-mono); display: flex; gap: 10px; }
     .alert-bs-code { color: var(--dim); }
+
+    .btn-dashed { border-style: dashed; border-color: var(--phosphor-line); color: var(--phosphor); background: transparent; }
+    .custom-wl-btns { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+    .custom-wl-btn {
+      padding: 3px 10px; border-radius: var(--radius); cursor: pointer; font-size: 10px;
+      font-family: var(--f-mono); border: 1px solid var(--phosphor-line); color: var(--phosphor);
+      background: var(--phosphor-dim);
+    }
+
+    .wl-modal-overlay {
+      position: fixed; inset: 0; background: rgba(10,9,8,0.75); z-index: 200;
+      display: flex; align-items: center; justify-content: center; padding: 20px;
+    }
+    .wl-modal {
+      background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 20px; width: 100%; max-width: 460px; max-height: 80vh; overflow-y: auto;
+    }
+    .wl-modal-head { display: flex; align-items: center; margin-bottom: 16px; font-size: 14px; font-weight: 700; color: var(--paper); }
+    .wl-modal-head span { flex: 1; }
+    .wl-modal-list { margin-bottom: 8px; }
+    .wl-item {
+      display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+      background: #0f0e0c; border-radius: var(--radius); margin-bottom: 5px;
+    }
+    .wl-item-info { flex: 1; min-width: 0; }
+    .wl-item-name { font-size: 11px; font-weight: 700; color: var(--paper); }
+    .wl-item-tickers { font-size: 9px; color: var(--ghost); font-family: var(--f-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .wl-modal-form { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
   </style>
 </head>
 <body>
@@ -94,6 +122,8 @@
         <button class="btn btn-sm" data-preset="idx80">IDX80</button>
         <button class="btn btn-sm" data-preset="all">Semua</button>
         <button class="btn btn-sm" data-preset="none">Reset</button>
+        <span class="custom-wl-btns" id="haka-custom-btns"></span>
+        <button class="btn btn-sm btn-dashed" data-wl-modal="haka">＋ Watchlist</button>
       </div>
       <div class="toolbar">
         <input type="text" class="input sym-input" id="haka-grid-search" placeholder="Cari kode saham..." style="width:200px;">
@@ -132,6 +162,8 @@
         <button class="btn btn-sm" data-preset="idx80">IDX80</button>
         <button class="btn btn-sm" data-preset="all">Semua</button>
         <button class="btn btn-sm" data-preset="none">Reset</button>
+        <span class="custom-wl-btns" id="hakahaki-custom-btns"></span>
+        <button class="btn btn-sm btn-dashed" data-wl-modal="hakahaki">＋ Watchlist</button>
       </div>
       <div class="toolbar">
         <input type="text" class="input sym-input" id="hakahaki-grid-search" placeholder="Cari kode saham..." style="width:200px;">
@@ -162,6 +194,27 @@
     </div>
 
   </div>
+
+  <!-- =================== MODAL: Kelola Watchlist Custom =================== -->
+  <div class="wl-modal-overlay hidden" id="wl-modal-overlay">
+    <div class="wl-modal">
+      <div class="wl-modal-head">
+        <span>📋 Kelola Watchlist Custom</span>
+        <button class="btn btn-sm" id="wl-modal-close">×</button>
+      </div>
+      <div class="wl-modal-list" id="wl-modal-list"></div>
+      <div class="wl-modal-form">
+        <div class="section-label">＋ Buat Watchlist Baru</div>
+        <input type="text" class="input" id="wl-new-name" placeholder="Nama watchlist (misal: Saham Favorit)" style="width:100%; margin-bottom:7px;">
+        <textarea class="input" id="wl-new-tickers" placeholder="Kode saham dipisah spasi atau koma&#10;Contoh: BBRI BMRI TLKM ASII ANTM" style="width:100%; height:80px; resize:vertical; font-family:var(--f-mono);"></textarea>
+        <div class="toolbar" style="margin-top:8px;">
+          <button class="btn btn-primary" id="wl-create-btn">✓ Simpan Watchlist</button>
+          <button class="btn btn-sm" id="wl-cancel-btn">Batal</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script type="module">
@@ -174,6 +227,7 @@
     watchlistAdd, watchlistRemove, watchlistSet,
     hakahakiWatchlistAdd, hakahakiWatchlistRemove, hakahakiWatchlistSet,
     setThreshold,
+    namedListSave, namedListDelete,
     alertAdd, hakahakiAlertAdd, clearAlerts
   } from './db.js'
 
@@ -200,6 +254,7 @@
     _bindGridControls('hakahaki')
     _bindThresholdPills()
     _bindMonitorButtons()
+    _bindWlModal()
 
     hakaMonitor.init({
       onAlert:    (a) => { alertAdd(a); _renderAlerts('haka'); if (a.isHAKA) _beep() },
@@ -216,6 +271,8 @@
     _renderCount('haka')
     _renderCount('hakahaki')
     _renderThresholdPills()
+    _renderCustomWlBtns('haka')
+    _renderCustomWlBtns('hakahaki')
   }
 
   async function _loadEmitenInfo() {
@@ -310,6 +367,107 @@
 
     const monitor = prefix === 'haka' ? hakaMonitor : hakahakiMonitor
     if (monitor.isRunning()) { monitor.stop(); _startMonitor(prefix) }
+  }
+
+  // ============================================================
+  // SEKSI 6: WATCHLIST CUSTOM (modal kelola + tombol cepat)
+  // ============================================================
+  let _wlModalTarget = 'haka' // tab mana yang sedang minta modal dibuka
+
+  function _renderCustomWlBtns(prefix) {
+    const el = document.getElementById(`${prefix}-custom-btns`)
+    const names = Object.keys(DB.namedLists)
+    el.innerHTML = names.map(name => `
+      <button class="custom-wl-btn" data-apply-named="${name}" data-apply-prefix="${prefix}"
+        title="${DB.namedLists[name].join(', ')}">${name} (${DB.namedLists[name].length})</button>
+    `).join('')
+    el.querySelectorAll('[data-apply-named]').forEach(btn => {
+      btn.addEventListener('click', () => _applyNamedList(btn.dataset.applyPrefix, btn.dataset.applyNamed))
+    })
+  }
+
+  function _applyNamedList(prefix, name) {
+    const syms = DB.namedLists[name]
+    if (!syms) return
+    const max = prefix === 'haka' ? 100 : 20
+    const sliced = syms.slice(0, max)
+    if (prefix === 'haka') watchlistSet(sliced)
+    else                   hakahakiWatchlistSet(sliced)
+    _renderGrid(prefix)
+    _renderCount(prefix)
+    const monitor = prefix === 'haka' ? hakaMonitor : hakahakiMonitor
+    if (monitor.isRunning()) { monitor.stop(); _startMonitor(prefix) }
+  }
+
+  function _bindWlModal() {
+    document.querySelectorAll('[data-wl-modal]').forEach(btn => {
+      btn.addEventListener('click', () => _openWlModal(btn.dataset.wlModal))
+    })
+    document.getElementById('wl-modal-close').addEventListener('click', _closeWlModal)
+    document.getElementById('wl-cancel-btn').addEventListener('click', _closeWlModal)
+    document.getElementById('wl-modal-overlay').addEventListener('click', e => {
+      if (e.target.id === 'wl-modal-overlay') _closeWlModal()
+    })
+    document.getElementById('wl-create-btn').addEventListener('click', _createNamedList)
+  }
+
+  function _openWlModal(target) {
+    _wlModalTarget = target
+    _renderWlModalList()
+    document.getElementById('wl-modal-overlay').classList.remove('hidden')
+  }
+
+  function _closeWlModal() {
+    document.getElementById('wl-modal-overlay').classList.add('hidden')
+    document.getElementById('wl-new-name').value = ''
+    document.getElementById('wl-new-tickers').value = ''
+  }
+
+  function _renderWlModalList() {
+    const el = document.getElementById('wl-modal-list')
+    const names = Object.keys(DB.namedLists)
+    if (!names.length) {
+      el.innerHTML = `<div class="empty-state">Belum ada watchlist custom. Buat yang pertama!</div>`
+      return
+    }
+    el.innerHTML = names.map(name => `
+      <div class="wl-item">
+        <div class="wl-item-info">
+          <div class="wl-item-name">${name}</div>
+          <div class="wl-item-tickers">${DB.namedLists[name].join(', ')}</div>
+        </div>
+        <button class="btn btn-sm btn-danger" data-delete-named="${name}">🗑</button>
+      </div>
+    `).join('')
+    el.querySelectorAll('[data-delete-named]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!confirm(`Hapus watchlist "${btn.dataset.deleteNamed}"?`)) return
+        namedListDelete(btn.dataset.deleteNamed)
+        _renderWlModalList()
+        _renderCustomWlBtns('haka')
+        _renderCustomWlBtns('hakahaki')
+      })
+    })
+  }
+
+  function _createNamedList() {
+    const name    = document.getElementById('wl-new-name').value.trim()
+    const rawText = document.getElementById('wl-new-tickers').value.trim()
+    if (!name) { alert('Masukkan nama watchlist.'); return }
+    if (!rawText) { alert('Masukkan minimal 1 kode saham.'); return }
+    if (DB.namedLists[name]) { alert('Nama sudah dipakai.'); return }
+
+    const tickers = [...new Set(
+      rawText.toUpperCase().split(/[\s,;]+/).filter(t => t.length >= 2 && t.length <= 6)
+    )]
+    if (!tickers.length) { alert('Kode saham tidak valid.'); return }
+
+    namedListSave(name, tickers)
+    document.getElementById('wl-new-name').value = ''
+    document.getElementById('wl-new-tickers').value = ''
+    _renderWlModalList()
+    _renderCustomWlBtns('haka')
+    _renderCustomWlBtns('hakahaki')
   }
 
   // ============================================================

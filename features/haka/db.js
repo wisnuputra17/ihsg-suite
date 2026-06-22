@@ -25,6 +25,7 @@ export const DB = {
   watchlist:          [],        // ['BBCA','TLKM',...] — maks 100, untuk tab HAKA
   hakahakiWatchlist:   [],        // maks 20, untuk tab HAKA & HAKI
   threshold:           500e6,     // berlaku untuk kedua tab
+  namedLists:          {},        // {nama: ['BBCA','TLKM']} — watchlist custom, 1 pool dipakai bersama haka & hakahaki
   alerts:              [],        // feed HAKA — real-time, tidak disimpan
   hakahakiAlerts:      []         // feed HAKA & HAKI — real-time, tidak disimpan
 }
@@ -36,6 +37,7 @@ export const DB = {
 const SHEET_WATCHLIST   = 'haka-watchlist'
 const SHEET_HAKAHAKI_WL = 'haka-hakahaki-watchlist'
 const SHEET_CONFIG      = 'haka-config'
+const SHEET_NAMED_LISTS = 'haka-named-lists'
 
 // ============================================================
 // SEKSI 3: LOAD — dari Sheets ke in-memory, dipanggil sekali saat init
@@ -46,10 +48,11 @@ const SHEET_CONFIG      = 'haka-config'
  * Dipanggil koordinator sekali saat halaman dibuka.
  */
 export async function loadAll() {
-  const [wl, hhWl, cfg] = await Promise.allSettled([
+  const [wl, hhWl, cfg, named] = await Promise.allSettled([
     gsLoad(SHEET_WATCHLIST),
     gsLoad(SHEET_HAKAHAKI_WL),
-    gsLoad(SHEET_CONFIG)
+    gsLoad(SHEET_CONFIG),
+    gsLoad(SHEET_NAMED_LISTS)
   ])
 
   if (wl.status === 'fulfilled')    DB.watchlist          = wl.value.map(r => r.sym)
@@ -58,6 +61,14 @@ export async function loadAll() {
   if (cfg.status === 'fulfilled') {
     const row = cfg.value.find(r => r.key === 'threshold')
     if (row) DB.threshold = Number(row.value)
+  }
+
+  if (named.status === 'fulfilled') {
+    const obj = {}
+    named.value.forEach(r => {
+      obj[r.name] = String(r.syms || '').split(',').map(s => s.trim()).filter(Boolean)
+    })
+    DB.namedLists = obj
   }
 }
 
@@ -131,7 +142,32 @@ export function setThreshold(val) {
 }
 
 // ============================================================
-// SEKSI 7: ALERTS — real-time saja, FIFO maks 200, tidak disimpan
+// SEKSI 7: WATCHLIST CUSTOM (named lists) — 1 pool dipakai bersama haka & hakahaki
+// ============================================================
+
+function _syncNamedLists() {
+  const rows = Object.keys(DB.namedLists).map(name => ({
+    name,
+    syms: DB.namedLists[name].join(',')
+  }))
+  gsSave(SHEET_NAMED_LISTS, rows).catch(e =>
+    console.warn('[haka/db] sync named lists gagal:', e.message)
+  )
+}
+
+/** Simpan watchlist custom baru. */
+export function namedListSave(name, syms) {
+  DB.namedLists[name] = [...syms]
+  _syncNamedLists()
+}
+
+export function namedListDelete(name) {
+  delete DB.namedLists[name]
+  _syncNamedLists()
+}
+
+// ============================================================
+// SEKSI 8: ALERTS — real-time saja, FIFO maks 200, tidak disimpan
 // ============================================================
 
 export function alertAdd(alert) {
