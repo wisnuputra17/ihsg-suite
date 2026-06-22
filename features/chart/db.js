@@ -24,14 +24,26 @@ const SHEET_LPM_CACHE = 'chart-lpm-cache'
  * Load histori LPM untuk 1 saham dari Sheets (persist permanen, sekali fetch
  * tidak perlu diulang lagi di sesi/device manapun). Dipanggil tiap ganti saham.
  */
+/** Google Sheets otomatis ubah string tanggal jadi Date cell — saat dibaca
+ * balik formatnya jadi ISO lengkap ("2024-11-19T00:00:00.000Z"), bukan
+ * "2024-11-19" polos seperti yang kita kirim. WAJIB dinormalisasi balik,
+ * kalau tidak key cache tidak akan pernah cocok dengan tanggal yang dicek
+ * di tempat lain (akibatnya: dianggap "belum di-fetch" terus, fetch ulang
+ * tiap kali ganti saham meski sudah pernah tersimpan).
+ */
+function _normalizeDate(d) {
+  return String(d).slice(0, 10)
+}
+
 export async function loadLpmCacheForSym(sym) {
   try {
     const rows = await gsLoad(SHEET_LPM_CACHE)
     const cache = {}
     rows.filter(r => r.sym === sym).forEach(r => {
+      const date = _normalizeDate(r.date)
       // Sentinel buy=-1 → tanggal sudah pernah dicek, API memang tidak punya data
       // (BUKAN net=0 sungguhan) — simpan null supaya tidak ikut hitungan kumulatif/bar.
-      cache[r.date] = Number(r.buy) === -1 ? null : { buy: Number(r.buy), sell: Number(r.sell), net: Number(r.net) }
+      cache[date] = Number(r.buy) === -1 ? null : { buy: Number(r.buy), sell: Number(r.sell), net: Number(r.net) }
     })
     DB.lpmCache = cache
   } catch (e) {
@@ -60,7 +72,11 @@ export async function loadDrawings() {
     const rows = await gsLoad(SHEET_DRAWINGS)
     DB.drawings = rows.map(r => ({
       id: r.id, sym: r.sym, type: r.type,
-      t1: r.t1, p1: Number(r.p1), t2: r.t2, p2: Number(r.p2)
+      // t1/t2 utk timeframe D/W berupa string tanggal ("2024-11-19") — kena
+      // auto-convert Sheets jadi ISO penuh, normalisasi balik. Utk intraday
+      // (angka unix timestamp) aman, tidak kena konversi ini, dibiarkan saja.
+      t1: typeof r.t1 === 'number' ? r.t1 : _normalizeDate(r.t1), p1: Number(r.p1),
+      t2: typeof r.t2 === 'number' ? r.t2 : _normalizeDate(r.t2), p2: Number(r.p2)
     }))
   } catch (e) {
     console.warn('[chart/db] load drawings gagal:', e.message)

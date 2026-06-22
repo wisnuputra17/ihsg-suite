@@ -30,6 +30,17 @@ const PREF_KEY = 'broker_analyzer_prefs'
 const _persistedKeys = new Set()
 function _key(date, broker) { return `${date}|${broker}` }
 
+/** Google Sheets otomatis ubah string tanggal jadi Date cell — saat dibaca
+ * balik formatnya jadi ISO lengkap ("2024-11-19T00:00:00.000Z"), bukan
+ * "2024-11-19" polos seperti yang kita kirim. WAJIB dinormalisasi balik,
+ * kalau tidak key cache tidak akan pernah cocok dengan tanggal yang dicek
+ * di tempat lain (akibatnya: dianggap "belum di-fetch" terus, fetch ulang
+ * tiap kali load meski sudah pernah tersimpan).
+ */
+function _normalizeDate(d) {
+  return String(d).slice(0, 10)
+}
+
 /** Load histori broker (HANYA broker yang relevan utk sym ini) dari Sheets — dipanggil tiap ganti saham. */
 export async function loadBrokerCacheForSym(sym) {
   _persistedKeys.clear()
@@ -37,10 +48,11 @@ export async function loadBrokerCacheForSym(sym) {
     const rows = await gsLoad(SHEET_BROKER_CACHE)
     const cache = {}
     rows.filter(r => r.sym === sym).forEach(r => {
-      if (r.broker === '__none__') { cache[r.date] = null; _persistedKeys.add(_key(r.date, '__none__')); return }
-      if (!cache[r.date]) cache[r.date] = {}
-      cache[r.date][r.broker] = { buy: Number(r.buy), sell: Number(r.sell), net: Number(r.net) }
-      _persistedKeys.add(_key(r.date, r.broker))
+      const date = _normalizeDate(r.date)
+      if (r.broker === '__none__') { cache[date] = null; _persistedKeys.add(_key(date, '__none__')); return }
+      if (!cache[date]) cache[date] = {}
+      cache[date][r.broker] = { buy: Number(r.buy), sell: Number(r.sell), net: Number(r.net) }
+      _persistedKeys.add(_key(date, r.broker))
     })
     DB.brokerCache = cache
   } catch (e) {
