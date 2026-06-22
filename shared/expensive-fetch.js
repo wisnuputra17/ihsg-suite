@@ -11,6 +11,10 @@
  * tombol konfirmasi — supaya tidak diam-diam lambat/kena rate limit, tapi
  * tetap MUNGKIN dilakukan kalau user mau menunggu (bukan diblokir keras).
  *
+ * Progress bar tipis-minimalis ditampilkan otomatis selama fetch berjalan
+ * (baik auto maupun setelah konfirmasi) — progress NYATA berdasar batch yang
+ * sudah selesai, bukan animasi indeterminate.
+ *
  * Cara pakai:
  *   import { fetchWithConfirm } from '../../shared/expensive-fetch.js'
  *   await fetchWithConfirm({
@@ -20,6 +24,17 @@
  *     onComplete: () => _renderUlang()
  *   })
  */
+
+function _progressBarHtml(percent, label) {
+  return `
+    <span style="display:inline-flex; align-items:center; gap:6px; vertical-align:middle;">
+      <span style="display:inline-block; width:120px; height:3px; background:var(--line); border-radius:2px; overflow:hidden;">
+        <span style="display:block; height:100%; width:${percent}%; background:var(--phosphor); border-radius:2px; transition:width 200ms ease;"></span>
+      </span>
+      <span>${label}</span>
+    </span>
+  `
+}
 
 export async function fetchWithConfirm({
   missingDates,
@@ -35,14 +50,16 @@ export async function fetchWithConfirm({
   async function _runBatched(dates) {
     const batches = []
     for (let i = 0; i < dates.length; i += batchSize) batches.push(dates.slice(i, i + batchSize))
-    for (const batch of batches) {
-      await fetchFn(batch)
+    for (let i = 0; i < batches.length; i++) {
+      await fetchFn(batches[i])
+      const pct = Math.round(((i + 1) / batches.length) * 100)
+      statusEl.innerHTML = _progressBarHtml(pct, `Memuat ${i + 1}/${batches.length} batch...`)
       if (batches.length > 1) await new Promise(r => setTimeout(r, batchDelay))
     }
   }
 
   if (missingDates.length <= autoMax) {
-    statusEl.textContent = `Memuat ${missingDates.length} hari...`
+    statusEl.innerHTML = _progressBarHtml(0, `Memuat ${missingDates.length} hari...`)
     await _runBatched(missingDates)
     statusEl.textContent = ''
     onComplete?.()
@@ -62,7 +79,7 @@ export async function fetchWithConfirm({
 
   await new Promise(resolve => {
     statusEl.querySelector('[data-role="fetch-confirm"]').addEventListener('click', async () => {
-      statusEl.textContent = 'Memuat...'
+      statusEl.innerHTML = _progressBarHtml(0, 'Memuat...')
       await _runBatched(missingDates)
       statusEl.textContent = ''
       onComplete?.()
