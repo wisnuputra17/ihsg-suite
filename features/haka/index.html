@@ -50,23 +50,26 @@
     .monitor-status { font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.08em; }
 
     .alert-feed { display: flex; flex-direction: column; gap: 6px; max-height: 560px; overflow-y: auto; }
-    .alert-card {
-      display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 12px;
-      padding: 10px 14px; border: 1px solid var(--line); border-radius: var(--radius);
-      background: var(--panel); animation: slideIn 200ms ease both;
+
+    .alert-card2 {
+      background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--line);
+      border-radius: 0 var(--radius) var(--radius) 0; padding: 10px 13px; animation: slideIn 200ms ease both;
     }
-    @keyframes slideIn { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:translateY(0); } }
-    .alert-card.is-buy  { border-left: 2px solid var(--live); }
-    .alert-card.is-sell { border-left: 2px solid var(--down); }
-    .alert-sym { font-family: var(--f-mono); font-size: 13px; font-weight: 500; min-width: 56px; }
-    .alert-type { font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.1em; }
-    .is-buy  .alert-type { color: var(--live); }
-    .is-sell .alert-type { color: var(--down); }
-    .alert-val { font-family: var(--f-mono); font-size: 13px; font-weight: 500; text-align: right; }
-    .is-buy  .alert-val { color: var(--live); }
-    .is-sell .alert-val { color: var(--down); }
-    .alert-detail { font-family: var(--f-mono); font-size: 11px; color: var(--dim); text-align: right; }
-    .alert-time { font-family: var(--f-mono); font-size: 10px; color: var(--ghost); white-space: nowrap; }
+    @keyframes slideIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+
+    .alert-head-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+    .alert-sym2 { font-family: var(--f-mono); font-size: 14px; font-weight: 700; color: var(--paper); }
+    .alert-badge { padding: 2px 8px; border-radius: 8px; font-size: 9px; font-weight: 700; font-family: var(--f-mono); }
+    .alert-board { font-size: 9px; color: var(--ghost); font-family: var(--f-mono); padding: 1px 5px; background: #0f0e0c; border-radius: 4px; }
+    .alert-time2 { margin-left: auto; font-size: 9px; color: var(--ghost); font-family: var(--f-mono); white-space: nowrap; }
+
+    .alert-metrics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-bottom: 7px; }
+    .alert-metric { background: #0f0e0c; border-radius: 5px; padding: 5px 7px; text-align: center; }
+    .alert-metric-label { font-size: 8px; color: var(--ghost); margin-bottom: 2px; }
+    .alert-metric-val { font-size: 11px; font-weight: 700; font-family: var(--f-mono); color: var(--paper); }
+
+    .alert-bs-row { font-size: 9px; color: var(--ghost); font-family: var(--f-mono); display: flex; gap: 10px; }
+    .alert-bs-code { color: var(--dim); }
   </style>
 </head>
 <body>
@@ -199,11 +202,11 @@
     _bindMonitorButtons()
 
     hakaMonitor.init({
-      onAlert:    (a) => { alertAdd(a); _renderAlerts('haka'); _beep() },
+      onAlert:    (a) => { alertAdd(a); _renderAlerts('haka'); if (a.isHAKA) _beep() },
       onError:    handleError
     })
     hakahakiMonitor.init({
-      onAlert:    (a) => { hakahakiAlertAdd(a); _renderAlerts('hakahaki'); _beep() },
+      onAlert:    (a) => { hakahakiAlertAdd(a); _renderAlerts('hakahaki'); if (a.isHAKA) _beep() },
       onError:    handleError
     })
 
@@ -370,14 +373,45 @@
     const list = prefix === 'haka' ? DB.alerts : DB.hakahakiAlerts
     const el   = document.getElementById(`${prefix}-feed`)
     if (!list.length) { el.innerHTML = '<div class="empty-state">Belum ada alert.</div>'; return }
-    el.innerHTML = list.map(a => `
-      <div class="alert-card ${a.action === 'buy' ? 'is-buy' : 'is-sell'}">
-        <div class="alert-sym">${a.sym}</div>
-        <div class="alert-type">${a.type === 'HAKA' ? '▲ HAKA' : '▼ HAKI'}</div>
-        <div class="alert-val">${_fmtRp(a.value)}</div>
-        <div class="alert-detail">${_fmtNum(a.lot)} lot × ${_fmtNum(a.price)}<br><span class="alert-time">${a.time}</span></div>
+
+    el.innerHTML = list.map(a => {
+      // Warna: HAKA (buy penuh) = hijau, HAKI (sell penuh) = merah, Watch (di
+      // bawah threshold tapi >=100jt) = amber — terlepas dari buy/sell.
+      const col   = a.isWatch ? 'var(--phosphor)' : (a.type === 'HAKA' ? 'var(--live)' : 'var(--down)')
+      const badge = a.isWatch ? '⚠ Watch' : (a.type === 'HAKA' ? '🔴 HAKA!' : '🔵 HAKI!')
+      const boardLabel = a.board === 'RG' ? 'Regular' : a.board === 'NG' ? 'Nego' : a.board
+      const buyerTypeIcon = a.buyerType === 'BROKER_TYPE_FOREIGN' ? '🌍' : a.buyerType === 'BROKER_TYPE_GOVERNMENT' ? '🏛️' : '🏠'
+      const lotFmt = a.lot >= 1000 ? `${(a.lot/1000).toFixed(1)}K lot` : `${_fmtNum(a.lot)} lot`
+
+      return `
+      <div class="alert-card2" style="border-left-color:${col}">
+        <div class="alert-head-row">
+          <span class="alert-sym2">${a.sym}</span>
+          <span class="alert-badge" style="color:${col};background:${col}22">${badge}</span>
+          ${boardLabel ? `<span class="alert-board">${boardLabel}</span>` : ''}
+          <span class="alert-time2">${a.time}</span>
+        </div>
+        <div class="alert-metrics-grid">
+          <div class="alert-metric">
+            <div class="alert-metric-label">Nilai</div>
+            <div class="alert-metric-val" style="color:${a.isHAKA ? col : 'var(--paper)'}; font-size:${a.isHAKA ? '13px' : '11px'}">${_fmtRp(a.value)}</div>
+          </div>
+          <div class="alert-metric">
+            <div class="alert-metric-label">Harga</div>
+            <div class="alert-metric-val">${_fmtNum(a.price)}</div>
+          </div>
+          <div class="alert-metric">
+            <div class="alert-metric-label">Volume</div>
+            <div class="alert-metric-val">${lotFmt}</div>
+          </div>
+        </div>
+        ${a.buyer ? `
+        <div class="alert-bs-row">
+          <span>${buyerTypeIcon} Buyer: <span class="alert-bs-code">${a.buyer}</span></span>
+          <span>→ Seller: <span class="alert-bs-code">${a.seller || '—'}</span></span>
+        </div>` : ''}
       </div>
-    `).join('')
+    `}).join('')
   }
 
   // ============================================================

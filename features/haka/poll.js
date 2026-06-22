@@ -132,7 +132,11 @@ export function createMonitor(mode = 'buy') {
       const price = parseFloat((t.price || '0').toString().replace(/,/g, '')) || 0
       const value = lot * price * 100   // 100 lembar per lot
 
-      if (value < threshold) continue
+      // Tier kedua "Watch" — sama seperti ihsg-intelligence-hub.html: tampil
+      // (tanpa beep) kalau >= 100jt tapi belum sampai threshold yang dipilih.
+      const isHAKA  = value >= threshold
+      const isWatch = value >= 100e6 && !isHAKA
+      if (!isHAKA && !isWatch) continue
 
       const isBuy  = t.action === 'buy'
       const isSell = t.action === 'sell'
@@ -149,6 +153,13 @@ export function createMonitor(mode = 'buy') {
         value,
         action: t.action,
         type:   isBuy ? 'HAKA' : 'HAKI',
+        isHAKA, isWatch,
+        // Field tambahan dari API — DEFENSIF (kosong kalau memang tidak ada di
+        // respons, sama seperti pola kode lama yg juga pakai fallback ||'').
+        board:      t.market_board || '',
+        buyer:      t.buyer || '',
+        seller:     t.seller || '',
+        buyerType:  t.buyer_type || '',
         time:   t.time || new Date().toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta' }),
         id
       }
