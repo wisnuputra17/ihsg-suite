@@ -120,17 +120,24 @@ function _append(sheetName, data) {
   if (!data || data.length === 0) return { written: 0 }
   const sheet   = _getOrCreateSheet(sheetName)
   const lastRow = sheet.getLastRow()
-  const rows    = _toRows(data)
 
   if (lastRow === 0) {
-    // Sheet kosong — tulis header + data sekaligus
+    // Sheet kosong — tulis header + data sekaligus, header dari key object pertama
+    const rows = _toRows(data)
     sheet.getRange(1, 1, rows.length, rows[0].length).setValues(rows)
     return { written: data.length }
   }
 
-  // Sheet sudah ada isinya — skip baris header dari rows, tambah hanya data
-  const dataRows = rows.slice(1)
-  if (dataRows.length === 0) return { written: 0 }
+  // Sheet sudah ada isinya — WAJIB pakai urutan header YANG SUDAH ADA di baris 1,
+  // BUKAN urutan key dari object batch ini. Kalau dipaksa pakai urutan key batch
+  // ini sendiri (seperti versi lama), batch dengan urutan/field beda dari
+  // penulisan pertama akan menulis nilai ke kolom yang SALAH tanpa error apa pun.
+  const existingHeaders = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
+  const dataRows = data.map(obj => existingHeaders.map(h => {
+    const v = obj[h]
+    if (v !== null && typeof v === 'object') return JSON.stringify(v)
+    return v ?? ''
+  }))
   sheet.getRange(lastRow + 1, 1, dataRows.length, dataRows[0].length).setValues(dataRows)
   return { written: dataRows.length }
 }

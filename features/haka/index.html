@@ -156,6 +156,7 @@
   import { TOKEN, SYMS, LQ45, IDX80, EMITEN_INFO, has, setEmitenInfo } from '../../shared/store.js'
   import { fetchEmitenJson } from '../../shared/api.js'
   import { renderHeader, refreshTokenStatus, openTokenPopover } from '../../shared/header.js'
+  import { fmtRp, fmtNum } from '../../shared/format.js'
   import { createMonitor } from './poll.js'
   import {
     DB, loadAll, MULTI_CARD_ID,
@@ -505,24 +506,31 @@
 
     el.innerHTML = card.alerts.map(a => {
       const col   = a.type === 'HAKA' ? 'var(--live)' : 'var(--down)'
-      const lotFmt = a.lot >= 1000 ? `${(a.lot/1000).toFixed(1)}K lot` : `${_fmtNum(a.lot)} lot`
+      const lotFmt = a.lot >= 1000 ? `${(a.lot/1000).toFixed(1)}K lot` : `${fmtNum(a.lot)} lot`
       return `
       <div class="feed-row" style="border-left-color:${col}">
         <span class="feed-row-sym">${a.sym}</span>
         <span class="feed-row-badge" style="color:${col};background:${col}22">${a.type}</span>
-        <span class="feed-row-val" style="color:${col}">${_fmtRp(a.value)}</span>
-        <span class="feed-row-detail">${_fmtNum(a.price)} · ${lotFmt}</span>
+        <span class="feed-row-val" style="color:${col}">${fmtRp(a.value)}</span>
+        <span class="feed-row-detail">${fmtNum(a.price)} · ${lotFmt}</span>
         <span class="feed-row-time">${a.time}</span>
       </div>`
     }).join('')
   }
 
   // ============================================================
-  // SEKSI 10: BEEP & FORMAT
+  // SEKSI 10: BEEP
   // ============================================================
+  let _audioCtx = null
   function _beep() {
     try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)()
+      // Reuse 1 context, bukan bikin baru tiap alert — kalau dibuat baru tiap
+      // kali dan tidak pernah ditutup, context numpuk terus selama sesi trading
+      // aktif (bisa banyak alert/menit) sampai kena limit browser, lalu beep
+      // diam-diam berhenti bunyi (ke-catch tanpa pesan). Oscillator+gain node
+      // di dalamnya tetap dibuat baru tiap panggilan (murah, otomatis di-GC).
+      if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+      const ctx = _audioCtx
       const o = ctx.createOscillator(), g = ctx.createGain()
       o.connect(g); g.connect(ctx.destination)
       o.frequency.value = 880
@@ -531,16 +539,6 @@
       o.start(ctx.currentTime); o.stop(ctx.currentTime + 0.4)
     } catch (_) {}
   }
-
-  function _fmtRp(v) {
-    if (v === null || v === undefined || isNaN(v)) return '–'
-    const sign = v < 0 ? '-' : ''
-    const abs  = Math.abs(v)
-    if (abs >= 1e9) return sign + (abs/1e9).toFixed(2) + 'M'
-    if (abs >= 1e6) return sign + (abs/1e6).toFixed(0) + 'jt'
-    return sign + new Intl.NumberFormat('id-ID').format(Math.round(abs))
-  }
-  function _fmtNum(v) { return new Intl.NumberFormat('id-ID').format(Math.round(v)) }
 
   init()
   window._haka = { DB, monitor }

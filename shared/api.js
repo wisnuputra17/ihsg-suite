@@ -25,7 +25,6 @@ import { TOKEN } from './store.js'
 // ============================================================
 
 const HOST_STOCKBIT = 'https://exodus.stockbit.com'
-const GS_URL = 'https://script.google.com/macros/s/AKfycbzJPEGviXPjH0s3To4icJYzoM4JgV7AJg5USgfULdJUUiEvzO-7vYX1DX_Gfj2ouzZE/exec'
 const EMITEN_JSON_URL = 'https://raw.githubusercontent.com/wisnuputra17/ihsg-suite/main/emiten.json'
 
 // ============================================================
@@ -313,36 +312,6 @@ export async function fetchOrderBook(sym) {
  */
 export async function fetchIEP(sym, fromTs, toTs) {
   return fetchIntraday(sym, fromTs, toTs, 1)
-}
-
-// ============================================================
-// SEKSI 7: GOOGLE APPS SCRIPT
-// ============================================================
-
-/**
- * GET request ke Apps Script.
- * @param {string} action - nama action (load, ping, md_load, bka_load, brv_load, dll)
- * @param {Object} params - query params tambahan {sym, broker, dll}
- */
-export async function gsGet(action, params = {}) {
-  const qs = new URLSearchParams({ action, ...params }).toString()
-  const url = `${GS_URL}?${qs}`
-  const json = await _fetch(url)
-  return json
-}
-
-/**
- * POST request ke Apps Script.
- * @param {string} action - nama action (save, clear, md_save_batch, bka_save_batch, dll)
- * @param {Object} data   - body data
- */
-export async function gsPost(action, data = {}) {
-  const json = await _fetch(GS_URL, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ action, ...data })
-  })
-  return json
 }
 
 // ============================================================
