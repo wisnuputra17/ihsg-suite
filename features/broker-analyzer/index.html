@@ -302,9 +302,12 @@
       return
     }
 
-    const entries = Object.entries(sums).map(([code, v]) => ({ code, buy: v.buy, sell: v.sell }))
-    const topBuyers  = [...entries].sort((a, b) => b.buy  - a.buy ).slice(0, 10).map(e => ({ code: e.code, val: e.buy }))
-    const topSellers = [...entries].sort((a, b) => b.sell - a.sell).slice(0, 10).map(e => ({ code: e.code, val: e.sell }))
+    // Ranking berbasis NET (buy − sell), bukan sum buy/sell terpisah —
+    // supaya 1 broker tidak bisa muncul di Top Buyer DAN Top Seller
+    // sekaligus utk rentang yang sama (kecuali net-nya pas 0, kasus langka).
+    const entries = Object.entries(sums).map(([code, v]) => ({ code, net: v.buy - v.sell }))
+    const topBuyers  = entries.filter(e => e.net > 0).sort((a, b) => b.net - a.net).slice(0, 10).map(e => ({ code: e.code, val: e.net }))
+    const topSellers = entries.filter(e => e.net < 0).sort((a, b) => a.net - b.net).slice(0, 10).map(e => ({ code: e.code, val: Math.abs(e.net) }))
 
     DB.brokerTop = { buys: topBuyers, sells: topSellers, rangeDays: rangeDates.length }
     _renderTop10Lists()
