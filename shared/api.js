@@ -165,7 +165,7 @@ export async function fetchBroker(sym, from, to) {
     `?transaction_type=TRANSACTION_TYPE_NET` +
     `&market_board=MARKET_BOARD_REGULER` +
     `&investor_type=INVESTOR_TYPE_ALL` +
-    `&limit=25` +
+    `&limit=100` +
     `&from=${from}&to=${_to}`
 
   const json = await _fetch(url, { headers: _headers() })
