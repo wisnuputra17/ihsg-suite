@@ -534,13 +534,15 @@
         // dilewati, LineSeries akan menyambungkan garis lurus diagonal ke
         // titik valid berikutnya yang mungkin jauh — itu yang bikin garis
         // kelihatan "lompat" tidak akurat. Hari yang BELUM PERNAH di-fetch
-        // sama sekali (dayMap itu sendiri undefined) tetap dilewati, karena
-        // memang belum tahu apa-apa soal hari itu.
+        // (dayMap undefined) ATAU sudah dicek tapi API memang kosong total
+        // hari itu (dayMap null, sentinel __none__) — keduanya dilewati,
+        // beda dengan "broker ini spesifik tidak aktif" (dayMap ADA tapi
+        // dayMap[broker] tidak ada) yang tetap carry-forward datar.
         let cum = 0
         const points = []
         DB.daily.forEach(d => {
           const dayMap = DB.brokerCache[d.date]
-          if (dayMap === undefined) return // belum pernah di-fetch — benar2 tidak tahu, lewati
+          if (!dayMap) return // undefined (belum di-fetch) ATAU null (memang kosong) — lewati
           const v = dayMap[broker]
           if (v) cum += v.net // ada transaksi hari ini → tambah ke total
           // kalau v tidak ada (broker tidak aktif hari ini, TAPI hari ini sudah
@@ -593,7 +595,7 @@
       let cum = 0
       for (let k = 0; k <= idx; k++) {
         const dayMap = DB.brokerCache[days[k].date]
-        if (dayMap === undefined) continue
+        if (!dayMap) continue // undefined ATAU null — keduanya lewati
         const v = dayMap[broker]
         if (v) cum += v.net
       }
