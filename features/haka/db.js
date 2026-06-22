@@ -78,6 +78,12 @@ export function watchlistRemove(sym) {
   _syncWatchlist()
 }
 
+/** Timpa seluruh watchlist sekaligus — dipakai preset (LQ45/IDX80/Semua/Reset). */
+export function watchlistSet(syms) {
+  DB.watchlist = syms.slice(0, 100)
+  _syncWatchlist()
+}
+
 function _syncWatchlist() {
   gsSave(SHEET_WATCHLIST, DB.watchlist.map(sym => ({ sym }))).catch(e =>
     console.warn('[haka/db] sync watchlist gagal:', e.message)
@@ -98,6 +104,12 @@ export function hakahakiWatchlistAdd(sym) {
 
 export function hakahakiWatchlistRemove(sym) {
   DB.hakahakiWatchlist = DB.hakahakiWatchlist.filter(s => s !== sym)
+  _syncHakahakiWatchlist()
+}
+
+/** Timpa seluruh watchlist sekaligus — dipakai preset (LQ45/IDX80/Semua/Reset). */
+export function hakahakiWatchlistSet(syms) {
+  DB.hakahakiWatchlist = syms.slice(0, 20)
   _syncHakahakiWatchlist()
 }
 
