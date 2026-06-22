@@ -108,6 +108,13 @@
 
     <div class="top10-panel">
       <div class="top10-col">
+        <div class="top10-title">Tambah Manual</div>
+        <div class="toolbar" style="gap:4px;">
+          <input type="text" class="input" id="manual-broker-input" placeholder="Kode broker (misal: YP)" maxlength="4" style="flex:1; text-transform:uppercase;">
+          <button class="btn btn-sm btn-primary" id="manual-broker-add">+</button>
+        </div>
+      </div>
+      <div class="top10-col">
         <div class="top10-title" id="top10-buy-title">Top 10 Buyer</div>
         <div id="top10-buy"></div>
       </div>
@@ -154,6 +161,7 @@
 
     _bindSymSearch()
     _bindDisplayModeToggle()
+    _bindManualBrokerAdd()
     _loadEmitenInfo()
   }
 
@@ -194,7 +202,7 @@
       document.getElementById('sym-input').value = sym
       status.textContent = ''
       _rebuildChart()
-      _fetchTop10Snapshot()
+      _updateBrokerHistoryForVisibleRange() // pastikan Top10 & garis broker langsung ke-trigger saat load, jangan andalkan event resize/zoom semata
       _applySavedSelection(sym)
     } catch (e) {
       status.textContent = e.code === 'TOKEN_EXPIRED' ? 'Token expired' : 'Error: ' + e.message
@@ -338,6 +346,21 @@
   // ============================================================
   // SEKSI 5: PILIH BROKER UTK DIBANDINGKAN
   // ============================================================
+  /** Tambah broker manual — tidak harus ada di Top 10, asal kodenya valid (akan ketahuan saat fetch). */
+  function _bindManualBrokerAdd() {
+    const input = document.getElementById('manual-broker-input')
+    const addBtn = document.getElementById('manual-broker-add')
+    const _add = () => {
+      const code = input.value.trim().toUpperCase()
+      if (!code) return
+      if (!DB.sym) { alert('Pilih saham dulu.'); return }
+      _addBroker(code)
+      input.value = ''
+    }
+    addBtn.addEventListener('click', _add)
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') _add() })
+  }
+
   function _toggleBroker(code) {
     if (DB.selectedBrokers.includes(code)) _removeBroker(code)
     else _addBroker(code)
