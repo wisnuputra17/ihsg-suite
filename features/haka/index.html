@@ -24,9 +24,6 @@
     .sym-option-name { font-size: 11px; color: var(--ghost); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .sym-dropdown-empty { padding: 10px; font-family: var(--f-mono); font-size: 11px; color: var(--ghost); }
 
-    .threshold-row { display: flex; gap: 4px; align-items: center; }
-    .threshold-row .label { font-family: var(--f-mono); font-size: 10px; color: var(--ghost); margin-right: 4px; }
-
     .global-status { margin-left: auto; display: flex; align-items: center; gap: 10px; }
     .monitor-status { font-family: var(--f-mono); font-size: 11px; color: var(--ghost); }
     .monitor-status.is-live { color: var(--live); }
@@ -44,6 +41,12 @@
     .card-head-sym { font-family: var(--f-mono); font-size: 14px; font-weight: 700; color: var(--paper); }
     .card-head-badge { font-family: var(--f-mono); font-size: 9px; color: var(--phosphor); background: var(--phosphor-dim);
       border: 1px solid var(--phosphor-line); padding: 1px 6px; border-radius: 8px; }
+    .card-threshold-wrap { display: flex; align-items: center; gap: 3px; font-family: var(--f-mono); font-size: 9px; color: var(--ghost); }
+    .card-threshold-input {
+      width: 48px; background: #0f0e0c; border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 2px 5px; font-family: var(--f-mono); font-size: 10px; color: var(--phosphor); text-align: right; outline: none;
+    }
+    .card-threshold-input:focus { border-color: var(--phosphor-line); }
     .mode-toggle { display: flex; gap: 3px; margin-left: auto; }
     .mode-toggle button {
       font-family: var(--f-mono); font-size: 9px; padding: 3px 8px; border-radius: var(--radius);
@@ -119,15 +122,6 @@
       <div class="sym-dropdown hidden" id="add-card-dropdown"></div>
     </div>
 
-    <div class="threshold-row" id="threshold-row">
-      <span class="label">Threshold:</span>
-      <button class="pill" data-threshold="100000000">100 jt</button>
-      <button class="pill" data-threshold="250000000">250 jt</button>
-      <button class="pill active" data-threshold="500000000">500 jt ★</button>
-      <button class="pill" data-threshold="1000000000">1 M</button>
-      <button class="pill" data-threshold="5000000000">5 M</button>
-    </div>
-
     <div class="global-status">
       <button class="btn btn-primary" id="btn-start" data-running="0">Start Monitor</button>
       <span class="monitor-status" id="global-status">○ Idle</span>
@@ -165,9 +159,8 @@
   import { createMonitor } from './poll.js'
   import {
     DB, loadAll, MULTI_CARD_ID,
-    cardAdd, cardRemove, cardSetMode,
+    cardAdd, cardRemove, cardSetMode, cardSetThreshold,
     multiCardToggleSym, multiCardSetSyms,
-    setThreshold,
     namedListSave, namedListDelete,
     cardAlertAdd
   } from './db.js'
@@ -188,10 +181,8 @@
     await loadAll()
 
     _bindAddCard()
-    _bindThresholdPills()
     _bindStartStop()
     _bindWlModal()
-    _renderThresholdPills()
     _renderAllCards()
 
     monitor.init({
@@ -222,9 +213,10 @@
     DB.cards.forEach(card => {
       if (!card.syms.includes(trade.sym)) return
       if (card.mode === 'buy' && trade.type !== 'HAKA') return // mode HAKA-saja, lewati transaksi sell
+      if (trade.value < card.threshold) return // di bawah threshold CARD INI — lewati (card lain mungkin tetap lolos)
       cardAlertAdd(card.id, trade)
       _renderCardFeed(card.id)
-      if (trade.isHAKA && !beeped) { _beep(); beeped = true }
+      if (!beeped) { _beep(); beeped = true }
     })
   }
 
@@ -242,7 +234,7 @@
       if (monitor.isRunning()) { monitor.stop(); _setRunningUI(false); return }
       if (!TOKEN.isSet()) { openTokenPopover(); return }
       if (!_getAllSymbols().length) { alert('Tambah minimal 1 card / pilih emiten dulu.'); return }
-      monitor.start(_getAllSymbols, () => DB.threshold)
+      monitor.start(_getAllSymbols)
       _setRunningUI(true)
     })
   }
@@ -258,7 +250,7 @@
 
   /** Dipanggil tiap kali symbol set card berubah (tambah/hapus card, ubah isi multi) — restart poller kalau sedang jalan, biar ikut simbol terbaru. */
   function _maybeRestartMonitor() {
-    if (monitor.isRunning()) monitor.start(_getAllSymbols, () => DB.threshold)
+    if (monitor.isRunning()) monitor.start(_getAllSymbols)
   }
 
   // ============================================================
@@ -332,6 +324,10 @@
           <button data-mode="buy"  class="${card.mode === 'buy'  ? 'active' : ''}">HAKA</button>
           <button data-mode="both" class="${card.mode === 'both' ? 'active' : ''}">HAKA+HAKI</button>
         </div>
+        <div class="card-threshold-wrap">
+          <input type="number" class="card-threshold-input" data-threshold-for="${card.id}" value="${card.threshold / 1e6}" min="1" step="1">
+          <span>jt</span>
+        </div>
         ${isMulti ? '' : `<span class="card-remove-btn" data-remove-card="${card.id}">×</span>`}
       </div>
       <div class="card-body">
@@ -359,6 +355,17 @@
         document.querySelectorAll(`[data-mode-for="${card.id}"] button`).forEach(b => b.classList.toggle('active', b === btn))
       })
     })
+
+    // Threshold diketik langsung (satuan juta) — TIDAK perlu restart monitor,
+    // karena threshold dibaca per-card saat routing alert, bukan oleh poller.
+    const thresholdInput = document.querySelector(`[data-threshold-for="${card.id}"]`)
+    const _applyThresholdInput = () => {
+      const jt = parseFloat(thresholdInput.value)
+      if (isNaN(jt) || jt <= 0) { thresholdInput.value = card.threshold / 1e6; return }
+      cardSetThreshold(card.id, jt * 1e6)
+    }
+    thresholdInput.addEventListener('blur', _applyThresholdInput)
+    thresholdInput.addEventListener('keydown', e => { if (e.key === 'Enter') thresholdInput.blur() })
 
     if (card.type === 'single') {
       const removeBtn = document.querySelector(`[data-remove-card="${card.id}"]`)
@@ -488,24 +495,6 @@
   }
 
   // ============================================================
-  // SEKSI 8: THRESHOLD (global)
-  // ============================================================
-  function _bindThresholdPills() {
-    document.querySelectorAll('#threshold-row .pill').forEach(btn => {
-      btn.addEventListener('click', () => {
-        setThreshold(parseInt(btn.dataset.threshold))
-        _renderThresholdPills()
-      })
-    })
-  }
-
-  function _renderThresholdPills() {
-    document.querySelectorAll('#threshold-row .pill').forEach(btn => {
-      btn.classList.toggle('active', parseInt(btn.dataset.threshold) === DB.threshold)
-    })
-  }
-
-  // ============================================================
   // SEKSI 9: RENDER FEED PER-CARD (kompak)
   // ============================================================
   function _renderCardFeed(cardId) {
@@ -515,13 +504,12 @@
     if (!card.alerts.length) { el.innerHTML = `<div class="empty-state" style="padding:14px 0;">Belum ada alert.</div>`; return }
 
     el.innerHTML = card.alerts.map(a => {
-      const col   = a.isWatch ? 'var(--phosphor)' : (a.type === 'HAKA' ? 'var(--live)' : 'var(--down)')
-      const badge = a.isWatch ? 'Watch' : a.type
+      const col   = a.type === 'HAKA' ? 'var(--live)' : 'var(--down)'
       const lotFmt = a.lot >= 1000 ? `${(a.lot/1000).toFixed(1)}K lot` : `${_fmtNum(a.lot)} lot`
       return `
       <div class="feed-row" style="border-left-color:${col}">
         <span class="feed-row-sym">${a.sym}</span>
-        <span class="feed-row-badge" style="color:${col};background:${col}22">${badge}</span>
+        <span class="feed-row-badge" style="color:${col};background:${col}22">${a.type}</span>
         <span class="feed-row-val" style="color:${col}">${_fmtRp(a.value)}</span>
         <span class="feed-row-detail">${_fmtNum(a.price)} · ${lotFmt}</span>
         <span class="feed-row-time">${a.time}</span>

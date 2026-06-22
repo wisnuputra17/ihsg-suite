@@ -20,10 +20,9 @@ import { gsLoad, gsSave } from '../../shared/sheets.js'
 
 export const DB = {
   cards: [
-    // { id:'multi', type:'multi', syms:[...], mode:'buy', alerts:[] } — selalu ada SATU
-    // { id:'BBCA',  type:'single', syms:['BBCA'], mode:'both', alerts:[] }
+    // { id:'multi', type:'multi', syms:[...], mode:'buy', threshold:500e6, alerts:[] } — selalu ada SATU
+    // { id:'BBCA',  type:'single', syms:['BBCA'], mode:'both', threshold:1000e6, alerts:[] }
   ],
-  threshold:  500e6,   // berlaku global, semua card
   namedLists: {}       // {nama: ['BBCA','TLKM']} — watchlist custom, dipakai isi card multi
 }
 
@@ -34,7 +33,6 @@ const MULTI_CARD_ID = 'multi'
 // ============================================================
 
 const SHEET_CARDS       = 'haka-cards'
-const SHEET_CONFIG      = 'haka-config'
 const SHEET_NAMED_LISTS = 'haka-named-lists'
 
 // ============================================================
@@ -42,9 +40,8 @@ const SHEET_NAMED_LISTS = 'haka-named-lists'
 // ============================================================
 
 export async function loadAll() {
-  const [cardsRes, cfg, named] = await Promise.allSettled([
+  const [cardsRes, named] = await Promise.allSettled([
     gsLoad(SHEET_CARDS),
-    gsLoad(SHEET_CONFIG),
     gsLoad(SHEET_NAMED_LISTS)
   ])
 
@@ -54,17 +51,13 @@ export async function loadAll() {
       type: r.type,
       syms: String(r.syms || '').split(',').map(s => s.trim()).filter(Boolean),
       mode: r.mode === 'both' ? 'both' : 'buy',
+      threshold: Number(r.threshold) || 500e6,
       alerts: []
     }))
   }
   // Card "multi" HARUS selalu ada — kalau belum pernah tersimpan (pengguna baru), buat default kosong.
   if (!DB.cards.find(c => c.id === MULTI_CARD_ID)) {
-    DB.cards.unshift({ id: MULTI_CARD_ID, type: 'multi', syms: [], mode: 'buy', alerts: [] })
-  }
-
-  if (cfg.status === 'fulfilled') {
-    const row = cfg.value.find(r => r.key === 'threshold')
-    if (row) DB.threshold = Number(row.value)
+    DB.cards.unshift({ id: MULTI_CARD_ID, type: 'multi', syms: [], mode: 'buy', threshold: 500e6, alerts: [] })
   }
 
   if (named.status === 'fulfilled') {
@@ -77,7 +70,7 @@ export async function loadAll() {
 }
 
 function _syncCards() {
-  const rows = DB.cards.map(c => ({ id: c.id, type: c.type, syms: c.syms.join(','), mode: c.mode }))
+  const rows = DB.cards.map(c => ({ id: c.id, type: c.type, syms: c.syms.join(','), mode: c.mode, threshold: c.threshold }))
   gsSave(SHEET_CARDS, rows).catch(e => console.warn('[haka/db] sync cards gagal:', e.message))
 }
 
@@ -88,7 +81,7 @@ function _syncCards() {
 /** Tambah card baru utk 1 emiten. ID = simbol itu sendiri (cegah duplikat otomatis). */
 export function cardAdd(sym) {
   if (DB.cards.find(c => c.id === sym)) return false
-  DB.cards.push({ id: sym, type: 'single', syms: [sym], mode: 'buy', alerts: [] })
+  DB.cards.push({ id: sym, type: 'single', syms: [sym], mode: 'buy', threshold: 500e6, alerts: [] })
   _syncCards()
   return true
 }
@@ -126,14 +119,14 @@ export function multiCardSetSyms(syms) {
 }
 
 // ============================================================
-// SEKSI 6: THRESHOLD (global)
+// SEKSI 6: THRESHOLD — per-card, masing-masing bisa beda
 // ============================================================
 
-export function setThreshold(val) {
-  DB.threshold = val
-  gsSave(SHEET_CONFIG, [{ key: 'threshold', value: val }]).catch(e =>
-    console.warn('[haka/db] sync threshold gagal:', e.message)
-  )
+export function cardSetThreshold(id, val) {
+  const card = DB.cards.find(c => c.id === id)
+  if (!card) return
+  card.threshold = val
+  _syncCards()
 }
 
 // ============================================================

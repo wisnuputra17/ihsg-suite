@@ -40,7 +40,6 @@ export function createMonitor() {
   let _running     = false
   let _callbacks   = {}
   let _getSymbols  = () => []   // dipanggil tiap poll — selalu ambil simbol TERBARU dari coordinator
-  let _getThreshold = () => 500e6
 
   function init(callbacks) {
     _callbacks = callbacks
@@ -50,20 +49,18 @@ export function createMonitor() {
    * @param {() => string[]} getSymbolsFn - dipanggil tiap poll, supaya kalau
    *   coordinator nambah/hapus card di tengah jalan, poller otomatis ikut
    *   tanpa perlu di-restart manual.
-   * @param {() => number} getThresholdFn
    */
-  function start(getSymbolsFn, getThresholdFn) {
+  function start(getSymbolsFn) {
     if (_running) return
     if (!TOKEN.isSet()) {
       if (_callbacks.onError) _callbacks.onError(Object.assign(new Error('TOKEN_NOT_SET'), { code: 'TOKEN_NOT_SET' }))
       return
     }
 
-    _getSymbols   = getSymbolsFn
-    _getThreshold = getThresholdFn
-    _running      = true
-    _pollCount    = 0
-    _lastIds      = new Set()
+    _getSymbols = getSymbolsFn
+    _running    = true
+    _pollCount  = 0
+    _lastIds    = new Set()
 
     _poll()
     _timer = setInterval(_poll, POLL_MS)
@@ -85,12 +82,11 @@ export function createMonitor() {
     if (_pollCount % RESET_EVERY === 0) _lastIds = new Set()
 
     const batches = _chunk(watchlist, BATCH_SIZE)
-    const threshold = _getThreshold()
 
     for (const batch of batches) {
       try {
         const trades = await _fetchBatch(batch)
-        _processTrades(trades, threshold)
+        _processTrades(trades)
       } catch (e) {
         if (e.code === 'TOKEN_EXPIRED') {
           stop()
@@ -126,8 +122,13 @@ export function createMonitor() {
     return json?.data?.running_trade || []
   }
 
-  /** Mode-agnostik — proses SEMUA buy & sell, biar coordinator yang saring per-card. */
-  function _processTrades(trades, threshold) {
+  /**
+   * Mode & threshold-AGNOSTIK sepenuhnya — kirim SEMUA trade buy/sell ke
+   * coordinator tanpa klasifikasi apapun. Coordinator yang putuskan per-card:
+   * relevan/tidak (simbol), lolos threshold card itu atau tidak (tiap card
+   * threshold-nya sendiri-sendiri sekarang, bukan 1 nilai global lagi).
+   */
+  function _processTrades(trades) {
     for (const t of trades) {
       const id = t.id || `${t.code}-${t.time}-${t.lot}-${t.price}-${t.action}`
       if (_lastIds.has(id)) continue
@@ -137,10 +138,6 @@ export function createMonitor() {
       const lot   = parseFloat((t.lot   || '0').toString().replace(/,/g, '')) || 0
       const price = parseFloat((t.price || '0').toString().replace(/,/g, '')) || 0
       const value = lot * price * 100   // 100 lembar per lot
-
-      const isHAKA  = value >= threshold
-      const isWatch = value >= 100e6 && !isHAKA
-      if (!isHAKA && !isWatch) continue
 
       const isBuy  = t.action === 'buy'
       const isSell = t.action === 'sell'
@@ -153,7 +150,6 @@ export function createMonitor() {
         value,
         action: t.action,
         type:   isBuy ? 'HAKA' : 'HAKI',
-        isHAKA, isWatch,
         board:      t.market_board || '',
         buyer:      t.buyer || '',
         seller:     t.seller || '',
