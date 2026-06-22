@@ -50,16 +50,23 @@ export async function fetchWithConfirm({
   }
 
   // Rentang besar — jangan diam-diam fetch ratusan/ribuan request, minta
-  // konfirmasi dulu dengan estimasi waktu.
+  // konfirmasi dulu dengan estimasi waktu. PENTING: function ini WAJIB
+  // benar-benar menunggu sampai user klik & fetch selesai sebelum resolve —
+  // kalau tidak, caller yang nge-`await fetchWithConfirm(...)` akan lanjut
+  // duluan sebelum data & render-nya benar2 siap (bug: render jadi tidak
+  // terduga/ketinggalan setelah scroll ke rentang yang minta konfirmasi).
   const estSec = Math.ceil(missingDates.length / batchSize) * (batchDelay / 1000)
   const estTxt = estSec >= 60 ? `~${Math.ceil(estSec / 60)} menit` : `~${estSec} detik`
   statusEl.innerHTML = `${missingDates.length} hari belum ter-cache (${estTxt}, sekali saja). ` +
     `<button class="btn btn-sm btn-primary" data-role="fetch-confirm">Mulai Fetch</button>`
 
-  statusEl.querySelector('[data-role="fetch-confirm"]').addEventListener('click', async () => {
-    statusEl.textContent = 'Memuat...'
-    await _runBatched(missingDates)
-    statusEl.textContent = ''
-    onComplete?.()
+  await new Promise(resolve => {
+    statusEl.querySelector('[data-role="fetch-confirm"]').addEventListener('click', async () => {
+      statusEl.textContent = 'Memuat...'
+      await _runBatched(missingDates)
+      statusEl.textContent = ''
+      onComplete?.()
+      resolve()
+    })
   })
 }
