@@ -1,18 +1,15 @@
 /**
  * features/haka/db.js
  * ====================
- * Database in-memory untuk fitur HAKA & HAKI.
- * Seperti spreadsheet — hanya data domain, tidak ada logic/UI/state aplikasi.
+ * Database in-memory untuk fitur HAKA & HAKI — model "card" (mirip Multi
+ * Orderbook Stockbit): tiap card monitor 1 emiten (mode HAKA saja / HAKA+HAKI
+ * sendiri-sendiri), PLUS 1 card khusus "multi" yang bisa pantau banyak emiten
+ * sekaligus.
  *
  * Data yang PERLU sinkron multi-device (lewat Google Sheets):
- *   watchlist, hakahakiWatchlist, threshold, namedLists
+ *   cards (id, type, syms, mode), threshold, namedLists
  * Data yang TIDAK disimpan (real-time saja, hilang saat refresh — wajar):
- *   alerts, hakahakiAlerts
- *
- * Konversi bentuk data: Sheets HANYA terima/kasih array of objects (lihat
- * shared/sheets.js). Di sini, bentuk in-memory (array string, object, number)
- * dikonversi ke/dari array-of-objects saat sync — shared/sheets.js sendiri
- * tidak tahu apa-apa soal bentuk data spesifik HAKA.
+ *   alerts (di dalam tiap card)
  */
 
 import { gsLoad, gsSave } from '../../shared/sheets.js'
@@ -22,41 +19,48 @@ import { gsLoad, gsSave } from '../../shared/sheets.js'
 // ============================================================
 
 export const DB = {
-  watchlist:          [],        // ['BBCA','TLKM',...] — maks 100, untuk tab HAKA
-  hakahakiWatchlist:   [],        // maks 20, untuk tab HAKA & HAKI
-  threshold:           500e6,     // berlaku untuk kedua tab
-  namedLists:          {},        // {nama: ['BBCA','TLKM']} — watchlist custom, 1 pool dipakai bersama haka & hakahaki
-  alerts:              [],        // feed HAKA — real-time, tidak disimpan
-  hakahakiAlerts:      []         // feed HAKA & HAKI — real-time, tidak disimpan
+  cards: [
+    // { id:'multi', type:'multi', syms:[...], mode:'buy', alerts:[] } — selalu ada SATU
+    // { id:'BBCA',  type:'single', syms:['BBCA'], mode:'both', alerts:[] }
+  ],
+  threshold:  500e6,   // berlaku global, semua card
+  namedLists: {}       // {nama: ['BBCA','TLKM']} — watchlist custom, dipakai isi card multi
 }
+
+const MULTI_CARD_ID = 'multi'
 
 // ============================================================
 // SEKSI 2: NAMA SHEET
 // ============================================================
 
-const SHEET_WATCHLIST   = 'haka-watchlist'
-const SHEET_HAKAHAKI_WL = 'haka-hakahaki-watchlist'
+const SHEET_CARDS       = 'haka-cards'
 const SHEET_CONFIG      = 'haka-config'
 const SHEET_NAMED_LISTS = 'haka-named-lists'
 
 // ============================================================
-// SEKSI 3: LOAD — dari Sheets ke in-memory, dipanggil sekali saat init
+// SEKSI 3: LOAD
 // ============================================================
 
-/**
- * Load semua data HAKA dari Sheets secara paralel.
- * Dipanggil koordinator sekali saat halaman dibuka.
- */
 export async function loadAll() {
-  const [wl, hhWl, cfg, named] = await Promise.allSettled([
-    gsLoad(SHEET_WATCHLIST),
-    gsLoad(SHEET_HAKAHAKI_WL),
+  const [cardsRes, cfg, named] = await Promise.allSettled([
+    gsLoad(SHEET_CARDS),
     gsLoad(SHEET_CONFIG),
     gsLoad(SHEET_NAMED_LISTS)
   ])
 
-  if (wl.status === 'fulfilled')    DB.watchlist          = wl.value.map(r => r.sym)
-  if (hhWl.status === 'fulfilled')  DB.hakahakiWatchlist   = hhWl.value.map(r => r.sym)
+  if (cardsRes.status === 'fulfilled' && cardsRes.value.length) {
+    DB.cards = cardsRes.value.map(r => ({
+      id:   r.id,
+      type: r.type,
+      syms: String(r.syms || '').split(',').map(s => s.trim()).filter(Boolean),
+      mode: r.mode === 'both' ? 'both' : 'buy',
+      alerts: []
+    }))
+  }
+  // Card "multi" HARUS selalu ada — kalau belum pernah tersimpan (pengguna baru), buat default kosong.
+  if (!DB.cards.find(c => c.id === MULTI_CARD_ID)) {
+    DB.cards.unshift({ id: MULTI_CARD_ID, type: 'multi', syms: [], mode: 'buy', alerts: [] })
+  }
 
   if (cfg.status === 'fulfilled') {
     const row = cfg.value.find(r => r.key === 'threshold')
@@ -72,66 +76,57 @@ export async function loadAll() {
   }
 }
 
+function _syncCards() {
+  const rows = DB.cards.map(c => ({ id: c.id, type: c.type, syms: c.syms.join(','), mode: c.mode }))
+  gsSave(SHEET_CARDS, rows).catch(e => console.warn('[haka/db] sync cards gagal:', e.message))
+}
+
 // ============================================================
-// SEKSI 4: WATCHLIST AKTIF (tab HAKA, maks 100)
+// SEKSI 4: CARD TUNGGAL (1 emiten per card)
 // ============================================================
 
-export function watchlistAdd(sym) {
-  if (DB.watchlist.includes(sym)) return false
-  if (DB.watchlist.length >= 100) return false
-  DB.watchlist.push(sym)
-  _syncWatchlist()
+/** Tambah card baru utk 1 emiten. ID = simbol itu sendiri (cegah duplikat otomatis). */
+export function cardAdd(sym) {
+  if (DB.cards.find(c => c.id === sym)) return false
+  DB.cards.push({ id: sym, type: 'single', syms: [sym], mode: 'buy', alerts: [] })
+  _syncCards()
   return true
 }
 
-export function watchlistRemove(sym) {
-  DB.watchlist = DB.watchlist.filter(s => s !== sym)
-  _syncWatchlist()
+export function cardRemove(id) {
+  if (id === MULTI_CARD_ID) return // card multi tidak bisa dihapus
+  DB.cards = DB.cards.filter(c => c.id !== id)
+  _syncCards()
 }
 
-/** Timpa seluruh watchlist sekaligus — dipakai preset (LQ45/IDX80/Semua/Reset). */
-export function watchlistSet(syms) {
-  DB.watchlist = syms.slice(0, 100)
-  _syncWatchlist()
-}
-
-function _syncWatchlist() {
-  gsSave(SHEET_WATCHLIST, DB.watchlist.map(sym => ({ sym }))).catch(e =>
-    console.warn('[haka/db] sync watchlist gagal:', e.message)
-  )
+export function cardSetMode(id, mode) {
+  const card = DB.cards.find(c => c.id === id)
+  if (!card) return
+  card.mode = mode === 'both' ? 'both' : 'buy'
+  _syncCards()
 }
 
 // ============================================================
-// SEKSI 5: WATCHLIST HAKA+HAKI (maks 20)
+// SEKSI 5: CARD MULTI (1 card, banyak emiten)
 // ============================================================
 
-export function hakahakiWatchlistAdd(sym) {
-  if (DB.hakahakiWatchlist.includes(sym)) return false
-  if (DB.hakahakiWatchlist.length >= 20) return false
-  DB.hakahakiWatchlist.push(sym)
-  _syncHakahakiWatchlist()
-  return true
+export function multiCardToggleSym(sym) {
+  const card = DB.cards.find(c => c.id === MULTI_CARD_ID)
+  if (!card) return
+  if (card.syms.includes(sym)) card.syms = card.syms.filter(s => s !== sym)
+  else card.syms.push(sym)
+  _syncCards()
 }
 
-export function hakahakiWatchlistRemove(sym) {
-  DB.hakahakiWatchlist = DB.hakahakiWatchlist.filter(s => s !== sym)
-  _syncHakahakiWatchlist()
-}
-
-/** Timpa seluruh watchlist sekaligus — dipakai preset (LQ45/IDX80/Semua/Reset). */
-export function hakahakiWatchlistSet(syms) {
-  DB.hakahakiWatchlist = syms.slice(0, 20)
-  _syncHakahakiWatchlist()
-}
-
-function _syncHakahakiWatchlist() {
-  gsSave(SHEET_HAKAHAKI_WL, DB.hakahakiWatchlist.map(sym => ({ sym }))).catch(e =>
-    console.warn('[haka/db] sync hakahaki watchlist gagal:', e.message)
-  )
+export function multiCardSetSyms(syms) {
+  const card = DB.cards.find(c => c.id === MULTI_CARD_ID)
+  if (!card) return
+  card.syms = [...syms]
+  _syncCards()
 }
 
 // ============================================================
-// SEKSI 6: THRESHOLD
+// SEKSI 6: THRESHOLD (global)
 // ============================================================
 
 export function setThreshold(val) {
@@ -142,20 +137,14 @@ export function setThreshold(val) {
 }
 
 // ============================================================
-// SEKSI 7: WATCHLIST CUSTOM (named lists) — 1 pool dipakai bersama haka & hakahaki
+// SEKSI 7: WATCHLIST CUSTOM (named lists) — dipakai isi card multi
 // ============================================================
 
 function _syncNamedLists() {
-  const rows = Object.keys(DB.namedLists).map(name => ({
-    name,
-    syms: DB.namedLists[name].join(',')
-  }))
-  gsSave(SHEET_NAMED_LISTS, rows).catch(e =>
-    console.warn('[haka/db] sync named lists gagal:', e.message)
-  )
+  const rows = Object.keys(DB.namedLists).map(name => ({ name, syms: DB.namedLists[name].join(',') }))
+  gsSave(SHEET_NAMED_LISTS, rows).catch(e => console.warn('[haka/db] sync named lists gagal:', e.message))
 }
 
-/** Simpan watchlist custom baru. */
 export function namedListSave(name, syms) {
   DB.namedLists[name] = [...syms]
   _syncNamedLists()
@@ -167,20 +156,19 @@ export function namedListDelete(name) {
 }
 
 // ============================================================
-// SEKSI 8: ALERTS — real-time saja, FIFO maks 200, tidak disimpan
+// SEKSI 8: ALERTS — real-time saja per-card, FIFO maks 100/card, tidak disimpan
 // ============================================================
 
-export function alertAdd(alert) {
-  DB.alerts.unshift(alert)
-  if (DB.alerts.length > 200) DB.alerts.pop()
+export function cardAlertAdd(cardId, alert) {
+  const card = DB.cards.find(c => c.id === cardId)
+  if (!card) return
+  card.alerts.unshift(alert)
+  if (card.alerts.length > 100) card.alerts.pop()
 }
 
-export function hakahakiAlertAdd(alert) {
-  DB.hakahakiAlerts.unshift(alert)
-  if (DB.hakahakiAlerts.length > 200) DB.hakahakiAlerts.pop()
+export function cardAlertsClear(cardId) {
+  const card = DB.cards.find(c => c.id === cardId)
+  if (card) card.alerts = []
 }
 
-export function clearAlerts(target = 'all') {
-  if (target === 'haka'     || target === 'all') DB.alerts = []
-  if (target === 'hakahaki' || target === 'all') DB.hakahakiAlerts = []
-}
+export { MULTI_CARD_ID }

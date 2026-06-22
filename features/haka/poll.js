@@ -1,22 +1,20 @@
 /**
  * features/haka/poll.js
  * ======================
- * Monitor running-trade real-time — mode HAKA (buy saja) atau HAKA+HAKI (buy+sell).
- * Logic ini sudah diverifikasi langsung ke API Stockbit di sesi sebelumnya — jangan
- * ubah parameter inti (batch size, limit, format query) tanpa alasan kuat.
+ * Monitor running-trade real-time — SATU instance bersama untuk SEMUA card
+ * (bukan per-mode lagi). Poller ini MODE-AGNOSTIK: selalu proses transaksi
+ * buy DAN sell, kasih tahu coordinator (index.html) lewat onAlert(trade) —
+ * coordinator yang putuskan card mana yang relevan & mode card itu (HAKA saja
+ * atau HAKA+HAKI), karena keputusan itu sekarang per-card, bukan per-monitor.
  *
- * Aturan ketat:
- *   - HANYA fetch + deteksi transaksi besar
- *   - TIDAK ada render, TIDAK ada akses db.js langsung
- *   - Semua alert → koordinator via callback onAlert()
- *   - STATE internal (timer, lastIds, pollCount) — tidak disimpan ke db/Sheets
+ * Kenapa SATU monitor bersama (bukan 1 monitor per card): API running-trade
+ * sudah bisa terima banyak simbol per request (batch 20) — kalau tiap card
+ * punya monitor sendiri, simbol yang sama (misal ada di card tunggal MAUPUN
+ * di card multi) akan di-fetch dobel. Jadi: kumpulkan SEMUA simbol unik dari
+ * SEMUA card, baru di-batch-poll bersama.
  *
- * Arsitektur polling:
- *   setInterval 3000ms
- *   → bagi watchlist jadi batch 20 saham
- *   → tiap batch = 1 request, query: symbols[]=BBCA&symbols[]=TLKM&...&limit=300
- *   → proses tiap transaksi: strip koma dari lot & price, hitung value
- *   → dedup via Set transaksi id, reset tiap 200 poll (cegah memory leak)
+ * Logic inti TIDAK diubah dari versi sebelumnya (sudah diverifikasi ke API
+ * Stockbit) — batch size, limit, interval, dedup semua sama persis.
  */
 
 import { TOKEN } from '../../shared/store.js'
@@ -32,40 +30,43 @@ const LIMIT        = 300
 const RESET_EVERY  = 200
 
 // ============================================================
-// SEKSI 2: STATE INTERNAL — per-monitor (bukan modul-level)
-// Dibuat lewat createMonitor() supaya HAKA dan HAKA+HAKI bisa
-// punya 2 instance independen tanpa saling tabrak state.
+// SEKSI 2: STATE INTERNAL
 // ============================================================
 
-/**
- * Buat 1 instance monitor independen.
- * @param {'buy'|'both'} mode - 'buy' = HAKA saja, 'both' = HAKA + HAKI
- */
-export function createMonitor(mode = 'buy') {
-  let _timer     = null
-  let _lastIds   = new Set()
-  let _pollCount = 0
-  let _running   = false
-  let _callbacks = {}
+export function createMonitor() {
+  let _timer       = null
+  let _lastIds     = new Set()
+  let _pollCount   = 0
+  let _running     = false
+  let _callbacks   = {}
+  let _getSymbols  = () => []   // dipanggil tiap poll — selalu ambil simbol TERBARU dari coordinator
+  let _getThreshold = () => 500e6
 
   function init(callbacks) {
     _callbacks = callbacks
   }
 
-  function start(watchlist, threshold) {
+  /**
+   * @param {() => string[]} getSymbolsFn - dipanggil tiap poll, supaya kalau
+   *   coordinator nambah/hapus card di tengah jalan, poller otomatis ikut
+   *   tanpa perlu di-restart manual.
+   * @param {() => number} getThresholdFn
+   */
+  function start(getSymbolsFn, getThresholdFn) {
     if (_running) return
-    if (!watchlist.length) return
     if (!TOKEN.isSet()) {
       if (_callbacks.onError) _callbacks.onError(Object.assign(new Error('TOKEN_NOT_SET'), { code: 'TOKEN_NOT_SET' }))
       return
     }
 
-    _running   = true
-    _pollCount = 0
-    _lastIds   = new Set()
+    _getSymbols   = getSymbolsFn
+    _getThreshold = getThresholdFn
+    _running      = true
+    _pollCount    = 0
+    _lastIds      = new Set()
 
-    _poll(watchlist, threshold)
-    _timer = setInterval(() => _poll(watchlist, threshold), POLL_MS)
+    _poll()
+    _timer = setInterval(_poll, POLL_MS)
   }
 
   function stop() {
@@ -76,11 +77,15 @@ export function createMonitor(mode = 'buy') {
 
   function isRunning() { return _running }
 
-  async function _poll(watchlist, threshold) {
+  async function _poll() {
+    const watchlist = _getSymbols()
+    if (!watchlist.length) return
+
     _pollCount++
     if (_pollCount % RESET_EVERY === 0) _lastIds = new Set()
 
     const batches = _chunk(watchlist, BATCH_SIZE)
+    const threshold = _getThreshold()
 
     for (const batch of batches) {
       try {
@@ -121,6 +126,7 @@ export function createMonitor(mode = 'buy') {
     return json?.data?.running_trade || []
   }
 
+  /** Mode-agnostik — proses SEMUA buy & sell, biar coordinator yang saring per-card. */
   function _processTrades(trades, threshold) {
     for (const t of trades) {
       const id = t.id || `${t.code}-${t.time}-${t.lot}-${t.price}-${t.action}`
@@ -132,19 +138,13 @@ export function createMonitor(mode = 'buy') {
       const price = parseFloat((t.price || '0').toString().replace(/,/g, '')) || 0
       const value = lot * price * 100   // 100 lembar per lot
 
-      // Tier kedua "Watch" — sama seperti ihsg-intelligence-hub.html: tampil
-      // (tanpa beep) kalau >= 100jt tapi belum sampai threshold yang dipilih.
       const isHAKA  = value >= threshold
       const isWatch = value >= 100e6 && !isHAKA
       if (!isHAKA && !isWatch) continue
 
       const isBuy  = t.action === 'buy'
       const isSell = t.action === 'sell'
-
-      // Mode 'buy': hanya proses transaksi buy (HAKA)
-      if (mode === 'buy' && !isBuy) continue
-      // Mode 'both': proses buy DAN sell (HAKA + HAKI)
-      if (mode === 'both' && !isBuy && !isSell) continue
+      if (!isBuy && !isSell) continue
 
       const alert = {
         sym:    t.code,
@@ -154,8 +154,6 @@ export function createMonitor(mode = 'buy') {
         action: t.action,
         type:   isBuy ? 'HAKA' : 'HAKI',
         isHAKA, isWatch,
-        // Field tambahan dari API — DEFENSIF (kosong kalau memang tidak ada di
-        // respons, sama seperti pola kode lama yg juga pakai fallback ||'').
         board:      t.market_board || '',
         buyer:      t.buyer || '',
         seller:     t.seller || '',

@@ -7,36 +7,66 @@
   <link rel="stylesheet" href="../../shared/ui.css">
 
   <style>
-    /* =========================================================
-       Khusus halaman ini — di luar token shared/ui.css
-       ========================================================= */
-    .page { max-width: 1100px; }
+    .page { max-width: none; }
+    .app-header { padding: 14px 0; }
 
-    .tabs { display: flex; border-bottom: 1px solid var(--line); padding-top: 4px; }
-    .tab-btn {
-      font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
-      padding: 12px 20px; background: transparent; border: none; border-bottom: 2px solid transparent;
-      color: var(--ghost); cursor: pointer; transition: all var(--ease); margin-bottom: -1px;
+    .toolbar-top {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 16px;
+      padding-bottom: 14px; border-bottom: 1px solid var(--line);
     }
-    .tab-btn:hover { color: var(--dim); }
-    .tab-btn.active { color: var(--phosphor); border-bottom-color: var(--phosphor); }
+    .add-card-wrap { position: relative; }
+    .sym-dropdown { position: absolute; top: calc(100% + 4px); left: 0; z-index: 30;
+      background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+      width: 240px; max-height: 260px; overflow-y: auto; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+    .sym-option { display: flex; align-items: baseline; gap: 8px; padding: 7px 10px; cursor: pointer; }
+    .sym-option:hover { background: var(--panel-hi); }
+    .sym-option-code { font-family: var(--f-mono); font-size: 12px; color: var(--paper); flex-shrink: 0; }
+    .sym-option-name { font-size: 11px; color: var(--ghost); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sym-dropdown-empty { padding: 10px; font-family: var(--f-mono); font-size: 11px; color: var(--ghost); }
 
-    .panels { padding: 24px 0; }
+    .threshold-row { display: flex; gap: 4px; align-items: center; }
+    .threshold-row .label { font-family: var(--f-mono); font-size: 10px; color: var(--ghost); margin-right: 4px; }
 
-    .toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
-    .sym-input { width: 100px; text-transform: uppercase; }
+    .global-status { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+    .monitor-status { font-family: var(--f-mono); font-size: 11px; color: var(--ghost); }
+    .monitor-status.is-live { color: var(--live); }
 
-    .watchlist-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; min-height: 30px; }
-    .chip-count { font-family: var(--f-mono); font-size: 10px; color: var(--ghost); align-self: center; }
+    /* ============ CARDS GRID ============ */
+    .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; align-items: start; }
+    .card-box { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); overflow: hidden; }
+    .card-box.is-multi { grid-column: span 2; }
+    @media (max-width: 700px) { .card-box.is-multi { grid-column: span 1; } }
 
-    .watch-count { font-family: var(--f-mono); font-size: 11px; color: var(--phosphor); margin-left: 6px; text-transform: none; letter-spacing: 0; }
+    .card-head {
+      display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+      border-bottom: 1px solid var(--line); background: var(--panel-hi);
+    }
+    .card-head-sym { font-family: var(--f-mono); font-size: 14px; font-weight: 700; color: var(--paper); }
+    .card-head-badge { font-family: var(--f-mono); font-size: 9px; color: var(--phosphor); background: var(--phosphor-dim);
+      border: 1px solid var(--phosphor-line); padding: 1px 6px; border-radius: 8px; }
+    .mode-toggle { display: flex; gap: 3px; margin-left: auto; }
+    .mode-toggle button {
+      font-family: var(--f-mono); font-size: 9px; padding: 3px 8px; border-radius: var(--radius);
+      border: 1px solid var(--line); background: transparent; color: var(--ghost); cursor: pointer;
+    }
+    .mode-toggle button.active { border-color: var(--phosphor-line); color: var(--phosphor); background: var(--phosphor-dim); }
+    .card-remove-btn { font-size: 13px; color: var(--ghost); cursor: pointer; padding: 0 2px; }
+    .card-remove-btn:hover { color: var(--down); }
 
-    .preset-row { display: flex; gap: 6px; margin-bottom: 8px; }
+    .card-body { padding: 10px 12px; }
 
+    /* Multi card: search + preset + grid emiten (reuse pola yg sudah ada) */
+    .preset-row { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+    .custom-wl-btns { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+    .custom-wl-btn {
+      padding: 3px 10px; border-radius: var(--radius); cursor: pointer; font-size: 10px;
+      font-family: var(--f-mono); border: 1px solid var(--phosphor-line); color: var(--phosphor); background: var(--phosphor-dim);
+    }
+    .btn-dashed { border-style: dashed; border-color: var(--phosphor-line); color: var(--phosphor); background: transparent; }
     .emiten-grid {
-      display: flex; flex-wrap: wrap; gap: 4px; max-height: 160px; overflow-y: auto;
+      display: flex; flex-wrap: wrap; gap: 4px; max-height: 130px; overflow-y: auto;
       padding: 8px; background: #0f0e0c; border: 1px solid var(--line); border-radius: var(--radius);
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
     .etag {
       padding: 3px 7px; border-radius: var(--radius); cursor: pointer; user-select: none;
@@ -45,55 +75,32 @@
     }
     .etag:hover { border-color: var(--line-hi); color: var(--dim); }
     .etag.active { border-color: var(--phosphor-line); color: var(--phosphor); background: var(--phosphor-dim); }
+    .watch-count { font-family: var(--f-mono); font-size: 10px; color: var(--phosphor); }
 
-    .monitor-row { display: flex; align-items: center; gap: 12px; margin: 16px 0; }
-    .monitor-status { font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.08em; }
-
-    .alert-feed { display: flex; flex-direction: column; gap: 6px; max-height: 560px; overflow-y: auto; }
-
-    .alert-card2 {
-      background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--line);
-      border-radius: 0 var(--radius) var(--radius) 0; padding: 10px 13px; animation: slideIn 200ms ease both;
+    /* Feed kompak per-card */
+    .card-feed { display: flex; flex-direction: column; gap: 4px; max-height: 280px; overflow-y: auto; }
+    .card-box.is-multi .card-feed { max-height: 360px; }
+    .feed-row {
+      display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+      border-left: 3px solid var(--line); border-radius: 0 var(--radius) var(--radius) 0;
+      background: #0f0e0c; font-family: var(--f-mono); font-size: 10px; animation: slideIn 200ms ease both;
     }
-    @keyframes slideIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes slideIn { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:translateY(0); } }
+    .feed-row-sym { font-weight: 700; color: var(--paper); min-width: 44px; }
+    .feed-row-badge { font-size: 8px; padding: 1px 5px; border-radius: 6px; font-weight: 700; }
+    .feed-row-val { font-weight: 700; }
+    .feed-row-detail { color: var(--ghost); }
+    .feed-row-time { margin-left: auto; color: var(--ghost); white-space: nowrap; }
 
-    .alert-head-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
-    .alert-sym2 { font-family: var(--f-mono); font-size: 14px; font-weight: 700; color: var(--paper); }
-    .alert-badge { padding: 2px 8px; border-radius: 8px; font-size: 9px; font-weight: 700; font-family: var(--f-mono); }
-    .alert-board { font-size: 9px; color: var(--ghost); font-family: var(--f-mono); padding: 1px 5px; background: #0f0e0c; border-radius: 4px; }
-    .alert-time2 { margin-left: auto; font-size: 9px; color: var(--ghost); font-family: var(--f-mono); white-space: nowrap; }
-
-    .alert-metrics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-bottom: 7px; }
-    .alert-metric { background: #0f0e0c; border-radius: 5px; padding: 5px 7px; text-align: center; }
-    .alert-metric-label { font-size: 8px; color: var(--ghost); margin-bottom: 2px; }
-    .alert-metric-val { font-size: 11px; font-weight: 700; font-family: var(--f-mono); color: var(--paper); }
-
-    .alert-bs-row { font-size: 9px; color: var(--ghost); font-family: var(--f-mono); display: flex; gap: 10px; }
-    .alert-bs-code { color: var(--dim); }
-
-    .btn-dashed { border-style: dashed; border-color: var(--phosphor-line); color: var(--phosphor); background: transparent; }
-    .custom-wl-btns { display: inline-flex; gap: 4px; flex-wrap: wrap; }
-    .custom-wl-btn {
-      padding: 3px 10px; border-radius: var(--radius); cursor: pointer; font-size: 10px;
-      font-family: var(--f-mono); border: 1px solid var(--phosphor-line); color: var(--phosphor);
-      background: var(--phosphor-dim);
-    }
-
-    .wl-modal-overlay {
-      position: fixed; inset: 0; background: rgba(10,9,8,0.75); z-index: 200;
-      display: flex; align-items: center; justify-content: center; padding: 20px;
-    }
-    .wl-modal {
-      background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
-      padding: 20px; width: 100%; max-width: 460px; max-height: 80vh; overflow-y: auto;
-    }
+    /* Modal watchlist custom (sama seperti sebelumnya) */
+    .wl-modal-overlay { position: fixed; inset: 0; background: rgba(10,9,8,0.75); z-index: 200;
+      display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .wl-modal { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 20px; width: 100%; max-width: 460px; max-height: 80vh; overflow-y: auto; }
     .wl-modal-head { display: flex; align-items: center; margin-bottom: 16px; font-size: 14px; font-weight: 700; color: var(--paper); }
     .wl-modal-head span { flex: 1; }
     .wl-modal-list { margin-bottom: 8px; }
-    .wl-item {
-      display: flex; align-items: center; gap: 8px; padding: 8px 10px;
-      background: #0f0e0c; border-radius: var(--radius); margin-bottom: 5px;
-    }
+    .wl-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: #0f0e0c; border-radius: var(--radius); margin-bottom: 5px; }
     .wl-item-info { flex: 1; min-width: 0; }
     .wl-item-name { font-size: 11px; font-weight: 700; color: var(--paper); }
     .wl-item-tickers { font-size: 9px; color: var(--ghost); font-family: var(--f-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -106,94 +113,28 @@
 
   <header class="app-header" id="app-header"></header>
 
-  <nav class="tabs">
-    <button class="tab-btn active" data-tab="haka">HAKA — Alert Entry</button>
-    <button class="tab-btn" data-tab="hakahaki">HAKA & HAKI — Posisi Aktif</button>
-  </nav>
-
-  <div class="panels">
-
-    <!-- =================== TAB: HAKA =================== -->
-    <div data-panel="haka">
-
-      <div class="section-label">Pantau Emiten <span class="watch-count" id="haka-count">0 dipilih</span></div>
-      <div class="preset-row">
-        <button class="btn btn-sm" data-preset="lq45">LQ45</button>
-        <button class="btn btn-sm" data-preset="idx80">IDX80</button>
-        <button class="btn btn-sm" data-preset="all">Semua</button>
-        <button class="btn btn-sm" data-preset="none">Reset</button>
-        <span class="custom-wl-btns" id="haka-custom-btns"></span>
-        <button class="btn btn-sm btn-dashed" data-wl-modal="haka">＋ Watchlist</button>
-      </div>
-      <div class="toolbar">
-        <input type="text" class="input sym-input" id="haka-grid-search" placeholder="Cari kode saham..." style="width:200px;">
-        <button class="btn btn-sm" id="haka-grid-search-clear">×</button>
-      </div>
-      <div class="emiten-grid" id="haka-egrid"></div>
-
-      <div class="section-label">Threshold</div>
-      <div class="toolbar" data-threshold-group="haka">
-        <button class="pill" data-threshold="100000000">100 jt</button>
-        <button class="pill" data-threshold="250000000">250 jt</button>
-        <button class="pill active" data-threshold="500000000">500 jt ★</button>
-        <button class="pill" data-threshold="1000000000">1 M</button>
-        <button class="pill" data-threshold="5000000000">5 M</button>
-      </div>
-
-      <div class="monitor-row">
-        <button class="btn btn-primary" id="haka-btn-start" data-running="0">Start Monitor</button>
-        <span class="monitor-status" id="haka-status">○ Idle</span>
-        <button class="btn btn-sm" id="haka-btn-clear">Bersihkan feed</button>
-      </div>
-
-      <div class="section-label">Alert Feed — BUY Agresif</div>
-      <div class="alert-feed" id="haka-feed">
-        <div class="empty-state">Belum ada alert. Jalankan monitor.</div>
-      </div>
-
+  <div class="toolbar-top">
+    <div class="add-card-wrap">
+      <input type="text" class="input sym-input" id="add-card-input" placeholder="+ Tambah card (cari saham)..." style="width:200px;" autocomplete="off">
+      <div class="sym-dropdown hidden" id="add-card-dropdown"></div>
     </div>
 
-    <!-- =================== TAB: HAKA & HAKI =================== -->
-    <div data-panel="hakahaki" class="hidden">
-
-      <div class="section-label">Pantau Emiten (maks 20) <span class="watch-count" id="hakahaki-count">0 dipilih</span></div>
-      <div class="preset-row">
-        <button class="btn btn-sm" data-preset="lq45">LQ45</button>
-        <button class="btn btn-sm" data-preset="idx80">IDX80</button>
-        <button class="btn btn-sm" data-preset="all">Semua</button>
-        <button class="btn btn-sm" data-preset="none">Reset</button>
-        <span class="custom-wl-btns" id="hakahaki-custom-btns"></span>
-        <button class="btn btn-sm btn-dashed" data-wl-modal="hakahaki">＋ Watchlist</button>
-      </div>
-      <div class="toolbar">
-        <input type="text" class="input sym-input" id="hakahaki-grid-search" placeholder="Cari kode saham..." style="width:200px;">
-        <button class="btn btn-sm" id="hakahaki-grid-search-clear">×</button>
-      </div>
-      <div class="emiten-grid" id="hakahaki-egrid"></div>
-
-      <div class="section-label">Threshold</div>
-      <div class="toolbar" data-threshold-group="hakahaki">
-        <button class="pill" data-threshold="100000000">100 jt</button>
-        <button class="pill" data-threshold="250000000">250 jt</button>
-        <button class="pill active" data-threshold="500000000">500 jt ★</button>
-        <button class="pill" data-threshold="1000000000">1 M</button>
-        <button class="pill" data-threshold="5000000000">5 M</button>
-      </div>
-
-      <div class="monitor-row">
-        <button class="btn btn-primary" id="hakahaki-btn-start" data-running="0">Start Monitor</button>
-        <span class="monitor-status" id="hakahaki-status">○ Idle</span>
-        <button class="btn btn-sm" id="hakahaki-btn-clear">Bersihkan feed</button>
-      </div>
-
-      <div class="section-label">Alert Feed — BUY & SELL Agresif</div>
-      <div class="alert-feed" id="hakahaki-feed">
-        <div class="empty-state">Belum ada alert. Jalankan monitor.</div>
-      </div>
-
+    <div class="threshold-row" id="threshold-row">
+      <span class="label">Threshold:</span>
+      <button class="pill" data-threshold="100000000">100 jt</button>
+      <button class="pill" data-threshold="250000000">250 jt</button>
+      <button class="pill active" data-threshold="500000000">500 jt ★</button>
+      <button class="pill" data-threshold="1000000000">1 M</button>
+      <button class="pill" data-threshold="5000000000">5 M</button>
     </div>
 
+    <div class="global-status">
+      <button class="btn btn-primary" id="btn-start" data-running="0">Start Monitor</button>
+      <span class="monitor-status" id="global-status">○ Idle</span>
+    </div>
   </div>
+
+  <div class="cards-grid" id="cards-grid"></div>
 
   <!-- =================== MODAL: Kelola Watchlist Custom =================== -->
   <div class="wl-modal-overlay hidden" id="wl-modal-overlay">
@@ -218,61 +159,45 @@
 </div>
 
 <script type="module">
-  import { TOKEN, SYMS, LQ45, IDX80, has, setEmitenInfo } from '../../shared/store.js'
+  import { TOKEN, SYMS, LQ45, IDX80, EMITEN_INFO, has, setEmitenInfo } from '../../shared/store.js'
   import { fetchEmitenJson } from '../../shared/api.js'
-  import { renderHeader, refreshTokenStatus } from '../../shared/header.js'
+  import { renderHeader, refreshTokenStatus, openTokenPopover } from '../../shared/header.js'
   import { createMonitor } from './poll.js'
   import {
-    DB, loadAll,
-    watchlistAdd, watchlistRemove, watchlistSet,
-    hakahakiWatchlistAdd, hakahakiWatchlistRemove, hakahakiWatchlistSet,
+    DB, loadAll, MULTI_CARD_ID,
+    cardAdd, cardRemove, cardSetMode,
+    multiCardToggleSym, multiCardSetSyms,
     setThreshold,
     namedListSave, namedListDelete,
-    alertAdd, hakahakiAlertAdd, clearAlerts
+    cardAlertAdd
   } from './db.js'
 
-  // ============================================================
-  // SEKSI 1: STATE HALAMAN (bukan data domain — UI saja)
-  // ============================================================
-  let _tab = 'haka'
-  const hakaMonitor     = createMonitor('buy')
-  const hakahakiMonitor = createMonitor('both')
+  const monitor = createMonitor()
 
   // ============================================================
-  // SEKSI 2: INIT
+  // SEKSI 1: INIT
   // ============================================================
   async function init() {
     renderHeader(document.getElementById('app-header'), [
       { label: 'IHSG Suite', href: '../../index.html' },
       { label: 'HAKA & HAKI' }
     ])
+    window.addEventListener('ihsg:token-saved', refreshTokenStatus)
 
-    await _loadEmitenInfo() // SYMS/LQ45/IDX80 perlu ini dulu sebelum grid bisa digambar
-
-    _bindTabs()
-    _bindGridControls('haka')
-    _bindGridControls('hakahaki')
-    _bindThresholdPills()
-    _bindMonitorButtons()
-    _bindWlModal()
-
-    hakaMonitor.init({
-      onAlert:    (a) => { alertAdd(a); _renderAlerts('haka'); if (a.isHAKA) _beep() },
-      onError:    handleError
-    })
-    hakahakiMonitor.init({
-      onAlert:    (a) => { hakahakiAlertAdd(a); _renderAlerts('hakahaki'); if (a.isHAKA) _beep() },
-      onError:    handleError
-    })
-
+    await _loadEmitenInfo()
     await loadAll()
-    _renderGrid('haka')
-    _renderGrid('hakahaki')
-    _renderCount('haka')
-    _renderCount('hakahaki')
+
+    _bindAddCard()
+    _bindThresholdPills()
+    _bindStartStop()
+    _bindWlModal()
     _renderThresholdPills()
-    _renderCustomWlBtns('haka')
-    _renderCustomWlBtns('hakahaki')
+    _renderAllCards()
+
+    monitor.init({
+      onAlert:  _routeAlert,
+      onError:  handleError
+    })
   }
 
   async function _loadEmitenInfo() {
@@ -280,139 +205,243 @@
     try { setEmitenInfo(await fetchEmitenJson()) } catch (e) { console.warn('[haka] gagal load emiten.json:', e.message) }
   }
 
+  function handleError(e) {
+    if (e.code === 'TOKEN_EXPIRED' || e.code === 'TOKEN_NOT_SET') {
+      document.getElementById('global-status').textContent = '⚠ Token belum diisi / expired'
+      document.getElementById('global-status').classList.remove('is-live')
+      _setRunningUI(false)
+      openTokenPopover()
+    }
+  }
+
   // ============================================================
-  // SEKSI 4: TAB
+  // SEKSI 2: ROUTING ALERT — 1 trade bisa relevan ke BEBERAPA card sekaligus
   // ============================================================
-  function _bindTabs() {
-    document.querySelectorAll('[data-tab]').forEach(el => {
-      el.addEventListener('click', () => {
-        _tab = el.dataset.tab
-        document.querySelectorAll('[data-tab]').forEach(e => e.classList.toggle('active', e.dataset.tab === _tab))
-        document.querySelectorAll('[data-panel]').forEach(e => e.classList.toggle('hidden', e.dataset.panel !== _tab))
+  function _routeAlert(trade) {
+    let beeped = false
+    DB.cards.forEach(card => {
+      if (!card.syms.includes(trade.sym)) return
+      if (card.mode === 'buy' && trade.type !== 'HAKA') return // mode HAKA-saja, lewati transaksi sell
+      cardAlertAdd(card.id, trade)
+      _renderCardFeed(card.id)
+      if (trade.isHAKA && !beeped) { _beep(); beeped = true }
+    })
+  }
+
+  function _getAllSymbols() {
+    const set = new Set()
+    DB.cards.forEach(c => c.syms.forEach(s => set.add(s)))
+    return [...set]
+  }
+
+  // ============================================================
+  // SEKSI 3: START/STOP MONITOR (global, 1 poller bersama)
+  // ============================================================
+  function _bindStartStop() {
+    document.getElementById('btn-start').addEventListener('click', () => {
+      if (monitor.isRunning()) { monitor.stop(); _setRunningUI(false); return }
+      if (!TOKEN.isSet()) { openTokenPopover(); return }
+      if (!_getAllSymbols().length) { alert('Tambah minimal 1 card / pilih emiten dulu.'); return }
+      monitor.start(_getAllSymbols, () => DB.threshold)
+      _setRunningUI(true)
+    })
+  }
+
+  function _setRunningUI(running) {
+    const btn = document.getElementById('btn-start')
+    const status = document.getElementById('global-status')
+    btn.textContent = running ? 'Stop Monitor' : 'Start Monitor'
+    btn.dataset.running = running ? '1' : '0'
+    status.textContent = running ? '● Live' : '○ Idle'
+    status.classList.toggle('is-live', running)
+  }
+
+  /** Dipanggil tiap kali symbol set card berubah (tambah/hapus card, ubah isi multi) — restart poller kalau sedang jalan, biar ikut simbol terbaru. */
+  function _maybeRestartMonitor() {
+    if (monitor.isRunning()) monitor.start(_getAllSymbols, () => DB.threshold)
+  }
+
+  // ============================================================
+  // SEKSI 4: TAMBAH CARD (search saham)
+  // ============================================================
+  function _bindAddCard() {
+    const input = document.getElementById('add-card-input')
+    const dropdown = document.getElementById('add-card-dropdown')
+
+    input.addEventListener('input', () => _renderAddCardDropdown(input.value.trim()))
+    input.addEventListener('focus', () => { if (input.value.trim()) _renderAddCardDropdown(input.value.trim()) })
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { _addCardFromInput(input.value.trim().toUpperCase()); dropdown.classList.add('hidden') }
+      if (e.key === 'Escape') dropdown.classList.add('hidden')
+    })
+    document.addEventListener('click', e => {
+      if (!dropdown.contains(e.target) && e.target !== input) dropdown.classList.add('hidden')
+    })
+  }
+
+  function _renderAddCardDropdown(query) {
+    const dropdown = document.getElementById('add-card-dropdown')
+    if (!query) { dropdown.classList.add('hidden'); return }
+    const q = query.toUpperCase()
+    const all = Object.entries(EMITEN_INFO)
+    const codeMatches = all.filter(([code]) => code.startsWith(q))
+    const nameMatches  = all.filter(([code, info]) => !code.startsWith(q) && info.name && info.name.toUpperCase().includes(q))
+    const results = [...codeMatches, ...nameMatches].slice(0, 20)
+    if (!results.length) { dropdown.innerHTML = `<div class="sym-dropdown-empty">Tidak ditemukan</div>`; dropdown.classList.remove('hidden'); return }
+    dropdown.innerHTML = results.map(([code, info]) => `
+      <div class="sym-option" data-code="${code}"><span class="sym-option-code">${code}</span><span class="sym-option-name">${info.name || ''}</span></div>
+    `).join('')
+    dropdown.classList.remove('hidden')
+    dropdown.querySelectorAll('.sym-option').forEach(el => {
+      el.addEventListener('click', () => { _addCardFromInput(el.dataset.code); dropdown.classList.add('hidden') })
+    })
+  }
+
+  function _addCardFromInput(sym) {
+    if (!sym) return
+    const ok = cardAdd(sym)
+    document.getElementById('add-card-input').value = ''
+    if (!ok) { alert(`Card untuk ${sym} sudah ada.`); return }
+    _renderAllCards()
+    _maybeRestartMonitor()
+  }
+
+  // ============================================================
+  // SEKSI 5: RENDER SEMUA CARD
+  // ============================================================
+  function _renderAllCards() {
+    const grid = document.getElementById('cards-grid')
+    grid.innerHTML = DB.cards.map(card => _cardHtml(card)).join('')
+    DB.cards.forEach(card => {
+      _bindCardEvents(card)
+      if (card.type === 'multi') _renderMultiGrid()
+      _renderCardFeed(card.id)
+    })
+    _renderCustomWlBtns()
+  }
+
+  function _cardHtml(card) {
+    const isMulti = card.type === 'multi'
+    return `
+    <div class="card-box ${isMulti ? 'is-multi' : ''}" data-card-id="${card.id}">
+      <div class="card-head">
+        ${isMulti
+          ? `<span class="card-head-sym">📋 Multi</span><span class="card-head-badge" id="multi-count">0 dipilih</span>`
+          : `<span class="card-head-sym">${card.id}</span>`}
+        <div class="mode-toggle" data-mode-for="${card.id}">
+          <button data-mode="buy"  class="${card.mode === 'buy'  ? 'active' : ''}">HAKA</button>
+          <button data-mode="both" class="${card.mode === 'both' ? 'active' : ''}">HAKA+HAKI</button>
+        </div>
+        ${isMulti ? '' : `<span class="card-remove-btn" data-remove-card="${card.id}">×</span>`}
+      </div>
+      <div class="card-body">
+        ${isMulti ? `
+          <div class="preset-row">
+            <button class="btn btn-sm" data-preset="lq45">LQ45</button>
+            <button class="btn btn-sm" data-preset="idx80">IDX80</button>
+            <button class="btn btn-sm" data-preset="all">Semua</button>
+            <button class="btn btn-sm" data-preset="none">Reset</button>
+            <span class="custom-wl-btns" id="multi-custom-btns"></span>
+            <button class="btn btn-sm btn-dashed" id="open-wl-modal">＋ Watchlist</button>
+          </div>
+          <input type="text" class="input sym-input" id="multi-grid-search" placeholder="Cari kode saham..." style="width:100%; margin-bottom:8px;">
+          <div class="emiten-grid" id="multi-egrid"></div>
+        ` : ''}
+        <div class="card-feed" id="feed-${card.id}"></div>
+      </div>
+    </div>`
+  }
+
+  function _bindCardEvents(card) {
+    document.querySelectorAll(`[data-mode-for="${card.id}"] button`).forEach(btn => {
+      btn.addEventListener('click', () => {
+        cardSetMode(card.id, btn.dataset.mode)
+        document.querySelectorAll(`[data-mode-for="${card.id}"] button`).forEach(b => b.classList.toggle('active', b === btn))
       })
     })
-  }
 
-  // ============================================================
-  // SEKSI 5: GRID EMITEN — search, preset, klik utk toggle watchlist
-  // ============================================================
-  function _bindGridControls(prefix) {
-    const searchInput = document.getElementById(`${prefix}-grid-search`)
-    searchInput.addEventListener('input', () => _renderGrid(prefix))
-    document.getElementById(`${prefix}-grid-search-clear`).addEventListener('click', () => {
-      searchInput.value = ''
-      _renderGrid(prefix)
-    })
-
-    document.querySelectorAll(`[data-panel="${prefix}"] [data-preset]`).forEach(btn => {
-      btn.addEventListener('click', () => _applyPreset(prefix, btn.dataset.preset))
-    })
-  }
-
-  function _renderGrid(prefix) {
-    const query = document.getElementById(`${prefix}-grid-search`).value.trim().toUpperCase()
-    const list  = query ? SYMS.filter(s => s.includes(query)) : SYMS
-    const watchlist = prefix === 'haka' ? DB.watchlist : DB.hakahakiWatchlist
-    const el = document.getElementById(`${prefix}-egrid`)
-
-    el.innerHTML = list.map(sym => `
-      <span class="etag ${watchlist.includes(sym) ? 'active' : ''}" data-sym="${sym}">${sym}</span>
-    `).join('')
-
-    el.querySelectorAll('.etag').forEach(tag => {
-      tag.addEventListener('click', () => _toggleSym(prefix, tag.dataset.sym))
-    })
-  }
-
-  function _renderCount(prefix) {
-    const list = prefix === 'haka' ? DB.watchlist : DB.hakahakiWatchlist
-    const max  = prefix === 'haka' ? 100 : 20
-    document.getElementById(`${prefix}-count`).textContent = `${list.length}/${max} dipilih`
-  }
-
-  function _toggleSym(prefix, sym) {
-    const watchlist = prefix === 'haka' ? DB.watchlist : DB.hakahakiWatchlist
-    const inList = watchlist.includes(sym)
-
-    if (inList) {
-      if (prefix === 'haka') watchlistRemove(sym)
-      else                   hakahakiWatchlistRemove(sym)
-    } else {
-      const ok = prefix === 'haka' ? watchlistAdd(sym) : hakahakiWatchlistAdd(sym)
-      if (!ok) { alert(`Maksimal ${prefix === 'haka' ? 100 : 20} saham.`); return }
+    if (card.type === 'single') {
+      const removeBtn = document.querySelector(`[data-remove-card="${card.id}"]`)
+      removeBtn.addEventListener('click', () => {
+        cardRemove(card.id)
+        _renderAllCards()
+        _maybeRestartMonitor()
+      })
     }
 
-    _renderGrid(prefix)
-    _renderCount(prefix)
-
-    // Restart monitor kalau sedang jalan — watchlist berubah
-    const monitor = prefix === 'haka' ? hakaMonitor : hakahakiMonitor
-    if (monitor.isRunning()) { monitor.stop(); _startMonitor(prefix) }
+    if (card.type === 'multi') {
+      document.getElementById('multi-grid-search').addEventListener('input', _renderMultiGrid)
+      document.querySelectorAll('#cards-grid [data-preset]').forEach(btn => {
+        btn.addEventListener('click', () => _applyMultiPreset(btn.dataset.preset))
+      })
+      document.getElementById('open-wl-modal').addEventListener('click', _openWlModal)
+    }
   }
 
-  function _applyPreset(prefix, preset) {
-    const max = prefix === 'haka' ? 100 : 20
+  // ============================================================
+  // SEKSI 6: GRID EMITEN (card multi) — search, preset
+  // ============================================================
+  function _renderMultiGrid() {
+    const query = document.getElementById('multi-grid-search').value.trim().toUpperCase()
+    const list  = query ? SYMS.filter(s => s.includes(query)) : SYMS
+    const multiCard = DB.cards.find(c => c.id === MULTI_CARD_ID)
+    const el = document.getElementById('multi-egrid')
+    el.innerHTML = list.map(sym => `<span class="etag ${multiCard.syms.includes(sym) ? 'active' : ''}" data-sym="${sym}">${sym}</span>`).join('')
+    el.querySelectorAll('.etag').forEach(tag => {
+      tag.addEventListener('click', () => {
+        multiCardToggleSym(tag.dataset.sym)
+        _renderMultiGrid()
+        _renderMultiCount()
+        _maybeRestartMonitor()
+      })
+    })
+    _renderMultiCount()
+  }
+
+  function _renderMultiCount() {
+    const multiCard = DB.cards.find(c => c.id === MULTI_CARD_ID)
+    const el = document.getElementById('multi-count')
+    if (el) el.textContent = `${multiCard.syms.length} dipilih`
+  }
+
+  function _applyMultiPreset(preset) {
     let syms = []
     if (preset === 'lq45')  syms = LQ45
     else if (preset === 'idx80') syms = IDX80
     else if (preset === 'all')   syms = SYMS
     else if (preset === 'none')  syms = []
-    syms = syms.slice(0, max)
-
-    if (prefix === 'haka') watchlistSet(syms)
-    else                   hakahakiWatchlistSet(syms)
-
-    _renderGrid(prefix)
-    _renderCount(prefix)
-
-    const monitor = prefix === 'haka' ? hakaMonitor : hakahakiMonitor
-    if (monitor.isRunning()) { monitor.stop(); _startMonitor(prefix) }
+    multiCardSetSyms(syms)
+    _renderMultiGrid()
+    _maybeRestartMonitor()
   }
 
   // ============================================================
-  // SEKSI 6: WATCHLIST CUSTOM (modal kelola + tombol cepat)
+  // SEKSI 7: WATCHLIST CUSTOM (modal + tombol cepat) — isi card multi
   // ============================================================
-  let _wlModalTarget = 'haka' // tab mana yang sedang minta modal dibuka
-
-  function _renderCustomWlBtns(prefix) {
-    const el = document.getElementById(`${prefix}-custom-btns`)
+  function _renderCustomWlBtns() {
+    const el = document.getElementById('multi-custom-btns')
+    if (!el) return
     const names = Object.keys(DB.namedLists)
     el.innerHTML = names.map(name => `
-      <button class="custom-wl-btn" data-apply-named="${name}" data-apply-prefix="${prefix}"
-        title="${DB.namedLists[name].join(', ')}">${name} (${DB.namedLists[name].length})</button>
+      <button class="custom-wl-btn" data-apply-named="${name}" title="${DB.namedLists[name].join(', ')}">${name} (${DB.namedLists[name].length})</button>
     `).join('')
     el.querySelectorAll('[data-apply-named]').forEach(btn => {
-      btn.addEventListener('click', () => _applyNamedList(btn.dataset.applyPrefix, btn.dataset.applyNamed))
+      btn.addEventListener('click', () => {
+        multiCardSetSyms(DB.namedLists[btn.dataset.applyNamed])
+        _renderMultiGrid()
+        _maybeRestartMonitor()
+      })
     })
-  }
-
-  function _applyNamedList(prefix, name) {
-    const syms = DB.namedLists[name]
-    if (!syms) return
-    const max = prefix === 'haka' ? 100 : 20
-    const sliced = syms.slice(0, max)
-    if (prefix === 'haka') watchlistSet(sliced)
-    else                   hakahakiWatchlistSet(sliced)
-    _renderGrid(prefix)
-    _renderCount(prefix)
-    const monitor = prefix === 'haka' ? hakaMonitor : hakahakiMonitor
-    if (monitor.isRunning()) { monitor.stop(); _startMonitor(prefix) }
   }
 
   function _bindWlModal() {
-    document.querySelectorAll('[data-wl-modal]').forEach(btn => {
-      btn.addEventListener('click', () => _openWlModal(btn.dataset.wlModal))
-    })
     document.getElementById('wl-modal-close').addEventListener('click', _closeWlModal)
     document.getElementById('wl-cancel-btn').addEventListener('click', _closeWlModal)
-    document.getElementById('wl-modal-overlay').addEventListener('click', e => {
-      if (e.target.id === 'wl-modal-overlay') _closeWlModal()
-    })
+    document.getElementById('wl-modal-overlay').addEventListener('click', e => { if (e.target.id === 'wl-modal-overlay') _closeWlModal() })
     document.getElementById('wl-create-btn').addEventListener('click', _createNamedList)
   }
 
-  function _openWlModal(target) {
-    _wlModalTarget = target
+  function _openWlModal() {
     _renderWlModalList()
     document.getElementById('wl-modal-overlay').classList.remove('hidden')
   }
@@ -426,16 +455,10 @@
   function _renderWlModalList() {
     const el = document.getElementById('wl-modal-list')
     const names = Object.keys(DB.namedLists)
-    if (!names.length) {
-      el.innerHTML = `<div class="empty-state">Belum ada watchlist custom. Buat yang pertama!</div>`
-      return
-    }
+    if (!names.length) { el.innerHTML = `<div class="empty-state">Belum ada watchlist custom. Buat yang pertama!</div>`; return }
     el.innerHTML = names.map(name => `
       <div class="wl-item">
-        <div class="wl-item-info">
-          <div class="wl-item-name">${name}</div>
-          <div class="wl-item-tickers">${DB.namedLists[name].join(', ')}</div>
-        </div>
+        <div class="wl-item-info"><div class="wl-item-name">${name}</div><div class="wl-item-tickers">${DB.namedLists[name].join(', ')}</div></div>
         <button class="btn btn-sm btn-danger" data-delete-named="${name}">🗑</button>
       </div>
     `).join('')
@@ -444,8 +467,7 @@
         if (!confirm(`Hapus watchlist "${btn.dataset.deleteNamed}"?`)) return
         namedListDelete(btn.dataset.deleteNamed)
         _renderWlModalList()
-        _renderCustomWlBtns('haka')
-        _renderCustomWlBtns('hakahaki')
+        _renderCustomWlBtns()
       })
     })
   }
@@ -456,142 +478,60 @@
     if (!name) { alert('Masukkan nama watchlist.'); return }
     if (!rawText) { alert('Masukkan minimal 1 kode saham.'); return }
     if (DB.namedLists[name]) { alert('Nama sudah dipakai.'); return }
-
-    const tickers = [...new Set(
-      rawText.toUpperCase().split(/[\s,;]+/).filter(t => t.length >= 2 && t.length <= 6)
-    )]
+    const tickers = [...new Set(rawText.toUpperCase().split(/[\s,;]+/).filter(t => t.length >= 2 && t.length <= 6))]
     if (!tickers.length) { alert('Kode saham tidak valid.'); return }
-
     namedListSave(name, tickers)
     document.getElementById('wl-new-name').value = ''
     document.getElementById('wl-new-tickers').value = ''
     _renderWlModalList()
-    _renderCustomWlBtns('haka')
-    _renderCustomWlBtns('hakahaki')
+    _renderCustomWlBtns()
   }
 
   // ============================================================
-  // SEKSI 7: THRESHOLD
+  // SEKSI 8: THRESHOLD (global)
   // ============================================================
   function _bindThresholdPills() {
-    document.querySelectorAll('[data-threshold]').forEach(el => {
-      el.addEventListener('click', () => {
-        setThreshold(parseFloat(el.dataset.threshold))
+    document.querySelectorAll('#threshold-row .pill').forEach(btn => {
+      btn.addEventListener('click', () => {
+        setThreshold(parseInt(btn.dataset.threshold))
         _renderThresholdPills()
-        // Restart monitor yang sedang jalan supaya pakai threshold baru
-        if (hakaMonitor.isRunning())     { hakaMonitor.stop();     _startMonitor('haka') }
-        if (hakahakiMonitor.isRunning()) { hakahakiMonitor.stop(); _startMonitor('hakahaki') }
       })
     })
   }
+
   function _renderThresholdPills() {
-    document.querySelectorAll('[data-threshold]').forEach(el => {
-      el.classList.toggle('active', parseFloat(el.dataset.threshold) === DB.threshold)
+    document.querySelectorAll('#threshold-row .pill').forEach(btn => {
+      btn.classList.toggle('active', parseInt(btn.dataset.threshold) === DB.threshold)
     })
   }
 
   // ============================================================
-  // SEKSI 8: MONITOR START/STOP
+  // SEKSI 9: RENDER FEED PER-CARD (kompak)
   // ============================================================
-  function _bindMonitorButtons() {
-    document.getElementById('haka-btn-start').addEventListener('click', () => _toggleMonitor('haka'))
-    document.getElementById('hakahaki-btn-start').addEventListener('click', () => _toggleMonitor('hakahaki'))
-    document.getElementById('haka-btn-clear').addEventListener('click', () => { clearAlerts('haka'); _renderAlerts('haka') })
-    document.getElementById('hakahaki-btn-clear').addEventListener('click', () => { clearAlerts('hakahaki'); _renderAlerts('hakahaki') })
-  }
+  function _renderCardFeed(cardId) {
+    const card = DB.cards.find(c => c.id === cardId)
+    const el = document.getElementById(`feed-${cardId}`)
+    if (!card || !el) return
+    if (!card.alerts.length) { el.innerHTML = `<div class="empty-state" style="padding:14px 0;">Belum ada alert.</div>`; return }
 
-  function _toggleMonitor(prefix) {
-    const monitor = prefix === 'haka' ? hakaMonitor : hakahakiMonitor
-    if (monitor.isRunning()) { monitor.stop(); _renderMonitorStatus(prefix, false) }
-    else                     { _startMonitor(prefix) }
-  }
-
-  function _startMonitor(prefix) {
-    const monitor = prefix === 'haka' ? hakaMonitor : hakahakiMonitor
-    const list    = prefix === 'haka' ? DB.watchlist : DB.hakahakiWatchlist
-    if (!list.length) { alert('Watchlist masih kosong.'); return }
-    monitor.start(list, DB.threshold)
-    _renderMonitorStatus(prefix, true)
-  }
-
-  function _renderMonitorStatus(prefix, running) {
-    const btn    = document.getElementById(`${prefix}-btn-start`)
-    const status = document.getElementById(`${prefix}-status`)
-    btn.textContent     = running ? 'Stop Monitor' : 'Start Monitor'
-    btn.dataset.running = running ? '1' : '0'
-    btn.classList.toggle('btn-danger', running)
-    status.textContent  = running ? '● Memantau...' : '○ Idle'
-    status.style.color  = running ? 'var(--live)' : 'var(--ghost)'
-  }
-
-  // ============================================================
-  // SEKSI 9: RENDER ALERT FEED
-  // ============================================================
-  function _renderAlerts(prefix) {
-    const list = prefix === 'haka' ? DB.alerts : DB.hakahakiAlerts
-    const el   = document.getElementById(`${prefix}-feed`)
-    if (!list.length) { el.innerHTML = '<div class="empty-state">Belum ada alert.</div>'; return }
-
-    el.innerHTML = list.map(a => {
-      // Warna: HAKA (buy penuh) = hijau, HAKI (sell penuh) = merah, Watch (di
-      // bawah threshold tapi >=100jt) = amber — terlepas dari buy/sell.
+    el.innerHTML = card.alerts.map(a => {
       const col   = a.isWatch ? 'var(--phosphor)' : (a.type === 'HAKA' ? 'var(--live)' : 'var(--down)')
-      const badge = a.isWatch ? '⚠ Watch' : (a.type === 'HAKA' ? '🔴 HAKA!' : '🔵 HAKI!')
-      const boardLabel = a.board === 'RG' ? 'Regular' : a.board === 'NG' ? 'Nego' : a.board
-      const buyerTypeIcon = a.buyerType === 'BROKER_TYPE_FOREIGN' ? '🌍' : a.buyerType === 'BROKER_TYPE_GOVERNMENT' ? '🏛️' : '🏠'
+      const badge = a.isWatch ? 'Watch' : a.type
       const lotFmt = a.lot >= 1000 ? `${(a.lot/1000).toFixed(1)}K lot` : `${_fmtNum(a.lot)} lot`
-
       return `
-      <div class="alert-card2" style="border-left-color:${col}">
-        <div class="alert-head-row">
-          <span class="alert-sym2">${a.sym}</span>
-          <span class="alert-badge" style="color:${col};background:${col}22">${badge}</span>
-          ${boardLabel ? `<span class="alert-board">${boardLabel}</span>` : ''}
-          <span class="alert-time2">${a.time}</span>
-        </div>
-        <div class="alert-metrics-grid">
-          <div class="alert-metric">
-            <div class="alert-metric-label">Nilai</div>
-            <div class="alert-metric-val" style="color:${a.isHAKA ? col : 'var(--paper)'}; font-size:${a.isHAKA ? '13px' : '11px'}">${_fmtRp(a.value)}</div>
-          </div>
-          <div class="alert-metric">
-            <div class="alert-metric-label">Harga</div>
-            <div class="alert-metric-val">${_fmtNum(a.price)}</div>
-          </div>
-          <div class="alert-metric">
-            <div class="alert-metric-label">Volume</div>
-            <div class="alert-metric-val">${lotFmt}</div>
-          </div>
-        </div>
-        ${a.buyer ? `
-        <div class="alert-bs-row">
-          <span>${buyerTypeIcon} Buyer: <span class="alert-bs-code">${a.buyer}</span></span>
-          <span>→ Seller: <span class="alert-bs-code">${a.seller || '—'}</span></span>
-        </div>` : ''}
-      </div>
-    `}).join('')
+      <div class="feed-row" style="border-left-color:${col}">
+        <span class="feed-row-sym">${a.sym}</span>
+        <span class="feed-row-badge" style="color:${col};background:${col}22">${badge}</span>
+        <span class="feed-row-val" style="color:${col}">${_fmtRp(a.value)}</span>
+        <span class="feed-row-detail">${_fmtNum(a.price)} · ${lotFmt}</span>
+        <span class="feed-row-time">${a.time}</span>
+      </div>`
+    }).join('')
   }
 
   // ============================================================
-  // SEKSI 10: ERROR HANDLING
+  // SEKSI 10: BEEP & FORMAT
   // ============================================================
-  function handleError(e) {
-    if (e.code === 'TOKEN_EXPIRED' || e.code === 'TOKEN_NOT_SET') {
-      if (e.code === 'TOKEN_EXPIRED') TOKEN.clear()
-      refreshTokenStatus()
-      _renderMonitorStatus('haka', false)
-      _renderMonitorStatus('hakahaki', false)
-    }
-    console.error('[haka] error:', e.message)
-  }
-
-  // ============================================================
-  // SEKSI 11: HELPER FORMAT
-  // ============================================================
-  /**
-   * Beep singkat (oscillator 880Hz, 0.4 detik) — sama persis pola dari
-   * ihsg-intelligence-hub.html. Dipanggil tiap alert masuk (HAKA atau HAKI).
-   */
   function _beep() {
     try {
       const ctx = new (window.AudioContext || window.webkitAudioContext)()
@@ -605,14 +545,17 @@
   }
 
   function _fmtRp(v) {
-    if (v >= 1e9) return (v/1e9).toFixed(1) + ' M'
-    if (v >= 1e6) return (v/1e6).toFixed(0) + ' jt'
-    return new Intl.NumberFormat('id-ID').format(Math.round(v))
+    if (v === null || v === undefined || isNaN(v)) return '–'
+    const sign = v < 0 ? '-' : ''
+    const abs  = Math.abs(v)
+    if (abs >= 1e9) return sign + (abs/1e9).toFixed(2) + 'M'
+    if (abs >= 1e6) return sign + (abs/1e6).toFixed(0) + 'jt'
+    return sign + new Intl.NumberFormat('id-ID').format(Math.round(abs))
   }
   function _fmtNum(v) { return new Intl.NumberFormat('id-ID').format(Math.round(v)) }
 
   init()
-  window._haka = { DB, hakaMonitor, hakahakiMonitor }
+  window._haka = { DB, monitor }
 </script>
 
 </body>
