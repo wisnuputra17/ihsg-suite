@@ -63,6 +63,7 @@ function resetMocks() {
 }
 
 const { extractCheckpoints, fetchWindow, fetchSymRange, estimateFetch } = await import('./fetch.js')
+const { DB } = await import('./db.js')
 
 // ============================================================
 // extractCheckpoints — PURE, tanpa mock
@@ -183,6 +184,33 @@ test('fetchSymRange: rentang panjang (>5 hari kerja) dipecah jadi beberapa chunk
   const r = await fetchSymRange('ASII', '2026-01-19', '2026-01-28')
   assert.equal(r.daysFetched, 8)
   assert.equal(_stockbitIntradayCalls.length, 2) // dipecah jadi 2 chunk, BUKAN 8 call terpisah
+})
+
+test('REGRESI BUG: response fetchDaily Stockbit DESCENDING (terbaru duluan) -- fetchSymRange WAJIB sort ascending sebelum proses, jika tidak window intraday & urutan indikator jadi terbalik', async () => {
+  resetMocks()
+  const dates = ['2026-03-02','2026-03-03','2026-03-04','2026-03-05','2026-03-06']
+  // Sengaja kirim DESCENDING (terbaru duluan) -- ini PERSIS yang ditemukan di
+  // response asli Stockbit (lihat laporan bug Wisnu: from/to intraday terbalik)
+  _mockDailyBySym.PGAS = [...dates].reverse().map(date => ({
+    date, open: 100, high: 105, low: 95, close: 102, volume: 1, foreignbuy: 0, foreignsell: 0
+  }))
+  _mockIntradayBySym.PGAS = {}
+  for (const d of dates) {
+    _mockIntradayBySym.PGAS[d] = [{ unix_timestamp: String(wibCandle5m(d, 9, 5, 100).unix), open: 100 }]
+  }
+
+  await fetchSymRange('PGAS', dates[0], dates[dates.length - 1])
+
+  // 1. Cache in-memory HARUS ascending walau input API descending
+  const cachedDates = DB.emiten.PGAS.daily.map(d => d.date)
+  assert.deepEqual(cachedDates, dates) // ascending, BUKAN reverse(dates)
+
+  // 2. Tiap call intraday HARUS from > to (lebih baru > lebih lama) sesuai
+  // konvensi Stockbit -- kalau sort-nya tidak jalan, ini akan terbalik (from < to)
+  assert.ok(_stockbitIntradayCalls.length > 0)
+  for (const call of _stockbitIntradayCalls) {
+    assert.ok(call.fromTs > call.toTs, `from (${call.fromTs}) harus > to (${call.toTs})`)
+  }
 })
 
 // ============================================================

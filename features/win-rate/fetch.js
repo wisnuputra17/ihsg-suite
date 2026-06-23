@@ -129,6 +129,24 @@ export async function fetchSymRange(sym, fromDate, toDate) {
   // 1. Daily — 1 call utk seluruh range. today.open = IEP, otomatis ikut.
   // Stockbit: from = tanggal lebih BARU, to = tanggal lebih LAMA (lihat shared/api.js)
   const rawDaily = await fetchDaily(sym, toDate, fromDate)
+
+  // ⚠️ WAJIB sort ascending (hari tertua dulu) SEBELUM enrichDaily(). Response
+  // Stockbit utk daily ternyata descending (terbaru duluan, konsisten dgn arah
+  // parameter from=baru/to=lama) -- kalau tidak di-sort, enrichDaily() menghitung
+  // RSI/MACD/ATR (semua Wilder smoothing, sekuensial) MUNDUR sepanjang waktu,
+  // hasilnya angka yang KELIHATAN normal tapi sebenarnya salah. Ini juga akar
+  // masalah kenapa fetchWindow() dapat from/to intraday yang terbalik (chunk
+  // tanggal yang dikirim ke sana ikut descending tanpa sort ini).
+  rawDaily.sort((a, b) => a.date.localeCompare(b.date))
+
+  // ⚠️ WAJIB sort ascending (hari tertua dulu) SEBELUM enrichDaily(). Response
+  // Stockbit utk daily ternyata descending (terbaru duluan, konsisten dgn arah
+  // parameter from=baru/to=lama) -- kalau tidak di-sort, enrichDaily() menghitung
+  // RSI/MACD/ATR (semua Wilder smoothing, sekuensial) MUNDUR sepanjang waktu,
+  // hasilnya angka yang KELIHATAN normal tapi sebenarnya salah. Ini juga akar
+  // masalah kenapa fetchWindow() dapat from/to intraday yang terbalik (chunk
+  // tanggal yang dikirim ke sana ikut descending tanpa sort ini).
+
   const enriched = enrichDaily(rawDaily.map(d => ({ ...d })))
   await appendDaily(sym, enriched)
 
