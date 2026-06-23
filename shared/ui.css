@@ -273,6 +273,27 @@ textarea.input { resize: vertical; min-height: 50px; font-family: var(--f-sans);
 }
 
 /* ============================================================
+   FETCH PROGRESS — dipakai shared/fetch-progress.js
+   Meniru persis pola _setProgress()/_log() di ihsg-lab.html
+   ============================================================ */
+.progress-wrap {
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 14px 16px; margin-bottom: 10px;
+}
+.fp-title { display: flex; justify-content: space-between; align-items: baseline;
+  font-family: var(--f-mono); font-size: 11px; color: var(--paper); margin-bottom: 6px; }
+.fp-pct { color: var(--live); font-weight: 500; }
+.fp-bar { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; margin-bottom: 8px; }
+.fp-fill { height: 100%; background: linear-gradient(90deg, var(--live), var(--phosphor));
+  border-radius: 2px; transition: width 300ms ease; }
+.fp-log { max-height: 140px; overflow-y: auto; font-family: var(--f-mono); font-size: 10px;
+  display: flex; flex-direction: column; gap: 2px; }
+.fp-log-ok   { color: var(--live); }
+.fp-log-err  { color: var(--down); }
+.fp-log-warn { color: var(--wait); }
+.fp-log-info { color: var(--ghost); }
+
+/* ============================================================
    RESPONSIVE
    ============================================================ */
 @media (max-width: 600px) {

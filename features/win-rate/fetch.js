@@ -183,9 +183,20 @@ export async function fetchSymRange(sym, fromDate, toDate) {
  * sebenarnya — angka pasti baru ketahuan setelah fetchDaily jalan.
  * @returns {{sym:string, missingDays:number}[]}
  */
-export async function estimateFetch(syms, fromDate, toDate) {
+/**
+ * Estimasi jumlah hari yang BELUM ter-cache utk banyak simbol — dipakai UI
+ * utk tampilkan konfirmasi SEBELUM fetch sungguhan (pola expensive-fetch.js).
+ * Estimasi pakai hari kalender (skip weekend kasar), bukan hari trading
+ * sebenarnya — angka pasti baru ketahuan setelah fetchDaily jalan.
+ * @param {function} onProgress - (sym, i, total) => void -- loadSym tiap
+ * simbol butuh network call ke Sheets, ada delay yg pantas dikasih feedback.
+ * @returns {{sym:string, missingDays:number}[]}
+ */
+export async function estimateFetch(syms, fromDate, toDate, onProgress = () => {}) {
   const out = []
-  for (const sym of syms) {
+  for (let i = 0; i < syms.length; i++) {
+    const sym = syms[i]
+    onProgress(sym, i, syms.length)
     const e = await loadSym(sym)
     const cachedDates = new Set(Object.keys(e.intraday))
     let count = 0
@@ -203,14 +214,17 @@ export async function estimateFetch(syms, fromDate, toDate) {
  * Fetch banyak simbol sekaligus, BERURUTAN (bukan paralel) — sengaja, biar
  * tidak membombardir Stockbit dgn ratusan request bersamaan & kena RATE_LIMITED.
  * @param {string[]} syms
- * @param {function} onProgress - (sym, i, total) => void, utk progress bar UI
+ * @param {function} onProgress - (sym, i, total) => void, dipanggil SEBELUM fetch 1 simbol
+ * @param {function} onResult   - (sym, result, i, total) => void, dipanggil SETELAH 1 simbol selesai
+ *   (mirip _log() di ihsg-lab.html -- dipakai utk log baris "SYM: X hari diambil")
  */
-export async function fetchWatchlist(syms, fromDate, toDate, onProgress = () => {}) {
+export async function fetchWatchlist(syms, fromDate, toDate, onProgress = () => {}, onResult = () => {}) {
   const results = []
   for (let i = 0; i < syms.length; i++) {
     onProgress(syms[i], i, syms.length)
     const r = await fetchSymRange(syms[i], fromDate, toDate)
     results.push({ sym: syms[i], ...r })
+    onResult(syms[i], r, i, syms.length)
   }
   return results
 }

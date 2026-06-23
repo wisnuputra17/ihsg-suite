@@ -88,6 +88,8 @@
     </div>
   </div>
 
+  <div class="progress-wrap hidden" id="progress-wrap"></div>
+
   <div class="panel hidden" id="results-panel">
     <div class="panel-title">📊 Ranking Emiten — Win Rate Terbaik per Saham
       <span class="panel-sub">Entry 09:02 · Win ≥ +1% · Kondisi terbaik masing-masing saham</span>
@@ -107,6 +109,7 @@
   import { rankEmiten } from './engine.js'
   import { DB, loadIhsg } from './db.js'
   import { estimateFetch, fetchWatchlist } from './fetch.js'
+  import { showProgress, hideProgress, setProgress, logProgress } from '../../shared/fetch-progress.js'
 
   let _selectedSyms = new Set()
   const AUTO_FETCH_MAX = 100 // total hari belum ter-cache di bawah ini -> auto fetch tanpa konfirmasi
@@ -178,6 +181,7 @@
   // ============================================================
   async function _runScan() {
     const statusEl = document.getElementById('scan-status')
+    const progEl = document.getElementById('progress-wrap')
     const syms = [..._selectedSyms]
     const fromDate = document.getElementById('date-from').value
     const toDate   = document.getElementById('date-to').value
@@ -187,42 +191,62 @@
     if (fromDate > toDate)    { statusEl.textContent = 'Tanggal "Dari" harus sebelum "Sampai".'; return }
     if (!TOKEN.isSet())       { openTokenPopover(); return }
 
-    statusEl.textContent = 'Menghitung estimasi...'
+    statusEl.textContent = ''
+    showProgress(progEl)
+    setProgress(progEl, 0, syms.length, 'Menghitung estimasi...')
+    logProgress(progEl, 'Menghitung estimasi cache...', 'info')
+
     let estimates
     try {
-      estimates = await estimateFetch(syms, fromDate, toDate)
+      estimates = await estimateFetch(syms, fromDate, toDate, (sym, i, total) => {
+        setProgress(progEl, i, total, `Cek cache ${sym}`)
+      })
     } catch (err) {
+      hideProgress(progEl)
       _handleFetchError(err, statusEl); return
     }
     const totalMissing = estimates.reduce((s, e) => s + e.missingDays, 0)
+    logProgress(progEl, `Estimasi: ~${totalMissing} hari belum ter-cache dari ${syms.length} saham.`, 'info')
 
     if (totalMissing <= AUTO_FETCH_MAX) {
-      await _doScan(syms, fromDate, toDate, statusEl)
+      await _doScan(syms, fromDate, toDate, statusEl, progEl)
       return
     }
 
+    hideProgress(progEl)
     statusEl.innerHTML = `${syms.length} saham, ~${totalMissing} hari belum ter-cache (estimasi kasar). ` +
       `<button class="btn btn-sm btn-primary" id="scan-confirm-btn">Lanjut Fetch</button>`
-    document.getElementById('scan-confirm-btn').addEventListener('click', () => _doScan(syms, fromDate, toDate, statusEl))
+    document.getElementById('scan-confirm-btn').addEventListener('click', () => _doScan(syms, fromDate, toDate, statusEl, progEl))
   }
 
-  async function _doScan(syms, fromDate, toDate, statusEl) {
+  async function _doScan(syms, fromDate, toDate, statusEl, progEl) {
     document.getElementById('scan-btn').disabled = true
+    showProgress(progEl)
+    logProgress(progEl, 'Fetch IHSG...', 'info')
     try {
-      await fetchWatchlist(syms, fromDate, toDate, (sym, i, total) => {
-        statusEl.textContent = `Mengambil data ${sym} (${i + 1}/${total})...`
-      })
-      statusEl.textContent = 'Menghitung ranking...'
+      await fetchWatchlist(
+        syms, fromDate, toDate,
+        (sym, i, total) => setProgress(progEl, i, total, `Mengambil ${sym}`),
+        (sym, result) => {
+          logProgress(progEl, `${sym}: ${result.daysFetched} hari diambil, ${result.daysSkipped} sudah ter-cache`, 'ok')
+        }
+      )
+      setProgress(progEl, syms.length, syms.length, 'Menghitung ranking...')
+      logProgress(progEl, 'Menghitung ranking...', 'info')
 
       const ihsgByDate = await loadIhsg()
       const emitenDataBySym = {}
       for (const sym of syms) emitenDataBySym[sym] = DB.emiten[sym]
       const ranking = rankEmiten(emitenDataBySym, ihsgByDate)
 
+      logProgress(progEl, `Selesai: ${syms.length} emiten.`, 'ok')
+      hideProgress(progEl)
       statusEl.textContent = `Selesai — ${syms.length} saham, ${fromDate} s.d. ${toDate}.`
       document.getElementById('results-panel').classList.remove('hidden')
       _renderResults(ranking, syms.length)
     } catch (err) {
+      logProgress(progEl, `Gagal: ${err.code || err.message}`, 'err')
+      hideProgress(progEl)
       _handleFetchError(err, statusEl)
     } finally {
       document.getElementById('scan-btn').disabled = false
