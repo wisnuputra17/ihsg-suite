@@ -1165,8 +1165,14 @@
           return
         }
 
-        const buyTotal  = data.buy.length  ? data.buy[data.buy.length - 1].value   : 0
-        const sellTotal = data.sell.length ? data.sell[data.sell.length - 1].value : 0
+        // buyTotal/sellTotal = TOTAL tekanan beli/jual SEPANJANG HARI -- data.buy
+        // sudah dikonversi jadi delta per-menit oleh fetchAbsorption() (lihat
+        // toDelta() di shared/api.js), jadi harus di-SUM semua elemen, BUKAN
+        // ambil elemen terakhir saja (itu cuma volume 1 menit TERAKHIR hari itu,
+        // sering 0/kecil -- bug yang sempat ketemu, dikonfirmasi via Console:
+        // BULL 2026-06-22 sum=17.230.439.400 vs elemen terakhir=0).
+        const buyTotal  = data.buy.reduce((s, x) => s + x.value, 0)
+        const sellTotal = data.sell.reduce((s, x) => s + x.value, 0)
         const entry = { buy: buyTotal, sell: sellTotal, net: buyTotal - sellTotal }
         DB.lpmCache[date] = entry
         newlyFetched.push({ date, ...entry })
