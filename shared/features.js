@@ -63,5 +63,12 @@ export const FEATURES = [
     desc:   'Backtest probabilitas 27 kondisi entry pagi terhadap 9 titik exit sepanjang hari.',
     tags:   ['backtest', 'probabilitas', 'scalping', 'kondisi entry'],
     status: 'ready'
+  },
+  {
+    id:     'ranking-emiten',
+    name:   'Ranking Emiten',
+    desc:   'Ranking saham berdasarkan win rate terbaik — 16 kondisi (IEP surge, gap, RSI, IHSG, dst) x 9 exit time.',
+    tags:   ['ranking', 'win rate', 'backtest', 'ihsg', 'iep surge', 'scalping'],
+    status: 'ready'
   }
 ]

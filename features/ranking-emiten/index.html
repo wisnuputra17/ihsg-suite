@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ranking Emiten · IHSG Suite</title>
+  <link rel="stylesheet" href="../../shared/ui.css">
+
+  <style>
+    .panel { border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; margin-bottom: 10px; }
+    .panel-title { font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--ghost); margin-bottom: 8px; }
+    .panel-sub { font-family: var(--f-mono); font-size: 10px; color: var(--ghost); margin-left: 8px; text-transform: none; letter-spacing: 0; }
+
+    .preset-row { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; align-items: center; }
+    .emiten-grid {
+      display: flex; flex-wrap: wrap; gap: 4px; max-height: 130px; overflow-y: auto;
+      padding: 8px; background: #0f0e0c; border: 1px solid var(--line); border-radius: var(--radius);
+    }
+    .etag {
+      padding: 3px 7px; border-radius: var(--radius); cursor: pointer; user-select: none;
+      font-family: var(--f-mono); font-size: 10px; border: 1px solid var(--line);
+      color: var(--ghost); background: transparent; transition: all 100ms ease;
+    }
+    .etag:hover { border-color: var(--line-hi); color: var(--dim); }
+    .etag.active { border-color: var(--phosphor-line); color: var(--phosphor); background: var(--phosphor-dim); }
+    .watch-count { font-family: var(--f-mono); font-size: 10px; color: var(--phosphor); margin-left: auto; }
+
+    .date-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .date-row label { font-family: var(--f-mono); font-size: 10px; color: var(--ghost); }
+
+    .scan-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .scan-status { font-family: var(--f-mono); font-size: 11px; color: var(--ghost); }
+
+    .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+    .stat-box { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; text-align: center; }
+    .stat-label { font-family: var(--f-mono); font-size: 9px; color: var(--ghost); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+    .stat-val { font-family: var(--f-mono); font-size: 20px; font-weight: 500; color: var(--paper); }
+    .stat-sub { font-family: var(--f-mono); font-size: 9px; color: var(--dim); }
+
+    #ranking-table { width: 100%; border-collapse: collapse; font-family: var(--f-mono); font-size: 11px; }
+    #ranking-table th, #ranking-table td { padding: 7px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+    #ranking-table th { color: var(--ghost); font-weight: 500; text-align: left; font-size: 10px; }
+    #ranking-table td.num { text-align: right; }
+    .rank-cell { text-align: center; color: var(--ghost); width: 32px; }
+    .sym-cell { font-weight: 500; color: var(--phosphor); }
+    .cond-cell { font-size: 9px; color: var(--dim); max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+    .wr-good { color: var(--live); font-weight: 500; }
+    .wr-mid  { color: var(--wait); font-weight: 500; }
+    .wr-bad  { color: var(--down); font-weight: 500; }
+    .gain-pos { color: var(--live); font-weight: 500; }
+    .gain-neg { color: var(--down); font-weight: 500; }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<div class="page">
+
+  <header class="app-header" id="app-header"></header>
+
+  <div class="panel">
+    <div class="panel-title">1. Pilih Watchlist</div>
+    <div class="preset-row">
+      <button class="btn btn-sm" data-preset="lq45">LQ45</button>
+      <button class="btn btn-sm" data-preset="idx80">IDX80</button>
+      <button class="btn btn-sm" data-preset="all">Semua</button>
+      <button class="btn btn-sm" data-preset="none">Reset</button>
+      <span class="watch-count" id="watch-count">0 dipilih</span>
+    </div>
+    <input type="text" class="input" id="grid-search" placeholder="Cari kode saham..." style="width:100%; margin-bottom:8px;">
+    <div class="emiten-grid" id="emiten-grid"></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">2. Rentang Tanggal</div>
+    <div class="date-row">
+      <label>Dari <input type="date" class="input" id="date-from"></label>
+      <label>Sampai <input type="date" class="input" id="date-to"></label>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="scan-row">
+      <button class="btn btn-primary" id="scan-btn">Mulai Scan</button>
+      <span class="scan-status" id="scan-status"></span>
+    </div>
+  </div>
+
+  <div class="panel hidden" id="results-panel">
+    <div class="panel-title">📊 Ranking Emiten — Win Rate Terbaik per Saham
+      <span class="panel-sub">Entry 09:02 · Win ≥ +1% · Kondisi terbaik masing-masing saham</span>
+    </div>
+    <div class="stats-row" id="stats-row"></div>
+    <div class="table-wrap" style="max-height:70vh;">
+      <table id="ranking-table"></table>
+    </div>
+  </div>
+
+</div>
+
+<script type="module">
+  import { TOKEN, SYMS, LQ45, IDX80, has, setEmitenInfo } from '../../shared/store.js'
+  import { fetchEmitenJson } from '../../shared/api.js'
+  import { renderHeader, refreshTokenStatus, openTokenPopover } from '../../shared/header.js'
+  import { rankEmiten } from './engine.js'
+  import { DB, loadIhsg } from './db.js'
+  import { estimateFetch, fetchWatchlist } from './fetch.js'
+
+  let _selectedSyms = new Set()
+  const AUTO_FETCH_MAX = 100 // total hari belum ter-cache di bawah ini -> auto fetch tanpa konfirmasi
+
+  // ============================================================
+  // SEKSI 1: INIT
+  // ============================================================
+  function init() {
+    renderHeader(document.getElementById('app-header'), [
+      { label: 'IHSG Suite', href: '../../index.html' },
+      { label: 'Ranking Emiten' }
+    ])
+    _loadEmitenInfo()
+    _bindPresetButtons()
+    document.getElementById('grid-search').addEventListener('input', _renderGrid)
+    document.getElementById('scan-btn').addEventListener('click', _runScan)
+
+    const today = new Date()
+    const threeMonthsAgo = new Date(today); threeMonthsAgo.setMonth(today.getMonth() - 3)
+    document.getElementById('date-to').value   = today.toISOString().slice(0, 10)
+    document.getElementById('date-from').value = threeMonthsAgo.toISOString().slice(0, 10)
+  }
+
+  async function _loadEmitenInfo() {
+    if (has.emitenInfo()) { _renderGrid(); return }
+    try {
+      setEmitenInfo(await fetchEmitenJson())
+      _renderGrid()
+    } catch (e) {
+      console.warn('[ranking-emiten] gagal load emiten.json:', e.message)
+    }
+  }
+
+  // ============================================================
+  // SEKSI 2: GRID PILIH WATCHLIST (search + preset + toggle)
+  // ============================================================
+  function _renderGrid() {
+    const query = document.getElementById('grid-search').value.trim().toUpperCase()
+    const list  = query ? SYMS.filter(s => s.includes(query)) : SYMS
+    const el = document.getElementById('emiten-grid')
+    el.innerHTML = list.map(sym =>
+      `<span class="etag ${_selectedSyms.has(sym) ? 'active' : ''}" data-sym="${sym}">${sym}</span>`
+    ).join('')
+    el.querySelectorAll('.etag').forEach(tag => {
+      tag.addEventListener('click', () => {
+        const sym = tag.dataset.sym
+        if (_selectedSyms.has(sym)) _selectedSyms.delete(sym); else _selectedSyms.add(sym)
+        _renderGrid()
+      })
+    })
+    document.getElementById('watch-count').textContent = `${_selectedSyms.size} dipilih`
+  }
+
+  function _bindPresetButtons() {
+    document.querySelectorAll('[data-preset]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const preset = btn.dataset.preset
+        if (preset === 'lq45')  _selectedSyms = new Set(LQ45)
+        else if (preset === 'idx80') _selectedSyms = new Set(IDX80)
+        else if (preset === 'all')   _selectedSyms = new Set(SYMS)
+        else if (preset === 'none')  _selectedSyms = new Set()
+        _renderGrid()
+      })
+    })
+  }
+
+  // ============================================================
+  // SEKSI 3: SCAN — estimasi, fetch (dgn konfirmasi kalau besar), ranking
+  // ============================================================
+  async function _runScan() {
+    const statusEl = document.getElementById('scan-status')
+    const syms = [..._selectedSyms]
+    const fromDate = document.getElementById('date-from').value
+    const toDate   = document.getElementById('date-to').value
+
+    if (syms.length === 0)    { statusEl.textContent = 'Pilih minimal 1 saham dulu.'; return }
+    if (!fromDate || !toDate) { statusEl.textContent = 'Isi rentang tanggal dulu.'; return }
+    if (fromDate > toDate)    { statusEl.textContent = 'Tanggal "Dari" harus sebelum "Sampai".'; return }
+    if (!TOKEN.isSet())       { openTokenPopover(); return }
+
+    statusEl.textContent = 'Menghitung estimasi...'
+    let estimates
+    try {
+      estimates = await estimateFetch(syms, fromDate, toDate)
+    } catch (err) {
+      _handleFetchError(err, statusEl); return
+    }
+    const totalMissing = estimates.reduce((s, e) => s + e.missingDays, 0)
+
+    if (totalMissing <= AUTO_FETCH_MAX) {
+      await _doScan(syms, fromDate, toDate, statusEl)
+      return
+    }
+
+    statusEl.innerHTML = `${syms.length} saham, ~${totalMissing} hari belum ter-cache (estimasi kasar). ` +
+      `<button class="btn btn-sm btn-primary" id="scan-confirm-btn">Lanjut Fetch</button>`
+    document.getElementById('scan-confirm-btn').addEventListener('click', () => _doScan(syms, fromDate, toDate, statusEl))
+  }
+
+  async function _doScan(syms, fromDate, toDate, statusEl) {
+    document.getElementById('scan-btn').disabled = true
+    try {
+      await fetchWatchlist(syms, fromDate, toDate, (sym, i, total) => {
+        statusEl.textContent = `Mengambil data ${sym} (${i + 1}/${total})...`
+      })
+      statusEl.textContent = 'Menghitung ranking...'
+
+      const ihsgByDate = await loadIhsg()
+      const emitenDataBySym = {}
+      for (const sym of syms) emitenDataBySym[sym] = DB.emiten[sym]
+      const ranking = rankEmiten(emitenDataBySym, ihsgByDate)
+
+      statusEl.textContent = `Selesai — ${syms.length} saham, ${fromDate} s.d. ${toDate}.`
+      document.getElementById('results-panel').classList.remove('hidden')
+      _renderResults(ranking, syms.length)
+    } catch (err) {
+      _handleFetchError(err, statusEl)
+    } finally {
+      document.getElementById('scan-btn').disabled = false
+    }
+  }
+
+  function _handleFetchError(err, statusEl) {
+    if (err.code === 'TOKEN_NOT_SET') { openTokenPopover(); return }
+    if (err.code === 'TOKEN_EXPIRED') {
+      statusEl.textContent = 'Token expired — klik indikator token di header utk update.'
+      TOKEN.clear(); refreshTokenStatus()
+      return
+    }
+    const detail = err.detail ? ` — ${err.detail}` : ''
+    statusEl.textContent = `Gagal: ${err.code || err.message}${detail}`
+    console.error('[ranking-emiten] scan error:', err.code, '| detail:', err.detail, '| full:', err)
+  }
+
+  // ============================================================
+  // SEKSI 4: RENDER HASIL — stat box + tabel ranking (medali top 3)
+  // ============================================================
+  function _renderResults(ranking, totalEmiten) {
+    const statsEl = document.getElementById('stats-row')
+    if (!ranking.length) {
+      statsEl.innerHTML = ''
+      document.getElementById('ranking-table').innerHTML =
+        '<tr><td style="padding:16px; color:var(--ghost)">Tidak ada data valid (kemungkinan sample tiap kondisi/exit kurang dari minimal 3 hari).</td></tr>'
+      return
+    }
+
+    const avgWR = ranking.reduce((s, r) => s + r.bestWR, 0) / ranking.length
+    const count70 = ranking.filter(r => r.bestWR >= 70).length
+
+    statsEl.innerHTML = `
+      <div class="stat-box"><div class="stat-label">Total Emiten</div><div class="stat-val">${totalEmiten}</div></div>
+      <div class="stat-box"><div class="stat-label">Avg WR Terbaik</div><div class="stat-val">${avgWR.toFixed(1)}%</div></div>
+      <div class="stat-box"><div class="stat-label">WR ≥ 70%</div><div class="stat-val">${count70}</div><div class="stat-sub">saham</div></div>
+    `
+
+    const thead = `<thead><tr>
+      <th class="rank-cell">#</th><th>Saham</th><th class="num">Hari Data</th><th class="num">Signals</th>
+      <th class="num">Win Rate</th><th class="num">Avg Gain</th><th class="num">Best Exit</th><th>Kondisi Terbaik</th>
+    </tr></thead>`
+
+    const tbody = '<tbody>' + ranking.map((r, i) => {
+      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`
+      const wrCls = r.bestWR >= 70 ? 'wr-good' : r.bestWR >= 55 ? 'wr-mid' : 'wr-bad'
+      const gainCls = r.bestAvgGain >= 0 ? 'gain-pos' : 'gain-neg'
+      const gainSign = r.bestAvgGain >= 0 ? '+' : ''
+      return `<tr>
+        <td class="rank-cell">${medal}</td>
+        <td class="sym-cell">${r.sym}</td>
+        <td class="num">${r.totalDays}</td>
+        <td class="num">${r.bestSignals}</td>
+        <td class="num ${wrCls}">${r.bestWR.toFixed(1)}%</td>
+        <td class="num ${gainCls}">${gainSign}${r.bestAvgGain.toFixed(2)}%</td>
+        <td class="num">${_fmtExitLabel(r.bestExit)}</td>
+        <td class="cond-cell" title="${r.bestCond}">${r.bestCond}</td>
+      </tr>`
+    }).join('') + '</tbody>'
+
+    document.getElementById('ranking-table').innerHTML = thead + tbody
+  }
+
+  function _fmtExitLabel(key) {
+    if (key === '—') return key
+    return `${key.slice(1, 3)}:${key.slice(3, 5)}`
+  }
+
+  init()
+</script>
+</body>
+</html>
