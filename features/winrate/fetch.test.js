@@ -2,7 +2,7 @@
  * features/winrate/fetch.test.js
  * ================================
  * extractCheckpoints() — pure, ditest menyeluruh tanpa mock apa pun.
- * fetchOneDay/fetchSymRange — mock fetch (Stockbit + Sheets sekaligus,
+ * fetchWindow/fetchSymRange — mock fetch (Stockbit + Sheets sekaligus,
  * dibedakan dari host URL) + mock localStorage (token Stockbit).
  */
 import { test } from 'node:test'
@@ -19,27 +19,34 @@ globalThis.localStorage = new LocalStorageMock()
 globalThis.localStorage.setItem('ihsglab_token', 'fake.token.value')
 
 // --- Mock fetch: cabang berdasarkan host (Stockbit vs Apps Script) ---
-let _mockDailyBySym    = {} // {sym: [{date,open,high,low,close,volume,foreignbuy,foreignsell}]}
-let _mockIntradayBySym = {} // {sym: {date: [{datetime,unix_timestamp,open,high,low,close,volume}]}}
-let _mockSheets        = {}
-let _stockbitCalls      = []
+let _mockDailyBySym     = {} // {sym: [{date,open,high,low,close,volume,foreignbuy,foreignsell}]}
+let _mockIntradayBySym  = {} // {sym: {date: [{unix_timestamp,open,close,volume}]}} -- 1 hari = 1 array candle 5-menitan
+let _mockSheets         = {}
+let _stockbitIntradayCalls = [] // {fromTs, toTs} -- dicek rentang window-nya
 
 globalThis.fetch = async (url, options) => {
   if (url.startsWith('https://exodus.stockbit.com')) {
-    _stockbitCalls.push(url)
     const symMatch = url.match(/chartbit\/([A-Z0-9]+)\/price\/(daily|intraday)/)
     const sym = symMatch[1], kind = symMatch[2]
     if (kind === 'daily') {
       const rows = _mockDailyBySym[sym] || []
       return { ok: true, status: 200, json: async () => ({ data: { chartbit: rows } }) }
     }
-    // intraday — tentukan tanggal dari param 'to' (unix lebih lama = awal hari yg di-request)
-    const toTs = Number(new URL(url).searchParams.get('to'))
-    const dateGuess = new Date(toTs * 1000).toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' })
-    const rows = (_mockIntradayBySym[sym] || {})[dateGuess] || []
+    const u = new URL(url)
+    const fromTs = Number(u.searchParams.get('from')), toTs = Number(u.searchParams.get('to'))
+    _stockbitIntradayCalls.push({ sym, fromTs, toTs })
+    // Gabungkan SEMUA candle simbol ini yg jatuh di window [toTs, fromTs] (Stockbit: from>to)
+    const allDates = Object.keys(_mockIntradayBySym[sym] || {})
+    let rows = []
+    for (const d of allDates) {
+      const dayCandles = _mockIntradayBySym[sym][d]
+      rows = rows.concat(dayCandles.filter(c => {
+        const ts = Number(c.unix_timestamp)
+        return ts <= fromTs && ts >= toTs
+      }))
+    }
     return { ok: true, status: 200, json: async () => ({ data: { chartbit: rows } }) }
   }
-  // Apps Script (Sheets)
   if (!options || !options.method) {
     const sheet = new URL(url).searchParams.get('sheet')
     return { ok: true, json: async () => ({ ok: true, data: _mockSheets[sheet] || [] }) }
@@ -51,51 +58,54 @@ globalThis.fetch = async (url, options) => {
   return { ok: true, json: async () => ({ ok: true, written: body.data.length }) }
 }
 
-function resetMocks() { _mockDailyBySym = {}; _mockIntradayBySym = {}; _mockSheets = {}; _stockbitCalls = [] }
+function resetMocks() {
+  _mockDailyBySym = {}; _mockIntradayBySym = {}; _mockSheets = {}; _stockbitIntradayCalls = []
+}
 
-const { extractCheckpoints, fetchOneDay, fetchSymRange, estimateFetch } = await import('./fetch.js')
+const { extractCheckpoints, fetchWindow, fetchSymRange, estimateFetch } = await import('./fetch.js')
 
 // ============================================================
 // extractCheckpoints — PURE, tanpa mock
 // ============================================================
 
-function wibCandle(dateStr, hh, mm, close) {
+function wibCandle5m(dateStr, hh, mm, open) {
+  // Candle mult=5 berlabel jam:menit ini -> field `open` = harga PERSIS di jam:menit ini
   const unix = Math.floor(new Date(`${dateStr}T${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}:00+07:00`).getTime() / 1000)
-  return { unix, close }
+  return { unix, open }
 }
 
-test('extractCheckpoints: ambil harga PERSIS pada candle exact match', () => {
+test('extractCheckpoints: pakai field `open` candle (harga PERSIS di jam itu), BUKAN `close`', () => {
   const candles = [
-    wibCandle('2026-01-15', 9, 2, 1000),
-    wibCandle('2026-01-15', 9, 5, 1010),
-    wibCandle('2026-01-15', 16, 0, 1100),
+    wibCandle5m('2026-01-15', 9, 5, 1010),  // open candle 09:05 = harga PERSIS 09:05
   ]
   const snap = extractCheckpoints(candles)
-  assert.equal(snap.p0902, 1000)
   assert.equal(snap.p0905, 1010)
-  assert.equal(snap.p1600, 1100)
-  assert.equal('p0910' in snap, false) // tidak ada candle dekat 09:10 -> key tidak muncul
 })
 
-test('extractCheckpoints: toleransi 2 menit kalau candle pas tidak ada', () => {
-  const candles = [wibCandle('2026-01-15', 9, 3, 1005)] // candle di 09:03, bukan 09:02
-  const snap = extractCheckpoints(candles)
-  assert.equal(snap.p0902, 1005) // selisih 1 menit, masih dalam toleransi
-})
-
-test('extractCheckpoints: di luar toleransi 2 menit -> key tidak muncul (BUKAN nilai asal comot)', () => {
-  const candles = [wibCandle('2026-01-15', 9, 6, 1005)] // selisih 4 menit dari 09:02
-  const snap = extractCheckpoints(candles)
-  assert.equal('p0902' in snap, false)
-})
-
-test('extractCheckpoints: pilih candle TERDEKAT kalau ada beberapa kandidat dalam toleransi', () => {
+test('extractCheckpoints: ambil semua 9 exit point kalau candle-nya pas semua', () => {
   const candles = [
-    wibCandle('2026-01-15', 9, 0, 999),  // selisih 2 menit dari p0902
-    wibCandle('2026-01-15', 9, 1, 998),  // selisih 1 menit -- harus menang
+    wibCandle5m('2026-01-15', 9, 5, 1010), wibCandle5m('2026-01-15', 9, 10, 1020),
+    wibCandle5m('2026-01-15', 9, 20, 1015), wibCandle5m('2026-01-15', 9, 35, 1030),
+    wibCandle5m('2026-01-15', 10, 0, 1025), wibCandle5m('2026-01-15', 10, 30, 1040),
+    wibCandle5m('2026-01-15', 11, 30, 1050), wibCandle5m('2026-01-15', 13, 30, 1045),
+    wibCandle5m('2026-01-15', 16, 0, 1060),
   ]
   const snap = extractCheckpoints(candles)
-  assert.equal(snap.p0902, 998)
+  assert.equal(Object.keys(snap).length, 9)
+  assert.equal(snap.p1600, 1060)
+})
+
+test('extractCheckpoints: candle hilang -> key tidak muncul (TIDAK comot candle 5 menit tetangga)', () => {
+  const candles = [wibCandle5m('2026-01-15', 9, 0, 999)] // candle 09:00, BUKAN 09:05
+  const snap = extractCheckpoints(candles)
+  // selisih candle 09:00 ke target p0905 = 5 menit, di luar toleransi 2 menit
+  assert.equal('p0905' in snap, false)
+})
+
+test('extractCheckpoints: toleransi kecil (<=2 menit) tetap dipakai sbg jaring pengaman', () => {
+  const candles = [wibCandle5m('2026-01-15', 9, 6, 1005)] // selisih 1 menit dari p0905
+  const snap = extractCheckpoints(candles)
+  assert.equal(snap.p0905, 1005)
 })
 
 test('extractCheckpoints: array kosong -> object kosong, tidak crash', () => {
@@ -103,57 +113,76 @@ test('extractCheckpoints: array kosong -> object kosong, tidak crash', () => {
 })
 
 // ============================================================
-// fetchOneDay — integration ringan (mock Stockbit)
+// fetchWindow — integration: 1 call API utk BANYAK hari sekaligus
 // ============================================================
 
-test('fetchOneDay: ekstrak snap + IEP sekaligus dari 1 response intraday', async () => {
+test('fetchWindow: 1 call API menghasilkan checkpoint utk beberapa hari sekaligus', async () => {
   resetMocks()
-  const date = '2026-01-15'
   _mockIntradayBySym.BBCA = {
-    [date]: [
-      { unix_timestamp: String(wibCandle(date, 8, 59, 1500).unix), close: 1500, volume: 1000 }, // IEP
-      { unix_timestamp: String(wibCandle(date, 9, 2, 1505).unix),  close: 1505, volume: 200 },  // entry
-      { unix_timestamp: String(wibCandle(date, 16, 0, 1550).unix), close: 1550, volume: 300 },  // exit terakhir
-    ]
+    '2026-01-19': [{ unix_timestamp: String(wibCandle5m('2026-01-19', 9, 5, 100).unix), open: 100 }],
+    '2026-01-20': [{ unix_timestamp: String(wibCandle5m('2026-01-20', 9, 5, 200).unix), open: 200 }],
   }
-  const { snap, iep } = await fetchOneDay('BBCA', date)
-  assert.equal(snap.p0902, 1505)
-  assert.equal(snap.p1600, 1550)
-  assert.equal(iep.price, 1500)
-  assert.equal(iep.vol, 1000)
+  const result = await fetchWindow('BBCA', ['2026-01-19', '2026-01-20'])
+  assert.equal(result['2026-01-19'].p0905, 100)
+  assert.equal(result['2026-01-20'].p0905, 200)
+  assert.equal(_stockbitIntradayCalls.length, 1) // CUMA 1 call API, walau 2 hari
+})
+
+test('fetchWindow: hari tanpa candle sama sekali tidak muncul di hasil', async () => {
+  resetMocks()
+  _mockIntradayBySym.TLKM = {
+    '2026-01-19': [{ unix_timestamp: String(wibCandle5m('2026-01-19', 9, 5, 100).unix), open: 100 }]
+    // 2026-01-20 sengaja tidak ada data sama sekali (misal libur)
+  }
+  const result = await fetchWindow('TLKM', ['2026-01-19', '2026-01-20'])
+  assert.equal('2026-01-19' in result, true)
+  assert.equal('2026-01-20' in result, false)
 })
 
 // ============================================================
-// fetchSymRange — integration: cek skip yang sudah di-cache
+// fetchSymRange — integration: skip cache, chunking per 5 hari kerja
 // ============================================================
 
-test('fetchSymRange: hari yang sudah ada di cache intraday TIDAK di-fetch ulang dari Stockbit', async () => {
+test('fetchSymRange: hari yang sudah ada di cache intraday TIDAK di-fetch ulang', async () => {
   resetMocks()
-  // Sheet sudah punya intraday utk 1 hari (simulasi sudah pernah di-scan sebelumnya)
   _mockSheets['winrate-intraday'] = [
-    { sym: 'TLKM', date: '2026-01-15', p0902: 100, p0905: '', p0910: '', p0920: '', p0935: '',
+    { sym: 'UNVR', date: '2026-01-19', p0905: 100, p0910: '', p0920: '', p0935: '',
       p1000: '', p1030: '', p1130: '', p1330: '', p1600: 105 }
   ]
-  _mockDailyBySym.TLKM = [
-    { date: '2026-01-15', open: 100, high: 110, low: 95, close: 105, volume: 1000, foreignbuy: 0, foreignsell: 0 },
-    { date: '2026-01-16', open: 105, high: 112, low: 100, close: 108, volume: 900, foreignbuy: 0, foreignsell: 0 },
+  _mockDailyBySym.UNVR = [
+    { date: '2026-01-19', open: 100, high: 110, low: 95, close: 105, volume: 1000, foreignbuy: 0, foreignsell: 0 },
+    { date: '2026-01-20', open: 105, high: 112, low: 100, close: 108, volume: 900, foreignbuy: 0, foreignsell: 0 },
   ]
-  _mockIntradayBySym.TLKM = {
-    '2026-01-16': [
-      { unix_timestamp: String(wibCandle('2026-01-16', 9, 2, 106).unix), close: 106, volume: 50 }
-    ]
+  _mockIntradayBySym.UNVR = {
+    '2026-01-20': [{ unix_timestamp: String(wibCandle5m('2026-01-20', 9, 5, 106).unix), open: 106 }]
   }
 
-  const r = await fetchSymRange('TLKM', '2026-01-15', '2026-01-16')
-  assert.equal(r.daysSkipped, 1)   // 2026-01-15 sudah di cache
-  assert.equal(r.daysFetched, 1)   // 2026-01-16 baru di-fetch
+  const r = await fetchSymRange('UNVR', '2026-01-19', '2026-01-20')
+  assert.equal(r.daysSkipped, 1) // 2026-01-19 sudah di cache
+  assert.equal(r.daysFetched, 1) // 2026-01-20 baru
 
-  // Pastikan TIDAK ada call Stockbit intraday utk 2026-01-15 (cuma utk 01-16)
-  const calledFor15 = _stockbitCalls.some(u => {
-    const toTs = Number(new URL(u).searchParams.get('to'))
-    return toTs && new Date(toTs * 1000).toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' }) === '2026-01-15'
-  })
-  assert.equal(calledFor15, false)
+  // Window fetch yang dikirim ke Stockbit HARUS cuma cover 01-20, BUKAN ikut 01-19 yg sudah di-cache
+  assert.equal(_stockbitIntradayCalls.length, 1)
+  const call = _stockbitIntradayCalls[0]
+  const calledDate = new Date(call.toTs * 1000).toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' })
+  assert.equal(calledDate, '2026-01-20')
+})
+
+test('fetchSymRange: rentang panjang (>5 hari kerja) dipecah jadi beberapa chunk window', async () => {
+  resetMocks()
+  // 8 hari kerja (Senin-Jumat x ~1.5 minggu) -- harus jadi 2 chunk (5 + 3)
+  _mockDailyBySym.ASII = [
+    '2026-01-19','2026-01-20','2026-01-21','2026-01-22','2026-01-23', // minggu 1 (5 hari)
+    '2026-01-26','2026-01-27','2026-01-28'                            // minggu 2 (3 hari)
+  ].map(date => ({ date, open: 100, high: 105, low: 95, close: 102, volume: 1, foreignbuy: 0, foreignsell: 0 }))
+  _mockIntradayBySym.ASII = {}
+  for (const d of _mockDailyBySym.ASII) {
+    _mockIntradayBySym.ASII[d.date] = [{ unix_timestamp: String(wibCandle5m(d.date, 9, 5, 100).unix), open: 100 }]
+  }
+
+  const r = await fetchSymRange('ASII', '2026-01-19', '2026-01-28')
+  assert.equal(r.daysFetched, 8)
+  assert.equal(_stockbitIntradayCalls.length, 2) // dipecah jadi 2 chunk, BUKAN 8 call terpisah
 })
 
 // ============================================================
@@ -162,9 +191,8 @@ test('fetchSymRange: hari yang sudah ada di cache intraday TIDAK di-fetch ulang 
 
 test('estimateFetch: hitung hari kalender (skip weekend) yang belum ter-cache', async () => {
   resetMocks()
-  _mockSheets['winrate-intraday'] = [] // ASII belum ada cache sama sekali
-  // 2026-01-19 (Senin) s.d. 2026-01-23 (Jumat) = 5 hari kerja, 0 di-cache
-  const est = await estimateFetch(['ASII'], '2026-01-19', '2026-01-23')
-  assert.equal(est[0].sym, 'ASII')
+  _mockSheets['winrate-intraday'] = [] // ICBP belum ada cache sama sekali
+  const est = await estimateFetch(['ICBP'], '2026-01-19', '2026-01-23') // Senin-Jumat
+  assert.equal(est[0].sym, 'ICBP')
   assert.equal(est[0].missingDays, 5)
 })

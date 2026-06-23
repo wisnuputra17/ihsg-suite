@@ -1,85 +1,115 @@
 /**
  * features/winrate/fetch.js
  * ============================
- * Pipeline: ambil data Stockbit (daily + intraday + IEP) utk 1/banyak simbol,
- * simpan ke cache via db.js. db.js sudah dedup otomatis — pipeline ini boleh
- * dipanggil berkali-kali, hari yang sudah ter-cache TIDAK di-fetch ulang.
+ * Pipeline: ambil data Stockbit (daily + intraday 5-menitan), simpan ke
+ * cache via db.js. db.js sudah dedup otomatis — pipeline ini boleh dipanggil
+ * berkali-kali, hari yang sudah ter-cache TIDAK di-fetch ulang.
  *
- * ⚠️ ASUMSI YANG BELUM DIVERIFIKASI — TOLONG DIKONFIRMASI:
- * shared/api.js dokumentasikan batas aman fetchIntraday cuma utk mult=5/15
- * (7 hari/call) dan mult=30/60 (30 hari/call) — TIDAK ADA dokumentasi utk
- * mult=1 (1-menit) yang dipakai di sini utk ekstrak IEP & checkpoint harga.
- * Saya pakai asumsi PALING KONSERVATIF: fetch 1 HARI per call (paling aman,
- * walau mungkin sebenarnya bisa lebih lebar). Saya TIDAK BISA tes ini sendiri
- * — domain exodus.stockbit.com tidak ada di whitelist network yang saya bisa
- * akses dari container ini. Kalau kamu sudah tau/tes ternyata mult=1 bisa
- * lebih dari 1 hari per call, ini SANGAT berpengaruh ke kecepatan scan watchlist
- * besar — tinggal ubah fetchOneDay() jadi fetchOneWindow(fromDate,toDate) dan
- * ekstrak checkpoint multi-hari dari 1 response.
+ * Keputusan desain (DIKONFIRMASI Wisnu):
+ *   - IEP = today.open dari fetchDaily() — TIDAK perlu fetch intraday sama
+ *     sekali demi IEP, sudah otomatis didapat dari 1 call fetchDaily yang
+ *     murah (seluruh range tanggal dalam 1 request).
+ *   - Semua 9 EXIT_KEYS kelipatan 5 menit -> pakai candle intraday mult=5,
+ *     batas aman 7 HARI KALENDER per call (terdokumentasi jelas di
+ *     shared/api.js — bukan tebakan konservatif seperti versi mult=1 yang lama).
+ *   - WINDOW_TRADING_DAYS=5 (1 minggu kerja) per call intraday — Senin-Jumat
+ *     cuma 4 hari kalender span, aman jauh di bawah limit 7 hari.
+ *
+ * ⚠️ Candle mult=5 berlabel "09:05" mewakili interval [09:05,09:10) — field
+ * `open`-nya = harga PERSIS jam 09:05, BUKAN `close` (yang justru harga jam
+ * 09:10). extractCheckpoints() WAJIB pakai `open`, bukan `close`.
  */
 import { fetchDaily, fetchIntraday } from '../../shared/api.js'
-import { enrichDaily, extractIEP } from '../../shared/indicators.js'
-import { ENTRY_KEY, EXIT_KEYS } from './engine.js'
-import { loadSym, appendDaily, appendIep, appendIntraday } from './db.js'
+import { enrichDaily } from '../../shared/indicators.js'
+import { EXIT_KEYS } from './engine.js'
+import { loadSym, appendDaily, appendIntraday } from './db.js'
 
-const CHECKPOINT_KEYS = [ENTRY_KEY, ...EXIT_KEYS]
+const WINDOW_TRADING_DAYS = 5 // 1 minggu kerja per call -- aman di bawah limit 7 hari kalender
 
 // ============================================================
 // SEKSI 1: EKSTRAK CHECKPOINT — PURE, mudah ditest
 // ============================================================
 
-/** 'p0902' -> 542 (menit dari tengah malam, 9*60+2) */
+/** 'p0905' -> 545 (menit dari tengah malam, 9*60+5) */
 function _keyToMinutes(key) {
   return Number(key.slice(1, 3)) * 60 + Number(key.slice(3, 5))
 }
 
+/** Menit-dari-tengah-malam (WIB) di mana candle ini MULAI (bukan berakhir). */
+function _candleStartMinutes(unix) {
+  const dt = new Date(unix * 1000)
+  const hh = Number(dt.toLocaleTimeString('en-GB', { timeZone: 'Asia/Jakarta', hour: '2-digit', hour12: false }).slice(0, 2))
+  const mm = Number(dt.toLocaleTimeString('en-GB', { timeZone: 'Asia/Jakarta', minute: '2-digit' }))
+  return hh * 60 + mm
+}
+
 /**
- * Ekstrak 10 harga checkpoint (ENTRY_KEY + EXIT_KEYS) dari candle 1-menit 1 hari.
+ * Ekstrak 9 harga checkpoint (EXIT_KEYS) dari candle 5-menitan 1 hari.
+ * WAJIB pakai field `open` candle (harga PERSIS di awal interval), BUKAN
+ * `close` (yang mewakili harga 5 menit SETELAHNYA -- lihat catatan di atas).
  * Toleransi 2 menit kalau candle pas tidak ada (data API kadang bolong) —
- * ambil candle TERDEKAT ke target, bukan exact match wajib.
- * @param {{unix:number, close:number}[]} minuteCandles - hasil fetchIntraday mult=1
- * @returns {Object} {p0902: harga, ...} — key hilang kalau tidak ketemu candle cukup dekat
+ * karena grid candle persis kelipatan 5 menit sama seperti target, toleransi
+ * ini cuma jaring pengaman, TIDAK PERNAH salah comot harga 5 menit lain
+ * (tetangga candle selalu >=5 menit, otomatis di luar toleransi 2 menit).
+ * @param {{unix:number, open:number}[]} candles - hasil fetchIntraday mult=5
+ * @returns {Object} {p0905: harga, ...} — key hilang kalau tidak ketemu candle cukup dekat
  */
-export function extractCheckpoints(minuteCandles) {
-  const withMinutes = minuteCandles.map(c => {
-    const dt = new Date(c.unix * 1000)
-    const hh = Number(dt.toLocaleTimeString('en-GB', { timeZone: 'Asia/Jakarta', hour: '2-digit', hour12: false }).slice(0, 2))
-    const mm = Number(dt.toLocaleTimeString('en-GB', { timeZone: 'Asia/Jakarta', minute: '2-digit' }))
-    return { unix: c.unix, close: c.close, _min: hh * 60 + mm }
-  })
+export function extractCheckpoints(candles) {
+  const withMinutes = candles.map(c => ({ open: c.open, _min: _candleStartMinutes(c.unix) }))
 
   const snap = {}
-  for (const key of CHECKPOINT_KEYS) {
+  for (const key of EXIT_KEYS) {
     const target = _keyToMinutes(key)
     let best = null, bestDiff = Infinity
     for (const c of withMinutes) {
       const diff = Math.abs(c._min - target)
       if (diff <= 2 && diff < bestDiff) { bestDiff = diff; best = c }
     }
-    if (best) snap[key] = best.close
+    if (best) snap[key] = best.open
   }
   return snap
 }
 
 // ============================================================
-// SEKSI 2: FETCH 1 SIMBOL, 1 HARI (sesi 08:57-16:00 WIB)
+// SEKSI 2: FETCH 1 WINDOW (s.d. WINDOW_TRADING_DAYS hari) DALAM 1 CALL
 // ============================================================
 
 /**
- * Fetch candle 1-menit 1 hari, ekstrak checkpoint harga + IEP sekaligus
- * (1 call API melayani dua kebutuhan).
- * @returns {{snap:Object, iep:{price:number,vol:number}|null}}
+ * Fetch candle 5-menitan utk sekumpulan tanggal (idealnya berurutan, dalam
+ * 1 window <= WINDOW_TRADING_DAYS) — 1 call API melayani BANYAK hari sekaligus.
+ * @param {string} sym
+ * @param {string[]} dates - 'YYYY-MM-DD', sudah diurutkan ascending
+ * @returns {Object<string,Object>} {date: {p0905:harga, ...}} — tanggal tanpa candle sama sekali tidak muncul
  */
-export async function fetchOneDay(sym, date) {
-  const fromTs = Math.floor(new Date(`${date}T16:00:00+07:00`).getTime() / 1000) // lebih baru
-  const toTs   = Math.floor(new Date(`${date}T08:57:00+07:00`).getTime() / 1000) // lebih lama (Stockbit: from > to)
-  const candles = await fetchIntraday(sym, fromTs, toTs, 1)
+export async function fetchWindow(sym, dates) {
+  if (dates.length === 0) return {}
+  const firstDate = dates[0], lastDate = dates[dates.length - 1]
+  const fromTs = Math.floor(new Date(`${lastDate}T16:00:00+07:00`).getTime() / 1000)  // lebih baru
+  const toTs   = Math.floor(new Date(`${firstDate}T08:55:00+07:00`).getTime() / 1000) // lebih lama (Stockbit: from > to)
+  const candles = await fetchIntraday(sym, fromTs, toTs, 5)
 
-  const snap   = extractCheckpoints(candles)
-  const iepArr = extractIEP(candles.map(c => ({ unix: c.unix, close: c.close, volume: c.volume })))
-  const iep    = iepArr.find(e => e.date === date) || null
+  const byDate = {}
+  for (const c of candles) {
+    const d = new Date(c.unix * 1000).toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' })
+    if (!byDate[d]) byDate[d] = []
+    byDate[d].push(c)
+  }
 
-  return { snap, iep }
+  const result = {}
+  for (const date of dates) {
+    if (byDate[date] && byDate[date].length > 0) {
+      const snap = extractCheckpoints(byDate[date])
+      if (Object.keys(snap).length > 0) result[date] = snap
+    }
+  }
+  return result
+}
+
+/** Pecah array tanggal jadi chunk maksimal WINDOW_TRADING_DAYS hari. */
+function _chunk(dates, size) {
+  const out = []
+  for (let i = 0; i < dates.length; i += size) out.push(dates.slice(i, i + size))
+  return out
 }
 
 // ============================================================
@@ -89,14 +119,14 @@ export async function fetchOneDay(sym, date) {
 /**
  * Fetch lengkap 1 simbol utk rentang [fromDate, toDate] ('YYYY-MM-DD').
  * Cuma fetch hari yang BELUM ada di cache db.js (cek e.intraday, bukan tebak).
- * Daily = 1 call murah utk seluruh range. Intraday = 1 call PER HARI yang
- * belum ter-cache (lihat catatan asumsi konservatif di atas file).
+ * Daily = 1 call murah utk seluruh range (IEP otomatis ikut lewat field open).
+ * Intraday = 1 call PER CHUNK ~5 hari kerja (bukan 1 call per hari).
  * @returns {{daysFetched:number, daysSkipped:number}}
  */
 export async function fetchSymRange(sym, fromDate, toDate) {
   const e = await loadSym(sym)
 
-  // 1. Daily — 1 call utk seluruh range (fetchDaily TIDAK perlu batching per hari)
+  // 1. Daily — 1 call utk seluruh range. today.open = IEP, otomatis ikut.
   // Stockbit: from = tanggal lebih BARU, to = tanggal lebih LAMA (lihat shared/api.js)
   const rawDaily = await fetchDaily(sym, toDate, fromDate)
   const enriched = enrichDaily(rawDaily.map(d => ({ ...d })))
@@ -107,16 +137,16 @@ export async function fetchSymRange(sym, fromDate, toDate) {
   const missingDates = tradingDates.filter(d => !e.intraday[d])
 
   let daysFetched = 0
-  for (const date of missingDates) {
+  for (const chunk of _chunk(missingDates, WINDOW_TRADING_DAYS)) {
     try {
-      const { snap, iep } = await fetchOneDay(sym, date)
-      if (Object.keys(snap).length > 0) {
-        await appendIntraday(sym, [{ date, snap }])
-        daysFetched++
+      const windowResult = await fetchWindow(sym, chunk)
+      const entries = Object.entries(windowResult).map(([date, snap]) => ({ date, snap }))
+      if (entries.length > 0) {
+        await appendIntraday(sym, entries)
+        daysFetched += entries.length
       }
-      if (iep) await appendIep(sym, [{ date, price: iep.price, vol: iep.vol }])
     } catch (err) {
-      // 1 hari gagal (misal hari libur/data kosong) TIDAK boleh gagalkan seluruh range
+      // 1 chunk gagal (misal hari libur/data kosong semua) TIDAK boleh gagalkan seluruh range
       if (err.code !== 'EMPTY_RESPONSE') throw err
     }
   }
@@ -132,8 +162,7 @@ export async function fetchSymRange(sym, fromDate, toDate) {
  * Estimasi jumlah hari yang BELUM ter-cache utk banyak simbol — dipakai UI
  * utk tampilkan konfirmasi SEBELUM fetch sungguhan (pola expensive-fetch.js).
  * Estimasi pakai hari kalender (skip weekend kasar), bukan hari trading
- * sebenarnya — angka pasti baru ketahuan setelah fetchDaily jalan. Cukup utk
- * kasih GAMBARAN ke user, bukan angka final.
+ * sebenarnya — angka pasti baru ketahuan setelah fetchDaily jalan.
  * @returns {{sym:string, missingDays:number}[]}
  */
 export async function estimateFetch(syms, fromDate, toDate) {

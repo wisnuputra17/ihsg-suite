@@ -6,16 +6,20 @@
  *   - TIDAK ada fetch, simpan state, atau render
  *   - Semua fungsi pure, mudah ditest
  *
- * ⚠️ ASUMSI DESAIN YANG PERLU DIKONFIRMASI WISNU — lihat HANDOFF/chat:
- *   1. "IEP surge" dan "Gap" digabung jadi 1 metrik (Gap = IEP vs close kemarin, %).
- *      Spek asli menyebut keduanya terpisah tapi tidak ada definisi beda yang jelas.
+ * Keputusan desain (DIKONFIRMASI Wisnu):
+ *   1. Gap = IEP vs close kemarin (%). IEP = today.open dari data daily
+ *      Stockbit — dikonfirmasi: harga open candle harian = harga match
+ *      lelang pra-pembukaan, BUKAN snapshot intraday terpisah.
+ *   4. Entry = today.open (IEP) langsung. Semua 9 exit kelipatan 5 menit →
+ *      diambil dari candle intraday mult=5 (batas aman 7 hari/call,
+ *      terdokumentasi jelas di shared/api.js — bukan tebakan konservatif).
+ *
+ * ⚠️ ASUMSI DESAIN YANG MASIH PERLU DIKONFIRMASI:
  *   2. ATR diperlakukan sebagai filter terpisah, BUKAN bagian dari 27 kondisi.
  *      27 kondisi = 3 (Gap) x 3 (RSI) x 3 (MACD histogram %).
  *   3. RSI & MACD histogram yang dipakai untuk klasifikasi adalah nilai HARI
- *      SEBELUMNYA (d-1) — karena saat entry pagi (09:02), indikator HARI INI
- *      belum kebentuk (candle harian belum close).
- *   4. Entry = harga jam 09:02 (p0902), BUKAN IEP murni — IEP tidak realistis
- *      dieksekusi (baru ketahuan tepat saat lelang pra-pembukaan selesai).
+ *      SEBELUMNYA (d-1) — karena saat entry pagi, indikator HARI INI belum
+ *      kebentuk (candle harian belum close).
  *   5. 9 exit time: 09:05,09:10,09:20,09:35,10:00,10:30,11:30,13:30,16:00
  *      (lebih rapat di awal utk scalping, 13:30 = buka lagi setelah istirahat siang IDX)
  *
@@ -23,7 +27,11 @@
  * runBacktest() & UI di atasnya tidak perlu diubah strukturnya.
  */
 
-export const ENTRY_KEY = 'p0902'
+// Entry TIDAK lagi snapshot intraday terpisah -- entry = today.open dari data
+// daily (=IEP, dikonfirmasi Wisnu: harga open candle harian Stockbit adalah
+// harga match lelang pra-pembukaan). EXIT_KEYS semua kelipatan 5 menit, bisa
+// diambil dari candle intraday mult=5 (batas aman 7 hari/call -- terdokumentasi
+// jelas di shared/api.js, bukan tebakan konservatif).
 export const EXIT_KEYS = ['p0905', 'p0910', 'p0920', 'p0935', 'p1000', 'p1030', 'p1130', 'p1330', 'p1600']
 
 // ============================================================
@@ -88,26 +96,25 @@ export function allConditionIds() {
 // ============================================================
 
 /**
- * Simulasi 1 trade: entry di ENTRY_KEY, exit di exitKey.
+ * Simulasi 1 trade: entry di harga yang diberikan (today.open / IEP), exit di exitKey.
  * MaxDD dihitung dari titik TERENDAH yang tercatat di antara entry s.d. exit
- * (bukan cuma harga exit) — butuh semua snapshot intraday, bukan cuma 9 exit point.
- * @param {Object} intraday - {p0902:price, p0905:price, ...} untuk 1 hari
+ * (bukan cuma harga exit) — pakai urutan EXIT_KEYS (intraday cuma isi 9 exit,
+ * entry sudah terpisah dari snapshot intraday).
+ * @param {number} entryPrice - today.open (IEP)
+ * @param {Object} intraday - {p0905:price, p0910:price, ...} untuk 1 hari
  * @param {string} exitKey
  * @returns {{entryPrice:number, exitPrice:number, returnPct:number, maxDDPct:number} | null}
  */
-export function simulateTrade(intraday, exitKey) {
-  const entryPrice = intraday[ENTRY_KEY]
-  const exitPrice  = intraday[exitKey]
+export function simulateTrade(entryPrice, intraday, exitKey) {
+  const exitPrice = intraday[exitKey]
   if (!entryPrice || !exitPrice) return null
 
-  const allKeys  = Object.keys(intraday).filter(k => /^p\d{4}$/.test(k)).sort()
-  const entryIdx = allKeys.indexOf(ENTRY_KEY)
-  const exitIdx  = allKeys.indexOf(exitKey)
-  if (entryIdx === -1 || exitIdx === -1 || exitIdx < entryIdx) return null
+  const exitIdx = EXIT_KEYS.indexOf(exitKey)
+  if (exitIdx === -1) return null
 
   let minPrice = entryPrice
-  for (let i = entryIdx; i <= exitIdx; i++) {
-    const p = intraday[allKeys[i]]
+  for (let i = 0; i <= exitIdx; i++) {
+    const p = intraday[EXIT_KEYS[i]]
     if (p !== null && p !== undefined && p < minPrice) minPrice = p
   }
 
@@ -127,15 +134,11 @@ export function simulateTrade(intraday, exitKey) {
  * Backtest 1 simbol penuh: loop semua hari historis, klasifikasi kondisi
  * pakai data SEBELUM entry, simulasi trade utk semua 9 exit time.
  * @param {Object} emitenData
- * @param {{date:string, close:number, rsi:(number|null), macdHist:(number|null), atr:(number|null)}[]} emitenData.daily - hasil enrichDaily()
- * @param {Object<string,Object>} emitenData.intraday - {date: {p0902:price, ...}}
- * @param {{date:string, price:number}[]} emitenData.iep - hasil extractIEP()
+ * @param {{date:string, open:number, close:number, rsi:(number|null), macdHist:(number|null), atr:(number|null)}[]} emitenData.daily - hasil enrichDaily()
+ * @param {Object<string,Object>} emitenData.intraday - {date: {p0905:price, ...}} (9 exit, TANPA entry)
  * @returns {Object} matrix[conditionId] = {label, [exitKey]: {n,wins,winRate,avgReturn,maxRet,maxDD}}
  */
-export function runBacktest({ daily, intraday, iep }) {
-  const iepByDate = {}
-  for (const e of iep) iepByDate[e.date] = e.price
-
+export function runBacktest({ daily, intraday }) {
   const matrix = {}
   for (const cond of allConditionIds()) {
     matrix[cond.id] = { label: cond.label }
@@ -147,18 +150,17 @@ export function runBacktest({ daily, intraday, iep }) {
   for (let i = 1; i < daily.length; i++) {
     const today = daily[i]
     const prev  = daily[i - 1]
-    const iepPrice = iepByDate[today.date]
     const todayIntraday = intraday[today.date]
-    if (!iepPrice || !todayIntraday || prev.close === null || prev.close === undefined || prev.close <= 0) continue
+    if (!today.open || !todayIntraday || prev.close === null || prev.close === undefined || prev.close <= 0) continue
 
-    const gapPct = (iepPrice - prev.close) / prev.close * 100
+    const gapPct = (today.open - prev.close) / prev.close * 100 // today.open = IEP
     const macdHistPct = (prev.macdHist !== null && prev.macdHist !== undefined && prev.close > 0)
       ? prev.macdHist / prev.close * 100 : null
     const cond = classifyCondition(gapPct, prev.rsi, macdHistPct)
     if (!cond) continue
 
     for (const exitKey of EXIT_KEYS) {
-      const trade = simulateTrade(todayIntraday, exitKey)
+      const trade = simulateTrade(today.open, todayIntraday, exitKey)
       if (!trade) continue
       const cell = matrix[cond.id][exitKey]
       cell.n++

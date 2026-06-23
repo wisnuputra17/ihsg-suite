@@ -1,12 +1,13 @@
 /**
  * features/winrate/db.js
  * ========================
- * State Win Rate Scanner: DB.emiten[sym] = {daily, intraday, iep}
- * Cache persisten via Sheets (3 sheet): winrate-daily, winrate-intraday, winrate-iep
+ * State Win Rate Scanner: DB.emiten[sym] = {daily, intraday}
+ * Cache persisten via Sheets (2 sheet): winrate-daily, winrate-intraday
  *
- * Skema intraday SENGAJA cuma 10 kolom (p0902 + 9 ENTRY_KEY/EXIT_KEYS dari
- * engine.js) — BUKAN grid per-menit. Snapshot harga hanya disimpan di
- * titik-titik yang benar dipakai backtest, supaya hemat row & request API.
+ * Skema intraday SENGAJA cuma 9 kolom (EXIT_KEYS dari engine.js, semua
+ * kelipatan 5 menit) — BUKAN grid per-menit, dan BUKAN termasuk entry.
+ * Entry = today.open dari winrate-daily (=IEP, dikonfirmasi Wisnu), jadi
+ * tidak perlu sheet/kolom terpisah utk IEP sama sekali.
  *
  * Pola yang diikuti (konsisten dengan broker-analyzer/db.js):
  *   - Normalisasi tanggal WAJIB saat load dari Sheets (String(d).slice(0,10))
@@ -14,21 +15,20 @@
  *   - Batch append (1 request utk banyak baris), bukan 1 request per hari
  */
 import { gsLoad, gsAppend } from '../../shared/sheets.js'
-import { ENTRY_KEY, EXIT_KEYS } from './engine.js'
+import { EXIT_KEYS } from './engine.js'
 
-const INTRADAY_KEYS = [ENTRY_KEY, ...EXIT_KEYS] // 10 kolom fix, urutan konsisten
+const INTRADAY_KEYS = [...EXIT_KEYS] // 9 kolom fix, urutan konsisten (TANPA entry)
 
 export const DB = {
-  emiten: {} // {sym: {daily:[], intraday:{date:{...}}, iep:[]}}
+  emiten: {} // {sym: {daily:[], intraday:{date:{...}}}}
 }
 
 const _loadedSyms        = new Set() // simbol yg sudah di-load dari Sheets sesi ini
 const _persistedDailyKey = new Set() // `${sym}|${date}` yg sudah PASTI ada di sheet
-const _persistedIepKey   = new Set()
 const _persistedIntraKey = new Set()
 
 function _ensureSym(sym) {
-  if (!DB.emiten[sym]) DB.emiten[sym] = { daily: [], intraday: {}, iep: [] }
+  if (!DB.emiten[sym]) DB.emiten[sym] = { daily: [], intraday: {} }
   return DB.emiten[sym]
 }
 
@@ -63,15 +63,7 @@ export function dailyToRow(sym, d) {
   }
 }
 
-export function rowToIep(r) {
-  return { date: String(r.date).slice(0, 10), price: Number(r.price), vol: Number(r.vol) }
-}
-
-export function iepToRow(sym, e) {
-  return { sym, date: e.date, price: e.price, vol: e.vol }
-}
-
-/** Baris Sheets -> object intraday {p0902:number, p0905:number, ...} (skip kolom kosong). */
+/** Baris Sheets -> object intraday {p0905:number, p0910:number, ...} (skip kolom kosong). */
 export function rowToIntraday(r) {
   const snap = {}
   for (const k of INTRADAY_KEYS) {
@@ -83,7 +75,7 @@ export function rowToIntraday(r) {
 /** Object intraday -> baris siap kirim ke gsAppend (kolom hilang diisi ''). */
 export function intradayToRow(sym, date, snap) {
   const row = { sym, date }
-  for (const k of INTRADAY_KEYS) row[k] = (snap[k] ?? '') // selalu 10 kolom, urutan tetap
+  for (const k of INTRADAY_KEYS) row[k] = (snap[k] ?? '') // selalu 9 kolom, urutan tetap
   return row
 }
 
@@ -98,9 +90,8 @@ export function intradayToRow(sym, date, snap) {
 export async function loadSym(sym) {
   if (_loadedSyms.has(sym)) return DB.emiten[sym]
 
-  const [dailyRows, iepRows, intraRows] = await Promise.all([
+  const [dailyRows, intraRows] = await Promise.all([
     gsLoad('winrate-daily'),
-    gsLoad('winrate-iep'),
     gsLoad('winrate-intraday')
   ])
 
@@ -111,11 +102,6 @@ export async function loadSym(sym) {
     .map(rowToDaily)
     .sort((a, b) => a.date.localeCompare(b.date))
   e.daily.forEach(d => _persistedDailyKey.add(`${sym}|${d.date}`))
-
-  e.iep = iepRows
-    .filter(r => r.sym === sym)
-    .map(rowToIep)
-  e.iep.forEach(d => _persistedIepKey.add(`${sym}|${d.date}`))
 
   e.intraday = {}
   for (const r of intraRows.filter(r => r.sym === sym)) {
@@ -154,31 +140,13 @@ export async function appendDaily(sym, days) {
   return { written: newDays.length }
 }
 
-/** Tambah entri IEP baru, skip yang sudah ada (per tanggal). */
-export async function appendIep(sym, ieps) {
-  const e = _ensureSym(sym)
-  const existingDates = new Set(e.iep.map(d => d.date))
-  const newIeps = ieps.filter(d => !existingDates.has(d.date))
-  if (newIeps.length === 0) return { written: 0 }
-
-  e.iep.push(...newIeps)
-
-  const toPersist = newIeps.filter(d => !_persistedIepKey.has(`${sym}|${d.date}`))
-  if (toPersist.length > 0) {
-    await gsAppend('winrate-iep', toPersist.map(d => iepToRow(sym, d)))
-    toPersist.forEach(d => _persistedIepKey.add(`${sym}|${d.date}`))
-  }
-  return { written: newIeps.length }
-}
-
 /**
  * Tambah snapshot intraday utk hari-hari baru, skip yang sudah ada.
  * Ini backtest data HISTORIS — sekali 1 hari sudah lewat, semua harga
- * menitan hari itu sudah lengkap & final (diambil sekali dari fetchIntraday
- * yang sudah lewat), jadi sama pola dedup-nya dengan appendDaily/appendIep —
- * TIDAK perlu progressive update/merge sepanjang hari.
+ * 5-menitan hari itu sudah lengkap & final, jadi sama pola dedup-nya
+ * dengan appendDaily — TIDAK perlu progressive update/merge sepanjang hari.
  * @param {string} sym
- * @param {{date:string, snap:Object}[]} entries - [{date:'YYYY-MM-DD', snap:{p0902:1000,...}}]
+ * @param {{date:string, snap:Object}[]} entries - [{date:'YYYY-MM-DD', snap:{p0905:1000,...}}]
  */
 export async function appendIntraday(sym, entries) {
   const e = _ensureSym(sym)
