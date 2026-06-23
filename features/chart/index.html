@@ -1176,7 +1176,13 @@
         const entry = { buy: buyTotal, sell: sellTotal, net: buyTotal - sellTotal }
         DB.lpmCache[date] = entry
         newlyFetched.push({ date, ...entry })
-      } catch (_) {
+      } catch (err) {
+        // PENTING: exception (network/CORS/Apps Script error) BEDA dari "API
+        // genuinely tidak punya data" -- console.warn eksplisit di sini supaya
+        // kalau ada fetch yang gagal diam-diam (pola yang pernah ketemu di
+        // win-rate/ranking-emiten), langsung kelihatan merah di Console, bukan
+        // ke-treat sama persis dgn hari yang memang kosong transaksinya.
+        console.warn(`[chart] LPM fetch GAGAL utk ${DB.sym} ${date} (BUKAN data kosong, ini error):`, err.message || err)
         DB.lpmCache[date] = null
       }
     }))
