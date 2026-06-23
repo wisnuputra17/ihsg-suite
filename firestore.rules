@@ -1,0 +1,26 @@
+// firestore.rules
+// =================
+// Aturan akses Firestore IHSG Suite.
+//
+// Strategi: syaratkan request.auth != null (login ANONIM, otomatis dari
+// shared/firebase.js — Wisnu tidak perlu input username/password apa pun,
+// tidak ada UI tambahan). Ini menolak bot/script asing yang langsung tembak
+// Firestore tanpa lewat aplikasi ini sama sekali, sambil tetap simpel utk
+// tool 1-pengguna seperti ini (tidak perlu rules per-user/per-collection
+// yang rumit).
+//
+// CARA DEPLOY:
+// 1. Firebase Console -> Firestore Database -> tab "Rules"
+// 2. Paste isi file ini, klik "Publish"
+// (Atau via Firebase CLI: firebase deploy --only firestore:rules — tapi
+// untuk proyek tanpa Firebase CLI terpasang, cara console lebih simpel)
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{collection}/{docId} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
