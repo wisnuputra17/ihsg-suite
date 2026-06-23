@@ -110,6 +110,9 @@
   import { DB, loadSym } from './db.js'
   import { estimateFetch, fetchWatchlist } from './fetch.js'
 
+  // Sementara utk debug — bisa diintip dari Console: window._wr.DB.emiten
+  window._wr = { DB }
+
   let _selectedSyms = new Set()
   let _lastMatrix    = null
   const AUTO_FETCH_MAX = 100 // total hari belum ter-cache di bawah ini -> auto fetch tanpa konfirmasi
