@@ -40,7 +40,7 @@
 
 // URL deployment Apps Script aktif.
 // PENTING: tiap kali deploy ulang via "New deployment", URL ini ganti — update di sini.
-const GS_URL = 'https://script.google.com/macros/s/AKfycbwa0jBd25DPgD761zmHJQ2VPFh2iqQM3I7iAhxeJQRwREE5iEMhD7g0mfHmdwgVXrs/exec'
+const GS_URL = 'https://script.google.com/macros/s/AKfycbz2XA-4tvbp5EvxkX4IB0YmrvZEeDuxLcbQfx-3HwSVHaiLUcxCKYmxHBgJkfX7hK2k/exec'
 
 // ============================================================
 // SEKSI 2: HELPER INTERNAL
