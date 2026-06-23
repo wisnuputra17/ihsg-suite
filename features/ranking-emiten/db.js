@@ -115,15 +115,22 @@ export function ihsgToRow(date, d) {
 // SEKSI 2: LOAD dari Sheets
 // ============================================================
 
-/** Load semua data 1 simbol dari Sheets ke DB.emiten[sym]. Idempoten per sesi. */
+/**
+ * Load semua data 1 simbol dari Sheets ke DB.emiten[sym]. Idempoten per sesi.
+ * SENGAJA berurutan (BUKAN Promise.all) -- kalau sheet belum pernah ada,
+ * Apps Script harus insertSheet() otomatis; 3 request BERSAMAAN yang semua
+ * butuh bikin sheet baru di spreadsheet yang sama bisa race condition (salah
+ * satu gagal dgn respons error infrastruktur Google yang kadang tidak punya
+ * header CORS -- kelihatan seperti "CORS blocked" padahal bukan itu akarnya).
+ * Cuma berdampak di percobaan PERTAMA kali; request berurutan sedikit lebih
+ * lambat tapi 100% aman dari race ini.
+ */
 export async function loadSym(sym) {
   if (_loadedSyms.has(sym)) return DB.emiten[sym]
 
-  const [dailyRows, intraRows, iepRows] = await Promise.all([
-    gsLoad('ranking-daily'),
-    gsLoad('ranking-intraday'),
-    gsLoad('ranking-iep')
-  ])
+  const dailyRows = await gsLoad('ranking-daily')
+  const intraRows = await gsLoad('ranking-intraday')
+  const iepRows   = await gsLoad('ranking-iep')
 
   const e = _ensureSym(sym)
 

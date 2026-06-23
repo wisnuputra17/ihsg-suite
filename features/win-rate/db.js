@@ -87,13 +87,18 @@ export function intradayToRow(sym, date, snap) {
  * Load semua data 1 simbol dari Sheets ke DB.emiten[sym].
  * Idempoten dalam 1 sesi — kalau sudah pernah di-load, return cache in-memory.
  */
+/**
+ * Idempoten dalam 1 sesi — kalau sudah pernah di-load, return cache in-memory.
+ * SENGAJA berurutan (BUKAN Promise.all) -- cegah race condition Apps Script
+ * saat sheet belum pernah ada (insertSheet() otomatis bersamaan ke spreadsheet
+ * yang sama bisa gagal, muncul sbg CORS error yang menyesatkan). Lihat detail
+ * di ranking-emiten/db.js (ketemu kasus nyata di sana).
+ */
 export async function loadSym(sym) {
   if (_loadedSyms.has(sym)) return DB.emiten[sym]
 
-  const [dailyRows, intraRows] = await Promise.all([
-    gsLoad('winrate-daily'),
-    gsLoad('winrate-intraday')
-  ])
+  const dailyRows = await gsLoad('winrate-daily')
+  const intraRows = await gsLoad('winrate-intraday')
 
   const e = _ensureSym(sym)
 
