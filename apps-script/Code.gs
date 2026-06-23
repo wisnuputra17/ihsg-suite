@@ -161,9 +161,19 @@ function _clear(sheetName) {
 /** Ambil sheet by name, buat baru otomatis kalau belum ada. */
 function _getOrCreateSheet(name) {
   if (!name) throw new Error('Parameter "sheet" tidak boleh kosong')
-  const ss    = SpreadsheetApp.openById(SPREADSHEET_ID)
-  let   sheet = ss.getSheetByName(name)
-  if (!sheet) sheet = ss.insertSheet(name)
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID)
+  let sheet = ss.getSheetByName(name)
+  if (sheet) return sheet
+
+  try {
+    sheet = ss.insertSheet(name)
+  } catch (e) {
+    // insertSheet() bisa gagal kalau sheet ini SUDAH dibuat oleh eksekusi lain
+    // yang nyaris bersamaan (race) tapi belum "kelihatan" di getSheetByName()
+    // eksekusi ini (cache/lag Apps Script) -- coba ambil lagi sebelum nyerah.
+    sheet = ss.getSheetByName(name)
+    if (!sheet) throw e // benar-benar gagal karena alasan lain, lempar error asli
+  }
   return sheet
 }
 
