@@ -1,5 +1,5 @@
 /**
- * features/winrate/fetch.test.js
+ * features/win-rate/fetch.test.js
  * ================================
  * extractCheckpoints() — pure, ditest menyeluruh tanpa mock apa pun.
  * fetchWindow/fetchSymRange — mock fetch (Stockbit + Sheets sekaligus,

@@ -1,10 +1,10 @@
 /**
- * features/winrate/engine.test.js
+ * features/win-rate/engine.test.js
  * =================================
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { classifyCondition, allConditionIds, simulateTrade, runBacktest, EXIT_KEYS } from './engine.js'
+import { classifyCondition, allConditionIds, simulateTrade, runBacktest, runBacktestMulti, EXIT_KEYS } from './engine.js'
 
 const EPS = 1e-9
 const close = (a, b, msg) => assert.ok(Math.abs(a - b) < EPS, msg || `${a} !== ${b}`)
@@ -171,4 +171,54 @@ test('runBacktest: matrix punya tepat 27 kondisi x 9 exit key, semua terinisiali
   for (const condId in matrix) {
     for (const exitKey of EXIT_KEYS) assert.ok(exitKey in matrix[condId], `${condId} kehilangan exit key ${exitKey}`)
   }
+})
+
+// ============================================================
+// runBacktestMulti — gabung lintas simbol
+// ============================================================
+
+test('runBacktestMulti: gabung 2 simbol dgn kondisi SAMA -> n digabung, avgReturn weighted by n (bukan rata2 sederhana)', () => {
+  // Simbol A: 1 trade return 10% pada netral|netral|positif/p0905
+  const symA = {
+    daily: [
+      { date: '2026-01-01', open: 995, close: 1000, rsi: 50, macdHist: 2.5 },
+      { date: '2026-01-02', open: 1025, close: 1010, rsi: 50, macdHist: 2.5 } // prev=day0 -> netral|netral|positif
+    ],
+    intraday: { '2026-01-02': { p0905: 1127.5 } } // (1127.5-1025)/1025*100 = 10%
+  }
+  // Simbol B: 3 trade (3 hari beda, semua kondisi SAMA) return 0% tiap trade
+  const symB = {
+    daily: [
+      { date: '2026-01-01', open: 495, close: 500, rsi: 50, macdHist: 1.25 },
+      { date: '2026-01-02', open: 512.5, close: 510, rsi: 50, macdHist: 1.25 }, // gap=(512.5-500)/500=2.5% netral
+      { date: '2026-01-03', open: 522.75, close: 520, rsi: 50, macdHist: 1.25 }, // gap=(522.75-510)/510=2.5% netral
+      { date: '2026-01-04', open: 533.4, close: 530, rsi: 50, macdHist: 1.25 }   // gap=(533.4-520)/520=2.58% netral
+    ],
+    intraday: {
+      '2026-01-02': { p0905: 512.5 }, // return 0%
+      '2026-01-03': { p0905: 522.75 }, // return 0%
+      '2026-01-04': { p0905: 533.4 }   // return 0%
+    }
+  }
+
+  const merged = runBacktestMulti({ A: symA, B: symB })
+  const cell = merged['netral|netral|positif']['p0905']
+  assert.equal(cell.n, 4) // 1 (A) + 3 (B)
+  // avgReturn weighted: (10 + 0 + 0 + 0) / 4 = 2.5, BUKAN rata2 sederhana (10+0)/2=5
+  close(cell.avgReturn, 2.5)
+  close(cell.winRate, 25) // cuma 1 dari 4 trade profit
+})
+
+test('runBacktestMulti: dictionary kosong -> matrix tetap 27x9 terinisialisasi, semua n=0', () => {
+  const merged = runBacktestMulti({})
+  assert.equal(Object.keys(merged).length, 27)
+  assert.equal(merged['netral|netral|netral']['p0905'].n, 0)
+  assert.equal(merged['netral|netral|netral']['p0905'].winRate, null)
+})
+
+test('runBacktestMulti: hasilnya SAMA dgn runBacktest() kalau cuma 1 simbol', () => {
+  const fixture = buildFixture()
+  const single = runBacktest(fixture)
+  const multi = runBacktestMulti({ ONLY: fixture })
+  assert.deepEqual(multi, single)
 })

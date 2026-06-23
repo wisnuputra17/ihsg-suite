@@ -1,5 +1,5 @@
 /**
- * features/winrate/db.test.js
+ * features/win-rate/db.test.js
  * =============================
  * Mock global fetch (dipanggil shared/sheets.js secara internal) supaya test
  * murni cek logic db.js — tidak ada network call sungguhan ke Apps Script.

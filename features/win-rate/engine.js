@@ -1,5 +1,5 @@
 /**
- * features/winrate/engine.js
+ * features/win-rate/engine.js
  * ===========================
  * Kalkulasi Win Rate Scanner — murni matematika.
  * Aturan ketat (sama seperti shared/indicators.js):
@@ -131,14 +131,12 @@ export function simulateTrade(entryPrice, intraday, exitKey) {
 // ============================================================
 
 /**
- * Backtest 1 simbol penuh: loop semua hari historis, klasifikasi kondisi
- * pakai data SEBELUM entry, simulasi trade utk semua 9 exit time.
- * @param {Object} emitenData
- * @param {{date:string, open:number, close:number, rsi:(number|null), macdHist:(number|null), atr:(number|null)}[]} emitenData.daily - hasil enrichDaily()
- * @param {Object<string,Object>} emitenData.intraday - {date: {p0905:price, ...}} (9 exit, TANPA entry)
- * @returns {Object} matrix[conditionId] = {label, [exitKey]: {n,wins,winRate,avgReturn,maxRet,maxDD}}
+ * Matrix kosong, semua 27 kondisi x 9 exit terinisialisasi n=0.
+ * Dipakai sbg starting point akumulasi -- BISA dipakai bersama lintas simbol
+ * sebelum di-finalize (lihat runBacktestMulti) supaya tidak ada rekonstruksi
+ * dari rata-rata yang sudah dibagi (potensi presisi hilang).
  */
-export function runBacktest({ daily, intraday }) {
+function _emptyMatrix() {
   const matrix = {}
   for (const cond of allConditionIds()) {
     matrix[cond.id] = { label: cond.label }
@@ -146,7 +144,11 @@ export function runBacktest({ daily, intraday }) {
       matrix[cond.id][exitKey] = { n: 0, wins: 0, sumReturn: 0, maxRet: null, maxDD: 0 }
     }
   }
+  return matrix
+}
 
+/** Akumulasi 1 simbol ke matrix yang ADA (boleh sudah terisi dari simbol lain). Mutate & return matrix. */
+function _accumulate(matrix, { daily, intraday }) {
   for (let i = 1; i < daily.length; i++) {
     const today = daily[i]
     const prev  = daily[i - 1]
@@ -170,7 +172,11 @@ export function runBacktest({ daily, intraday }) {
       cell.maxDD  = Math.min(cell.maxDD, trade.maxDDPct)
     }
   }
+  return matrix
+}
 
+/** Hitung winRate/avgReturn final dari akumulasi mentah, buang sumReturn (bukan output akhir). */
+function _finalize(matrix) {
   for (const condId in matrix) {
     for (const exitKey of EXIT_KEYS) {
       const cell = matrix[condId][exitKey]
@@ -180,6 +186,35 @@ export function runBacktest({ daily, intraday }) {
       delete cell.sumReturn
     }
   }
-
   return matrix
+}
+
+/**
+ * Backtest 1 simbol penuh: loop semua hari historis, klasifikasi kondisi
+ * pakai data SEBELUM entry, simulasi trade utk semua 9 exit time.
+ * @param {Object} emitenData
+ * @param {{date:string, open:number, close:number, rsi:(number|null), macdHist:(number|null), atr:(number|null)}[]} emitenData.daily - hasil enrichDaily()
+ * @param {Object<string,Object>} emitenData.intraday - {date: {p0905:price, ...}} (9 exit, TANPA entry)
+ * @returns {Object} matrix[conditionId] = {label, [exitKey]: {n,wins,winRate,avgReturn,maxRet,maxDD}}
+ */
+export function runBacktest(emitenData) {
+  return _finalize(_accumulate(_emptyMatrix(), emitenData))
+}
+
+/**
+ * Backtest BANYAK simbol sekaligus, hasil DIGABUNG jadi 1 matrix gabungan
+ * (dipakai utk ranking kondisi terbaik lintas watchlist — bukan per simbol).
+ * Akumulasi digabung SEBELUM dibagi jadi winRate/avgReturn (bukan rata-rata
+ * dari rata-rata per simbol) — supaya simbol dgn lebih banyak trade historis
+ * berkontribusi proporsional, bukan disamakan beratnya dgn simbol yang
+ * datanya lebih sedikit.
+ * @param {Object<string,{daily,intraday}>} emitenDataBySym - {sym: {daily,intraday}}
+ * @returns {Object} matrix gabungan, struktur sama dengan runBacktest()
+ */
+export function runBacktestMulti(emitenDataBySym) {
+  let matrix = _emptyMatrix()
+  for (const sym in emitenDataBySym) {
+    matrix = _accumulate(matrix, emitenDataBySym[sym])
+  }
+  return _finalize(matrix)
 }

@@ -62,6 +62,6 @@ export const FEATURES = [
     name:   'Win Rate Scanner',
     desc:   'Backtest probabilitas 27 kondisi entry pagi terhadap 9 titik exit sepanjang hari.',
     tags:   ['backtest', 'probabilitas', 'scalping', 'kondisi entry'],
-    status: 'soon'
+    status: 'ready'
   }
 ]

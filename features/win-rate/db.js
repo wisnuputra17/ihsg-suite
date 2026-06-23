@@ -1,5 +1,5 @@
 /**
- * features/winrate/db.js
+ * features/win-rate/db.js
  * ========================
  * State Win Rate Scanner: DB.emiten[sym] = {daily, intraday}
  * Cache persisten via Sheets (2 sheet): winrate-daily, winrate-intraday
