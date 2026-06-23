@@ -6,7 +6,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   CONDITIONS, EXIT_KEYS, ENTRY_KEY, WIN_PCT, MIN_SAMPLE,
-  withIEPSurge, buildRows, scoreSymbol, rankEmiten
+  withIEPSurge, buildRows, scoreSymbol, rankEmiten, validateSplit
 } from './engine.js'
 
 const EPS = 1e-9
@@ -243,4 +243,68 @@ test('rankEmiten: ranking desc by bestWR, tie-break desc bestSignals', () => {
   assert.equal(ranking[1].sym, 'A')
   close(ranking[0].bestWR, 100)
   close(ranking[1].bestWR, 100 / 3)
+})
+
+// ============================================================
+// validateSplit — train/test
+// ============================================================
+
+function _row(rsi, exitPrice) { return { entry: 1000, rsi, snap: { p0905: exitPrice } } }
+function _winRow() { return _row(30, 1020) } // +2%, win (WIN_PCT=1.0%)
+function _lossRow() { return _row(30, 990) } // -1%, bukan win
+
+test('validateSplit: rows < 10 -> semua null (terlalu sedikit utk dibelah bermakna)', () => {
+  const rows = Array.from({ length: 9 }, () => _winRow())
+  assert.deepEqual(validateSplit(rows), { train: null, test: null, holds: null })
+})
+
+test('validateSplit: kondisi BERTAHAN di data uji -> holds=true', () => {
+  // Train (14 baris, 10 win + 4 loss) -> WR train = 10/14 = 71.43%
+  // Test  (6 baris, 4 win + 2 loss)   -> WR test  = 4/6   = 66.67% (93% dari train, >= ambang 80%)
+  const rows = [
+    ...Array.from({ length: 10 }, _winRow), ...Array.from({ length: 4 }, _lossRow), // train, total 14
+    ...Array.from({ length: 4 },  _winRow), ...Array.from({ length: 2 }, _lossRow), // test, total 6
+  ]
+  const result = validateSplit(rows) // 20 baris -> splitIdx = floor(20*0.7) = 14, pas di batas train
+
+  assert.equal(result.train.bestCond, 'RSI H-1 < 40')
+  assert.equal(result.train.bestExit, 'p0905')
+  close(result.train.bestWR, 100 * 10 / 14)
+  assert.equal(result.test.signals, 6)
+  close(result.test.winRate, 100 * 4 / 6)
+  assert.equal(result.holds, true)
+  assert.ok(result.train.wilsonLower < result.train.bestWR, 'wilsonLower harus < WR mentah (lebih konservatif)')
+  assert.ok(result.test.wilsonLower !== null)
+})
+
+test('validateSplit: kondisi ANJLOK di data uji -> holds=false', () => {
+  // Train sama (WR 71.43%), Test (6 baris, cuma 1 win + 5 loss) -> WR test 16.67% (23% dari train, < ambang 80%)
+  const rows = [
+    ...Array.from({ length: 10 }, _winRow), ...Array.from({ length: 4 }, _lossRow), // train, total 14
+    ...Array.from({ length: 1 },  _winRow), ...Array.from({ length: 5 }, _lossRow), // test, total 6
+  ]
+  const result = validateSplit(rows)
+  close(result.test.winRate, 100 / 6)
+  assert.equal(result.holds, false)
+})
+
+test('validateSplit: sample uji terlalu kecil (<MIN_TEST_SAMPLE) -> holds=null, BUKAN false', () => {
+  // 10 baris total -> splitIdx = floor(10*0.7) = 7 -> train=7, test=3 (di bawah ambang 5)
+  const rows = [
+    ...Array.from({ length: 5 }, _winRow), ...Array.from({ length: 2 }, _lossRow), // train, total 7
+    ...Array.from({ length: 2 },  _winRow), ...Array.from({ length: 1 }, _lossRow), // test, total 3
+  ]
+  const result = validateSplit(rows)
+  assert.equal(result.test.signals, 3)
+  assert.equal(result.test.winRate, null) // tidak dihitung krn sample terlalu kecil
+  assert.equal(result.holds, null) // BUKAN false -- "belum bisa disimpulkan", beda dgn "terbukti gagal"
+})
+
+test('validateSplit: tidak ada kondisi valid sama sekali di data latih -> train.bestCond="—", test=null', () => {
+  // Tidak ada field yang match kondisi manapun (rsi tinggi, field lain undefined)
+  const rows = Array.from({ length: 12 }, () => ({ entry: 1000, rsi: 80, snap: { p0905: 1010 } }))
+  const result = validateSplit(rows)
+  assert.equal(result.train.bestCond, '—')
+  assert.equal(result.test, null)
+  assert.equal(result.holds, null)
 })

@@ -48,6 +48,7 @@
     .wr-good { color: var(--live); font-weight: 500; }
     .wr-mid  { color: var(--wait); font-weight: 500; }
     .wr-bad  { color: var(--down); font-weight: 500; }
+    .wr-sub-small { font-size: 8px; color: var(--ghost); font-weight: 400; }
     .gain-pos { color: var(--live); font-weight: 500; }
     .gain-neg { color: var(--down); font-weight: 500; }
 
@@ -106,7 +107,7 @@
   import { TOKEN, SYMS, LQ45, IDX80, has, setEmitenInfo } from '../../shared/store.js'
   import { fetchEmitenJson } from '../../shared/api.js'
   import { renderHeader, refreshTokenStatus, openTokenPopover } from '../../shared/header.js'
-  import { rankEmiten } from './engine.js'
+  import { rankEmiten, buildRows, validateSplit } from './engine.js'
   import { DB, loadIhsg } from './db.js'
   import { estimateFetch, fetchWatchlist } from './fetch.js'
   import { showProgress, hideProgress, setProgress, logProgress } from '../../shared/fetch-progress.js'
@@ -239,11 +240,23 @@
       for (const sym of syms) emitenDataBySym[sym] = DB.emiten[sym]
       const ranking = rankEmiten(emitenDataBySym, ihsgByDate)
 
+      logProgress(progEl, 'Memvalidasi train/test per saham...', 'info')
+      // Validasi: kondisi terbaik tiap saham dicari LAGI dari 70% data awal
+      // saja, lalu diuji ulang di 30% data akhir (belum pernah dilihat saat
+      // mencari) -- supaya kelihatan mana yang sinyal asli vs cuma kebetulan
+      // backtest (data dredging). Tidak mengubah urutan ranking yang sudah
+      // ada, cuma nambah info "Validasi" di kolom baru.
+      const rankingWithValidation = ranking.map(r => {
+        const rows = buildRows(emitenDataBySym[r.sym], ihsgByDate)
+          .sort((a, b) => a.date.localeCompare(b.date)) // validateSplit WAJIB rows terurut kronologis
+        return { ...r, validation: validateSplit(rows) }
+      })
+
       logProgress(progEl, `Selesai: ${syms.length} emiten.`, 'ok')
       hideProgress(progEl)
       statusEl.textContent = `Selesai — ${syms.length} saham, ${fromDate} s.d. ${toDate}.`
       document.getElementById('results-panel').classList.remove('hidden')
-      _renderResults(ranking, syms.length)
+      _renderResults(rankingWithValidation, syms.length)
     } catch (err) {
       logProgress(progEl, `Gagal: ${err.code || err.message}`, 'err')
       hideProgress(progEl)
@@ -279,16 +292,19 @@
 
     const avgWR = ranking.reduce((s, r) => s + r.bestWR, 0) / ranking.length
     const count70 = ranking.filter(r => r.bestWR >= 70).length
+    const holdsCount = ranking.filter(r => r.validation?.holds === true).length
 
     statsEl.innerHTML = `
       <div class="stat-box"><div class="stat-label">Total Emiten</div><div class="stat-val">${totalEmiten}</div></div>
       <div class="stat-box"><div class="stat-label">Avg WR Terbaik</div><div class="stat-val">${avgWR.toFixed(1)}%</div></div>
       <div class="stat-box"><div class="stat-label">WR ≥ 70%</div><div class="stat-val">${count70}</div><div class="stat-sub">saham</div></div>
+      <div class="stat-box"><div class="stat-label">Bertahan di Uji</div><div class="stat-val">${holdsCount}</div><div class="stat-sub">dari ${ranking.length} saham</div></div>
     `
 
     const thead = `<thead><tr>
       <th class="rank-cell">#</th><th>Saham</th><th class="num">Hari Data</th><th class="num">Signals</th>
       <th class="num">Win Rate</th><th class="num">Avg Gain</th><th class="num">Best Exit</th><th>Kondisi Terbaik</th>
+      <th>Validasi (70/30)</th>
     </tr></thead>`
 
     const tbody = '<tbody>' + ranking.map((r, i) => {
@@ -296,15 +312,19 @@
       const wrCls = r.bestWR >= 70 ? 'wr-good' : r.bestWR >= 55 ? 'wr-mid' : 'wr-bad'
       const gainCls = r.bestAvgGain >= 0 ? 'gain-pos' : 'gain-neg'
       const gainSign = r.bestAvgGain >= 0 ? '+' : ''
+      const wilsonSub = r.validation?.train?.wilsonLower != null
+        ? `<div class="wr-sub-small">min ${r.validation.train.wilsonLower.toFixed(0)}%</div>` : ''
+      const val = _renderValidationCell(r.validation)
       return `<tr>
         <td class="rank-cell">${medal}</td>
         <td class="sym-cell">${r.sym}</td>
         <td class="num">${r.totalDays}</td>
         <td class="num">${r.bestSignals}</td>
-        <td class="num ${wrCls}">${r.bestWR.toFixed(1)}%</td>
+        <td class="num ${wrCls}">${r.bestWR.toFixed(1)}%${wilsonSub}</td>
         <td class="num ${gainCls}">${gainSign}${r.bestAvgGain.toFixed(2)}%</td>
         <td class="num">${_fmtExitLabel(r.bestExit)}</td>
         <td class="cond-cell" title="${r.bestCond}">${r.bestCond}</td>
+        <td title="${val.title}">${val.html}</td>
       </tr>`
     }).join('') + '</tbody>'
 
@@ -314,6 +334,34 @@
   function _fmtExitLabel(key) {
     if (key === '—') return key
     return `${key.slice(1, 3)}:${key.slice(3, 5)}`
+  }
+
+  /**
+   * Render cell kolom "Validasi" — bandingkan performa kondisi terbaik di
+   * data LATIH (70% awal) vs data UJI (30% akhir, belum pernah dilihat).
+   * holds=true (bertahan) -> kandidat sinyal asli. holds=false (anjlok) ->
+   * kemungkinan besar cuma kebetulan dari mengetes banyak kombinasi (data
+   * dredging). holds=null -> sample uji terlalu kecil, BELUM bisa
+   * disimpulkan (BUKAN berarti gagal).
+   */
+  function _renderValidationCell(validation) {
+    if (!validation || !validation.train) {
+      return { html: '<span style="color:var(--ghost)">–</span>', title: 'Data tidak cukup utk validasi' }
+    }
+    if (validation.train.bestCond === '—') {
+      return { html: '<span style="color:var(--ghost)">– tdk ada kondisi</span>', title: 'Tidak ada kondisi dgn sample cukup di data latih' }
+    }
+    if (validation.holds === null) {
+      return {
+        html: '<span style="color:var(--ghost)">– sample kecil</span>',
+        title: `Sample data uji cuma ${validation.test.signals} hari, terlalu kecil utk disimpulkan (minimal 5)`
+      }
+    }
+    const cls  = validation.holds ? 'gain-pos' : 'gain-neg'
+    const icon = validation.holds ? '✓ Bertahan' : '✗ Anjlok'
+    const title = `Latih: ${validation.train.bestWR.toFixed(1)}% (n=${validation.train.bestSignals}) → ` +
+      `Uji: ${validation.test.winRate.toFixed(1)}% (n=${validation.test.signals})`
+    return { html: `<span class="${cls}">${icon}</span>`, title }
   }
 
   init()

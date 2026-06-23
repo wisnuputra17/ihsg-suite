@@ -25,6 +25,8 @@
  *     exploitable, bukan lihat semua kombinasi utk 1 saham yang sama.
  */
 
+import { wilsonLowerBound } from '../../shared/stats.js'
+
 export const ENTRY_KEY  = 'p0902'
 export const EXIT_KEYS  = ['p0905', 'p0910', 'p0915', 'p0920', 'p0930', 'p1000', 'p1100', 'p1530', 'p1600']
 export const WIN_PCT    = 1.0  // return >= +1% dihitung "win"
@@ -158,7 +160,7 @@ export function buildRows(emitenData, ihsgByDate) {
 export function scoreSymbol(rows) {
   if (!rows.length) return null
 
-  let bestWR = 0, bestSignals = 0, bestAvgGain = 0, bestExit = '—', bestCond = '—'
+  let bestWR = 0, bestWins = 0, bestSignals = 0, bestAvgGain = 0, bestExit = '—', bestCond = '—'
 
   for (const cond of CONDITIONS) {
     const matched = rows.filter(cond.f)
@@ -173,6 +175,7 @@ export function scoreSymbol(rows) {
 
       if (wr > bestWR || (wr === bestWR && valid.length > bestSignals)) {
         bestWR = wr
+        bestWins = wins.length
         bestSignals = valid.length
         bestAvgGain = valid.reduce((s, r) => s + (r.snap[exitKey] - r.entry) / r.entry * 100, 0) / valid.length
         bestExit = exitKey
@@ -181,7 +184,7 @@ export function scoreSymbol(rows) {
     }
   }
 
-  return { bestWR, bestSignals, bestAvgGain, bestExit, bestCond, totalDays: rows.length }
+  return { bestWR, bestWins, bestSignals, bestAvgGain, bestExit, bestCond, totalDays: rows.length }
 }
 
 // ============================================================
@@ -205,4 +208,69 @@ export function rankEmiten(emitenDataBySym, ihsgByDate) {
     return b.bestSignals - a.bestSignals
   })
   return out
+}
+
+// ============================================================
+// SEKSI 6: VALIDASI TRAIN/TEST — cek apakah kondisi terbaik BERTAHAN
+// di data yang belum pernah dilihat, bukan cuma kebetulan backtest.
+// ============================================================
+
+const MIN_TEST_SAMPLE = 5 // di bawah ini, hasil validasi dianggap belum bisa disimpulkan (null)
+const HOLD_THRESHOLD  = 0.8 // win rate uji harus >= 80% dari win rate latih utk dianggap "bertahan"
+
+/**
+ * Belah rows KRONOLOGIS jadi latih/uji, cari kondisi+exit terbaik di LATIH
+ * saja, lalu uji ulang PERSIS kondisi yang sama itu di UJI (data yang
+ * SAMA SEKALI belum dilihat saat mencari). Kalau performanya bertahan,
+ * kandidat sinyal asli; kalau anjlok jauh, kemungkinan besar cuma kebetulan
+ * dari mengetes banyak kombinasi (data dredging).
+ *
+ * @param {Object[]} rows - hasil buildRows(), HARUS SUDAH terurut kronologis
+ *   ascending by date SEBELUM dipanggil — function ini TIDAK sort ulang
+ *   (buildRows() sendiri tidak menjamin urutan ini krn iterasi `for...in`
+ *   pada object `intraday`, jadi caller WAJIB sort rows by date dulu).
+ * @param {number} trainRatio - proporsi data latih (default 0.7 = 70% awal)
+ * @returns {{
+ *   train: Object|null,
+ *   test: {signals:number, winRate:(number|null), avgGain:(number|null), wilsonLower:(number|null)}|null,
+ *   holds: boolean|null
+ * }} holds=null kalau sample uji terlalu kecil utk disimpulkan (lihat MIN_TEST_SAMPLE)
+ */
+export function validateSplit(rows, trainRatio = 0.7) {
+  if (rows.length < 10) return { train: null, test: null, holds: null } // terlalu sedikit utk dibelah bermakna
+
+  const splitIdx  = Math.floor(rows.length * trainRatio)
+  const trainRows = rows.slice(0, splitIdx)
+  const testRows  = rows.slice(splitIdx)
+
+  const trainScore = scoreSymbol(trainRows)
+  if (!trainScore || trainScore.bestCond === '—') {
+    return { train: trainScore, test: null, holds: null }
+  }
+
+  const cond = CONDITIONS.find(c => c.name === trainScore.bestCond)
+  const exitKey = trainScore.bestExit
+  if (!cond) return { train: trainScore, test: null, holds: null } // seharusnya tidak pernah terjadi, jaring pengaman
+
+  const testMatched = testRows.filter(cond.f).filter(r => r.snap[exitKey] != null)
+  const trainWilson = wilsonLowerBound(trainScore.bestWins, trainScore.bestSignals)
+
+  if (testMatched.length < MIN_TEST_SAMPLE) {
+    return {
+      train: { ...trainScore, wilsonLower: trainWilson },
+      test: { signals: testMatched.length, winRate: null, avgGain: null, wilsonLower: null },
+      holds: null // sample uji terlalu kecil, belum bisa disimpulkan bertahan/tidak
+    }
+  }
+
+  const testWins = testMatched.filter(r => (r.snap[exitKey] - r.entry) / r.entry * 100 >= WIN_PCT)
+  const testWR = testWins.length / testMatched.length * 100
+  const testAvgGain = testMatched.reduce((s, r) => s + (r.snap[exitKey] - r.entry) / r.entry * 100, 0) / testMatched.length
+  const testWilson = wilsonLowerBound(testWins.length, testMatched.length)
+
+  return {
+    train: { ...trainScore, wilsonLower: trainWilson },
+    test: { signals: testMatched.length, winRate: testWR, avgGain: testAvgGain, wilsonLower: testWilson },
+    holds: testWR >= trainScore.bestWR * HOLD_THRESHOLD
+  }
 }
