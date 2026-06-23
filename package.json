@@ -1,0 +1,11 @@
+{
+  "name": "ihsg-suite",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test shared/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
