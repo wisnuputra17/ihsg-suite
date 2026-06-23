@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test shared/*.test.js"
+    "test": "node --test"
   },
   "engines": {
     "node": ">=20"
