@@ -275,9 +275,9 @@
       TOKEN.clear(); refreshTokenStatus()
       return
     }
-    const detail = err.detail ? ` — ${err.detail}` : ''
+    const detail = err.detail ? ` — ${err.detail}` : (err.status ? ` — HTTP ${err.status}` : '')
     statusEl.textContent = `Gagal: ${err.code || err.message}${detail}`
-    console.error('[winrate] scan error:', err.code, '| detail:', err.detail, '| full:', err)
+    console.error('[winrate] scan error:', err.code, '| status:', err.status, '| detail:', err.detail, '| full:', err)
   }
 
   // ============================================================
