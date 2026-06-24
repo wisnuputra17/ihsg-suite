@@ -1,8 +1,13 @@
 /**
  * features/ranking-emiten/fetch.test.js
  * ========================================
+ * Stockbit di-mock via global fetch (shared/api.js masih fetch() langsung,
+ * tidak berubah). Sheets/Firebase di-mock via mock.module() ke
+ * shared/firebase.js -- file itu TIDAK BISA di-load langsung di Node
+ * (import 'https://www.gstatic.com/...' di top-level), jadi harus diganti
+ * di level modul (butuh flag --experimental-test-module-mocks).
  */
-import { test } from 'node:test'
+import { test, mock } from 'node:test'
 import assert from 'node:assert/strict'
 
 // --- Mock localStorage (dibutuhkan TOKEN.get() di shared/store.js) ---
@@ -15,7 +20,7 @@ class LocalStorageMock {
 globalThis.localStorage = new LocalStorageMock()
 globalThis.localStorage.setItem('ihsglab_token', 'fake.token.value')
 
-// --- Mock fetch: cabang berdasarkan host (Stockbit vs Apps Script) ---
+// --- Mock fetch: CUMA Stockbit (Sheets sekarang lewat mock.module di bawah) ---
 let _mockDailyBySym    = {}
 let _mockIntradayBySym = {} // {sym: [{unix_timestamp, close, open, volume, frequency}]} -- FLAT, tidak per-hari (mensimulasikan 1 response yg cover banyak hari)
 let _mockSheets        = {}
@@ -24,37 +29,43 @@ let _forceDailyStatus  = {} // {sym: statusCode} -- simulasikan error HTTP terte
 let _dailyCallOrder    = [] // urutan simbol yang BENAR-BENAR di-fetchDaily (cek short-circuit abort)
 
 globalThis.fetch = async (url, options) => {
-  if (url.startsWith('https://exodus.stockbit.com')) {
-    const symMatch = url.match(/chartbit\/([A-Z0-9]+)\/price\/(daily|intraday)/)
-    const sym = symMatch[1], kind = symMatch[2]
-    if (kind === 'daily') {
-      _dailyCallOrder.push(sym)
-      if (_forceDailyStatus[sym]) {
-        return { ok: false, status: _forceDailyStatus[sym], json: async () => ({}) }
-      }
-      const rows = _mockDailyBySym[sym] || []
-      return { ok: true, status: 200, json: async () => ({ data: { chartbit: rows } }) }
+  const symMatch = url.match(/chartbit\/([A-Z0-9]+)\/price\/(daily|intraday)/)
+  const sym = symMatch[1], kind = symMatch[2]
+  if (kind === 'daily') {
+    _dailyCallOrder.push(sym)
+    if (_forceDailyStatus[sym]) {
+      return { ok: false, status: _forceDailyStatus[sym], json: async () => ({}) }
     }
-    const u = new URL(url)
-    const fromTs = Number(u.searchParams.get('from')), toTs = Number(u.searchParams.get('to'))
-    _stockbitIntradayCalls.push({ sym, fromTs, toTs })
-    const all = _mockIntradayBySym[sym] || []
-    const rows = all.filter(c => {
-      const ts = Number(c.unix_timestamp)
-      return ts <= fromTs && ts >= toTs
-    })
+    const rows = _mockDailyBySym[sym] || []
     return { ok: true, status: 200, json: async () => ({ data: { chartbit: rows } }) }
   }
-  if (!options || !options.method) {
-    const sheet = new URL(url).searchParams.get('sheet')
-    return { ok: true, json: async () => ({ ok: true, data: _mockSheets[sheet] || [] }) }
-  }
-  const body = JSON.parse(options.body)
-  if (body.action === 'append') {
-    _mockSheets[body.sheet] = [...(_mockSheets[body.sheet] || []), ...body.data]
-  }
-  return { ok: true, json: async () => ({ ok: true, written: body.data.length }) }
+  const u = new URL(url)
+  const fromTs = Number(u.searchParams.get('from')), toTs = Number(u.searchParams.get('to'))
+  _stockbitIntradayCalls.push({ sym, fromTs, toTs })
+  const all = _mockIntradayBySym[sym] || []
+  const rows = all.filter(c => {
+    const ts = Number(c.unix_timestamp)
+    return ts <= fromTs && ts >= toTs
+  })
+  return { ok: true, status: 200, json: async () => ({ data: { chartbit: rows } }) }
 }
+
+// --- Mock module: Sheets/Firebase (dipakai db.js, transitif dari fetch.js) ---
+mock.module('../../shared/firebase.js', {
+  namedExports: {
+    gsLoad: async (sheet, filter = null) => {
+      let rows = _mockSheets[sheet] || []
+      if (filter) rows = rows.filter(r => r[filter.field] === filter.value)
+      return rows
+    },
+    gsAppend: async (sheet, data) => {
+      _mockSheets[sheet] = [...(_mockSheets[sheet] || []), ...data]
+    },
+    gsSave: async (sheet, data) => { _mockSheets[sheet] = [...data] },
+    gsClear: async (sheet) => { _mockSheets[sheet] = [] },
+    gsLoadFiltered: async (sheet, field, value) => (_mockSheets[sheet] || []).filter(r => r[field] === value)
+  }
+})
 
 function resetMocks() {
   _mockDailyBySym = {}; _mockIntradayBySym = {}; _mockSheets = {}; _stockbitIntradayCalls = []

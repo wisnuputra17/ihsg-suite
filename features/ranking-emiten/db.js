@@ -19,7 +19,7 @@
  *   - _persistedKeys Set utk cegah gsAppend dobel kalau scan di-rerun
  *   - Batch append (1 request utk banyak baris), bukan 1 request per hari
  */
-import { gsLoad, gsAppend } from '../../shared/sheets.js'
+import { gsLoad, gsAppend } from '../../shared/firebase.js'
 import { ENTRY_KEY, EXIT_KEYS } from './engine.js'
 
 const INTRADAY_KEYS = [ENTRY_KEY, ...EXIT_KEYS] // 10 kolom fix: p0902 + 9 exit
