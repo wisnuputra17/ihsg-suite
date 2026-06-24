@@ -10,7 +10,7 @@
  * tanpa fetch ulang tanggal yang sama berkali-kali per broker.
  */
 
-import { gsLoad, gsAppend } from '../../shared/sheets.js'
+import { gsLoad, gsAppend } from '../../shared/firebase.js'
 
 export const DB = {
   sym:    null,

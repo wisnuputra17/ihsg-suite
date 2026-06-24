@@ -7,7 +7,7 @@
  * karena itu hasil kerja manual user yang harus sinkron multi-device).
  */
 
-import { gsLoad, gsSave, gsAppend } from '../../shared/sheets.js'
+import { gsLoad, gsSave, gsAppend } from '../../shared/firebase.js'
 
 export const DB = {
   sym:    null,
