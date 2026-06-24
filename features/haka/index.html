@@ -15,6 +15,7 @@
       padding-bottom: 14px; border-bottom: 1px solid var(--line);
     }
     .add-card-wrap { position: relative; }
+    .slot-picker-wrap { position: relative; }
     .sym-dropdown { position: absolute; top: calc(100% + 4px); left: 0; z-index: 30;
       background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
       width: 240px; max-height: 260px; overflow-y: auto; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
@@ -159,8 +160,8 @@
   import { fmtRp, fmtNum } from '../../shared/format.js'
   import { createMonitor } from './poll.js'
   import {
-    DB, loadAll, ensureDefaultCards, MULTI_CARD_ID,
-    cardAdd, cardRemove, cardSetMode, cardSetThreshold,
+    DB, ensureDefaultCards, MULTI_CARD_ID,
+    cardAdd, cardSetSymbol, cardRemove, cardSetMode, cardSetThreshold,
     multiCardToggleSym, multiCardSetSyms,
     namedListSave, namedListDelete,
     cardAlertAdd
@@ -178,23 +179,20 @@
     ])
     window.addEventListener('ihsg:token-saved', refreshTokenStatus)
 
-    ensureDefaultCards() // sinkron -- minimal card "multi" SELALU siap, tidak nunggu apa pun
+    ensureDefaultCards() // sinkron, in-memory saja -- card multi + 5 slot kosong langsung siap
     _bindAddCard()
     _bindStartStop()
     _bindWlModal()
-    _renderAllCards() // render SEGERA
+    _renderAllCards() // render SEGERA -- TIDAK ada apa pun yang perlu ditunggu sama sekali
 
     monitor.init({
       onAlert:  _routeAlert,
       onError:  handleError
     })
 
-    // Data tersimpan (card lain + watchlist custom + daftar 894 saham)
-    // di-load PARALEL di background -- TIDAK lagi blocking sebelum card
-    // pertama kelihatan (pola sama dgn fix Chart/Broker Analyzer: render
-    // duluan, cache nyusul render ulang begitu siap masing-masing).
+    // Daftar 894 saham (utk dropdown pencarian) di-load PARALEL di
+    // background -- tidak blocking render card pertama.
     _loadEmitenInfo().then(() => _renderAllCards())
-    loadAll().then(() => _renderAllCards())
   }
 
   async function _loadEmitenInfo() {
@@ -314,18 +312,21 @@
     DB.cards.forEach(card => {
       _bindCardEvents(card)
       if (card.type === 'multi') _renderMultiGrid()
-      _renderCardFeed(card.id)
+      if (card.syms.length > 0) _renderCardFeed(card.id) // slot kosong belum punya feed sama sekali
     })
     _renderCustomWlBtns()
   }
 
   function _cardHtml(card) {
     const isMulti = card.type === 'multi'
+    const isEmpty = card.type === 'single' && card.syms.length === 0 // slot blm dipilih simbolnya
     return `
     <div class="card-box ${isMulti ? 'is-multi' : ''}" data-card-id="${card.id}">
       <div class="card-head">
         ${isMulti
           ? `<span class="card-head-sym">📋 Multi</span><span class="card-head-badge" id="multi-count">0 dipilih</span>`
+          : isEmpty
+          ? `<span class="card-head-sym" style="color:var(--ghost)">Pilih saham...</span>`
           : `<span class="card-head-sym">${card.id}</span>`}
         <div class="mode-toggle" data-mode-for="${card.id}">
           <button data-mode="buy"  class="${card.mode === 'buy'  ? 'active' : ''}">HAKA</button>
@@ -349,8 +350,13 @@
           </div>
           <input type="text" class="input sym-input" id="multi-grid-search" placeholder="Cari kode saham..." style="width:100%; margin-bottom:8px;">
           <div class="emiten-grid" id="multi-egrid"></div>
+        ` : isEmpty ? `
+          <div class="slot-picker-wrap">
+            <input type="text" class="input sym-input" id="slot-search-${card.id}" placeholder="Cari kode saham utk slot ini..." style="width:100%;" autocomplete="off">
+            <div class="sym-dropdown hidden" id="slot-dropdown-${card.id}"></div>
+          </div>
         ` : ''}
-        <div class="card-feed" id="feed-${card.id}"></div>
+        ${isEmpty ? '' : `<div class="card-feed" id="feed-${card.id}"></div>`}
       </div>
     </div>`
   }
@@ -383,6 +389,10 @@
       })
     }
 
+    if (card.type === 'single' && card.syms.length === 0) {
+      _bindSlotPicker(card.id)
+    }
+
     if (card.type === 'multi') {
       document.getElementById('multi-grid-search').addEventListener('input', _renderMultiGrid)
       document.querySelectorAll('#cards-grid [data-preset]').forEach(btn => {
@@ -390,6 +400,51 @@
       })
       document.getElementById('open-wl-modal').addEventListener('click', _openWlModal)
     }
+  }
+
+  /** Picker simbol INLINE utk slot card kosong — search+dropdown sama pola dgn "+ Tambah card" global. */
+  function _bindSlotPicker(slotId) {
+    const input    = document.getElementById(`slot-search-${slotId}`)
+    const dropdown = document.getElementById(`slot-dropdown-${slotId}`)
+
+    const renderDropdown = (query) => {
+      if (!query) { dropdown.classList.add('hidden'); return }
+      const q = query.toUpperCase()
+      const all = Object.entries(EMITEN_INFO)
+      const codeMatches = all.filter(([code]) => code.startsWith(q))
+      const nameMatches  = all.filter(([code, info]) => !code.startsWith(q) && info.name && info.name.toUpperCase().includes(q))
+      const results = [...codeMatches, ...nameMatches].slice(0, 20)
+      if (!results.length) { dropdown.innerHTML = `<div class="sym-dropdown-empty">Tidak ditemukan</div>`; dropdown.classList.remove('hidden'); return }
+      dropdown.innerHTML = results.map(([code, info]) => `
+        <div class="sym-option" data-code="${code}"><span class="sym-option-code">${code}</span><span class="sym-option-name">${info.name || ''}</span></div>
+      `).join('')
+      dropdown.classList.remove('hidden')
+      dropdown.querySelectorAll('.sym-option').forEach(el => {
+        el.addEventListener('click', () => _pickSlotSymbol(slotId, el.dataset.code))
+      })
+    }
+
+    input.addEventListener('input', () => renderDropdown(input.value.trim()))
+    input.addEventListener('focus', () => { if (input.value.trim()) renderDropdown(input.value.trim()) })
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') _pickSlotSymbol(slotId, input.value.trim().toUpperCase())
+      if (e.key === 'Escape') dropdown.classList.add('hidden')
+    })
+    // blur+delay (BUKAN document.addEventListener) -- sengaja, supaya tidak
+    // numpuk listener tiap _renderAllCards() jalan ulang (innerHTML reset
+    // tiap render, listener di elemen lama otomatis hilang bareng elemennya,
+    // beda dari listener di document yang TIDAK PERNAH ke-hapus otomatis).
+    // Delay kecil supaya klik di .sym-option sempat terdaftar dulu sebelum
+    // dropdown disembunyikan (blur input terjadi lebih dulu dari click option).
+    input.addEventListener('blur', () => setTimeout(() => dropdown.classList.add('hidden'), 150))
+  }
+
+  function _pickSlotSymbol(slotId, sym) {
+    if (!sym) return
+    const ok = cardSetSymbol(slotId, sym)
+    if (!ok) { alert(`${sym} sudah dipantau di card lain.`); return }
+    _renderAllCards()
+    _maybeRestartMonitor()
   }
 
   // ============================================================

@@ -6,112 +6,90 @@
  * sendiri-sendiri), PLUS 1 card khusus "multi" yang bisa pantau banyak emiten
  * sekaligus.
  *
- * Data yang PERLU sinkron multi-device (lewat Google Sheets):
- *   cards (id, type, syms, mode), threshold, namedLists
- * Data yang TIDAK disimpan (real-time saja, hilang saat refresh — wajar):
- *   alerts (di dalam tiap card)
+ * SENGAJA TIDAK ADA PERSISTENSI KE DATABASE SAMA SEKALI (beda dari fitur
+ * lain) — semua state (cards, namedLists, alerts) cuma di memori, reset
+ * total tiap reload. Ini keputusan eksplisit Wisnu (24 Jun 2026): HAKA
+ * dipakai sesi-per-sesi, bukan konfigurasi yang perlu disinkronkan antar
+ * device. Efek sampingnya bagus: HAKA jadi TIDAK PERNAH nunggu network
+ * sama sekali sebelum render — beda dari masalah loading lambat yang
+ * pernah ditemukan di fitur lain (LPM/broker cache).
  */
 
-import { gsLoad, gsSave } from '../../shared/sheets.js'
-
 // ============================================================
-// SEKSI 1: DATABASE — in-memory
+// SEKSI 1: DATABASE — in-memory, TIDAK ada load/save ke mana pun
 // ============================================================
 
 export const DB = {
   cards: [
     // { id:'multi', type:'multi', syms:[...], mode:'buy', threshold:500e6, alerts:[] } — selalu ada SATU
-    // { id:'BBCA',  type:'single', syms:['BBCA'], mode:'both', threshold:1000e6, alerts:[] }
+    // { id:'slot-1', type:'single', syms:[], mode:'buy', threshold:500e6, alerts:[] } — slot kosong, blm dipilih
+    // { id:'BBCA', type:'single', syms:['BBCA'], mode:'both', threshold:1000e6, alerts:[] } — sudah dipilih
   ],
   namedLists: {}       // {nama: ['BBCA','TLKM']} — watchlist custom, dipakai isi card multi
 }
 
 const MULTI_CARD_ID = 'multi'
+const DEFAULT_EMPTY_SLOTS = 5 // jumlah card single kosong yang muncul otomatis di awal
 
 // ============================================================
-// SEKSI 2: NAMA SHEET
+// SEKSI 2: DEFAULT AWAL — 1 card multi + N slot kosong
 // ============================================================
 
-const SHEET_CARDS       = 'haka-cards'
-const SHEET_NAMED_LISTS = 'haka-named-lists'
-
-// ============================================================
-// SEKSI 3: LOAD
-// ============================================================
-
-/** Pastikan card "multi" selalu ada — bisa dipanggil SINKRON sebelum loadAll()
- * resolve, supaya ada minimal 1 card siap dirender SEGERA tanpa nunggu Sheets. */
-function _ensureMultiCard() {
-  if (!DB.cards.find(c => c.id === MULTI_CARD_ID)) {
-    DB.cards.unshift({ id: MULTI_CARD_ID, type: 'multi', syms: [], mode: 'buy', threshold: 500e6, alerts: [] })
-  }
-}
-
-/** Dipanggil di init(), SEBELUM loadAll() — render awal langsung punya card "multi" minimal. */
+/**
+ * Siapkan state awal: 1 card "multi" + N card single KOSONG (syms:[], id
+ * sementara 'slot-N') siap diisi user. Dipanggil SEKALI di init(), SINKRON
+ * (tidak ada apa pun yang di-await) — makanya render bisa langsung jalan
+ * tanpa nunggu apa pun sama sekali.
+ */
 export function ensureDefaultCards() {
-  _ensureMultiCard()
-}
-
-export async function loadAll() {
-  const [cardsRes, named] = await Promise.allSettled([
-    gsLoad(SHEET_CARDS),
-    gsLoad(SHEET_NAMED_LISTS)
-  ])
-
-  if (cardsRes.status === 'fulfilled' && cardsRes.value.length) {
-    DB.cards = cardsRes.value.map(r => ({
-      id:   r.id,
-      type: r.type,
-      syms: String(r.syms || '').split(',').map(s => s.trim()).filter(Boolean),
-      mode: r.mode === 'both' ? 'both' : 'buy',
-      threshold: Number(r.threshold) || 500e6,
-      alerts: []
-    }))
-  }
-  // Card "multi" HARUS selalu ada — kalau belum pernah tersimpan (pengguna baru), buat default kosong.
-  _ensureMultiCard()
-
-  if (named.status === 'fulfilled') {
-    const obj = {}
-    named.value.forEach(r => {
-      obj[r.name] = String(r.syms || '').split(',').map(s => s.trim()).filter(Boolean)
-    })
-    DB.namedLists = obj
+  if (DB.cards.length > 0) return // sudah pernah dipanggil sesi ini, jangan reset ulang
+  DB.cards.push({ id: MULTI_CARD_ID, type: 'multi', syms: [], mode: 'buy', threshold: 500e6, alerts: [] })
+  for (let i = 1; i <= DEFAULT_EMPTY_SLOTS; i++) {
+    DB.cards.push({ id: `slot-${i}`, type: 'single', syms: [], mode: 'buy', threshold: 500e6, alerts: [] })
   }
 }
 
-function _syncCards() {
-  const rows = DB.cards.map(c => ({ id: c.id, type: c.type, syms: c.syms.join(','), mode: c.mode, threshold: c.threshold }))
-  gsSave(SHEET_CARDS, rows).catch(e => console.warn('[haka/db] sync cards gagal:', e.message))
-}
-
 // ============================================================
-// SEKSI 4: CARD TUNGGAL (1 emiten per card)
+// SEKSI 3: CARD TUNGGAL (1 emiten per card)
 // ============================================================
 
-/** Tambah card baru utk 1 emiten. ID = simbol itu sendiri (cegah duplikat otomatis). */
+/** Tambah card BARU utk 1 emiten (dari "+ Tambah card"). ID = simbol itu sendiri. */
 export function cardAdd(sym) {
   if (DB.cards.find(c => c.id === sym)) return false
   DB.cards.push({ id: sym, type: 'single', syms: [sym], mode: 'buy', threshold: 500e6, alerts: [] })
-  _syncCards()
+  return true
+}
+
+/**
+ * Isi SLOT KOSONG (card.syms masih []) dengan simbol pilihan user. Begitu
+ * diisi, card.id ikut diubah jadi simbol itu (card.syms=[sym], card.id=sym)
+ * -- SETELAH ini, card berperilaku 100% identik dgn card yang ditambah
+ * lewat cardAdd(), tidak ada state spesial "slot" yang perlu ditangani
+ * di tempat lain (cardRemove/cardSetMode/dst tidak perlu tahu soal slot).
+ * @returns {boolean} false kalau simbol itu sudah dipakai card lain
+ */
+export function cardSetSymbol(slotId, sym) {
+  const card = DB.cards.find(c => c.id === slotId)
+  if (!card || card.syms.length > 0) return false // bukan slot kosong / sudah keisi
+  if (DB.cards.find(c => c.id === sym)) return false // simbol ini sudah dipakai card lain
+  card.id = sym
+  card.syms = [sym]
   return true
 }
 
 export function cardRemove(id) {
   if (id === MULTI_CARD_ID) return // card multi tidak bisa dihapus
   DB.cards = DB.cards.filter(c => c.id !== id)
-  _syncCards()
 }
 
 export function cardSetMode(id, mode) {
   const card = DB.cards.find(c => c.id === id)
   if (!card) return
   card.mode = mode === 'both' ? 'both' : 'buy'
-  _syncCards()
 }
 
 // ============================================================
-// SEKSI 5: CARD MULTI (1 card, banyak emiten)
+// SEKSI 4: CARD MULTI (1 card, banyak emiten)
 // ============================================================
 
 export function multiCardToggleSym(sym) {
@@ -119,48 +97,38 @@ export function multiCardToggleSym(sym) {
   if (!card) return
   if (card.syms.includes(sym)) card.syms = card.syms.filter(s => s !== sym)
   else card.syms.push(sym)
-  _syncCards()
 }
 
 export function multiCardSetSyms(syms) {
   const card = DB.cards.find(c => c.id === MULTI_CARD_ID)
   if (!card) return
   card.syms = [...syms]
-  _syncCards()
 }
 
 // ============================================================
-// SEKSI 6: THRESHOLD — per-card, masing-masing bisa beda
+// SEKSI 5: THRESHOLD — per-card, masing-masing bisa beda
 // ============================================================
 
 export function cardSetThreshold(id, val) {
   const card = DB.cards.find(c => c.id === id)
   if (!card) return
   card.threshold = val
-  _syncCards()
 }
 
 // ============================================================
-// SEKSI 7: WATCHLIST CUSTOM (named lists) — dipakai isi card multi
+// SEKSI 6: WATCHLIST CUSTOM (named lists) — dipakai isi card multi, in-memory saja
 // ============================================================
-
-function _syncNamedLists() {
-  const rows = Object.keys(DB.namedLists).map(name => ({ name, syms: DB.namedLists[name].join(',') }))
-  gsSave(SHEET_NAMED_LISTS, rows).catch(e => console.warn('[haka/db] sync named lists gagal:', e.message))
-}
 
 export function namedListSave(name, syms) {
   DB.namedLists[name] = [...syms]
-  _syncNamedLists()
 }
 
 export function namedListDelete(name) {
   delete DB.namedLists[name]
-  _syncNamedLists()
 }
 
 // ============================================================
-// SEKSI 8: ALERTS — real-time saja per-card, FIFO maks 100/card, tidak disimpan
+// SEKSI 7: ALERTS — real-time saja per-card, FIFO maks 100/card, tidak disimpan
 // ============================================================
 
 export function cardAlertAdd(cardId, alert) {
