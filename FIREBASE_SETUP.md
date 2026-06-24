@@ -23,18 +23,28 @@
 
 ## Langkah 2 — Aktifkan Firestore Database
 
-1. Di sidebar kiri project Firebase, klik **Build → Firestore Database**
-2. Klik **Create database**
-3. Pilih lokasi server — **`asia-southeast2` (Jakarta)** kalau ada (paling dekat, latensi paling rendah), atau `asia-southeast1` (Singapura) kalau Jakarta tidak tersedia di list
-4. Mode: pilih **"Start in production mode"** (BUKAN test mode — production mode butuh security rules eksplisit, yang sudah disiapkan di `firestore.rules`)
-5. Klik **Create**
+> ⚠️ Navigasi Firebase Console berubah-ubah dari waktu ke waktu — kalau
+> langkah di bawah tidak cocok persis dengan yang kamu lihat, cari menu
+> dengan nama serupa ("Firestore", "Database"), jangan terpaku ke nama
+> tombol persis.
+
+1. Di sidebar kiri, klik **"Databases & Storage"**
+2. Klik **"Firestore"** dari submenu yang muncul
+3. Klik **Create database** / **Add database**
+4. Pilih **"Standard edition"** → Next
+5. Database ID: biarkan default `(default)`
+6. Pilih lokasi server:
+   - **`asia-southeast2` (Jakarta)** kalau ada di pilihan — paling dekat, latensi paling rendah
+   - Kalau tidak ada, pilih **`asia-southeast1` (Singapura)**
+7. Mode security rules: pilih yang **"Locked mode"** / menolak semua akses (BUKAN mode terbuka/test) — kita pasang security rules custom sendiri di Langkah 5
+8. Klik **Create**
 
 ## Langkah 3 — Aktifkan Anonymous Authentication
 
 (Ini WAJIB — `shared/firebase.js` login anonim otomatis di belakang layar, supaya `firestore.rules` bisa nolak bot/script asing tanpa perlu kamu input username/password apa pun)
 
-1. Sidebar kiri → **Build → Authentication**
-2. Klik **Get started**
+1. Sidebar kiri → klik **"Security"**
+2. Klik **"Authentication"** dari submenu
 3. Tab **Sign-in method** → klik **Anonymous** dari daftar provider
 4. Toggle **Enable** → klik **Save**
 
@@ -52,7 +62,7 @@
 
 ## Langkah 5 — Deploy security rules
 
-1. Kembali ke **Firestore Database** → klik tab **Rules** (di sebelah tab "Data")
+1. Kembali ke **Databases & Storage → Firestore** → klik tab **Rules**
 2. **Hapus semua isi editor**, paste isi file `firestore.rules` dari repo (full, persis)
 3. Klik **Publish**
 
