@@ -14,7 +14,7 @@
  *   - _persistedKeys Set utk cegah gsAppend dobel kalau backtest di-rerun
  *   - Batch append (1 request utk banyak baris), bukan 1 request per hari
  */
-import { gsLoad, gsAppend } from '../../shared/sheets.js'
+import { gsLoad, gsAppend } from '../../shared/firebase.js'
 import { EXIT_KEYS } from './engine.js'
 
 const INTRADAY_KEYS = [...EXIT_KEYS] // 9 kolom fix, urutan konsisten (TANPA entry)

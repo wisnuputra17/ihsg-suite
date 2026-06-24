@@ -1,27 +1,35 @@
 /**
  * features/win-rate/db.test.js
  * =============================
- * Mock global fetch (dipanggil shared/sheets.js secara internal) supaya test
- * murni cek logic db.js — tidak ada network call sungguhan ke Apps Script.
+ * db.js sekarang import dari shared/firebase.js (migrasi dari sheets.js,
+ * 24 Jun 2026) -- firebase.js TIDAK BISA di-load langsung di Node (import
+ * 'https://www.gstatic.com/...' di top-level). Di-mock di LEVEL MODUL
+ * pakai mock.module() (butuh flag --experimental-test-module-mocks),
+ * BUKAN lagi mock global fetch mentah. Pola identik dgn
+ * features/ranking-emiten/db.test.js.
  */
-import { test } from 'node:test'
+import { test, mock } from 'node:test'
 import assert from 'node:assert/strict'
 
 let _mockSheets = {}
 let _appendCalls = []
 
-globalThis.fetch = async (url, options) => {
-  if (!options || !options.method) {
-    const sheet = new URL(url).searchParams.get('sheet')
-    return { ok: true, json: async () => ({ ok: true, data: _mockSheets[sheet] || [] }) }
+mock.module('../../shared/firebase.js', {
+  namedExports: {
+    gsLoad: async (sheet, filter = null) => {
+      let rows = _mockSheets[sheet] || []
+      if (filter) rows = rows.filter(r => r[filter.field] === filter.value)
+      return rows
+    },
+    gsAppend: async (sheet, data) => {
+      _appendCalls.push({ sheet, data })
+      _mockSheets[sheet] = [...(_mockSheets[sheet] || []), ...data]
+    },
+    gsSave: async (sheet, data) => { _mockSheets[sheet] = [...data] },
+    gsClear: async (sheet) => { _mockSheets[sheet] = [] },
+    gsLoadFiltered: async (sheet, field, value) => (_mockSheets[sheet] || []).filter(r => r[field] === value)
   }
-  const body = JSON.parse(options.body)
-  if (body.action === 'append') {
-    _appendCalls.push({ sheet: body.sheet, data: body.data })
-    _mockSheets[body.sheet] = [...(_mockSheets[body.sheet] || []), ...body.data]
-  }
-  return { ok: true, json: async () => ({ ok: true, written: body.data.length }) }
-}
+})
 
 const {
   DB, loadSym, appendDaily, appendIntraday,
