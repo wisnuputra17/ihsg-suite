@@ -198,12 +198,24 @@
       DB.sym   = sym
       DB.daily = [...raw].sort((a, b) => a.date.localeCompare(b.date))
       DB.selectedBrokers = []
-      await loadBrokerCacheForSym(sym)
+      DB.brokerCache = {} // reset eksplisit -- cegah render data broker simbol SEBELUMNYA nyangkut
       document.getElementById('sym-input').value = sym
       status.textContent = ''
-      _rebuildChart()
-      _updateBrokerHistoryForVisibleRange() // pastikan Top10 & garis broker langsung ke-trigger saat load, jangan andalkan event resize/zoom semata
-      _applySavedSelection(sym)
+      _rebuildChart() // render SEGERA (candle) -- JANGAN tunggu broker cache
+
+      // Broker cache di-load PARALEL di background (gsLoad ambil SELURUH
+      // sheet broker-analyzer-cache, makin banyak simbol/broker/hari pernah
+      // di-scan makin besar datanya -- ini yang bikin loading lama kalau
+      // di-await sebelum render). _updateBrokerHistoryForVisibleRange &
+      // _applySavedSelection DITUNDA sampai cache ini benar-benar siap --
+      // kalau dipanggil lebih cepat dgn cache kosong, SEMUA tanggal terlihat
+      // "belum ada" & fetch ulang Stockbit sia-sia (padahal mungkin sudah
+      // ada di Sheets, cuma belum sempat di-load ke memori).
+      loadBrokerCacheForSym(sym).then(() => {
+        if (DB.sym !== sym) return // user sudah ganti simbol lagi sebelum ini selesai
+        _updateBrokerHistoryForVisibleRange()
+        _applySavedSelection(sym)
+      })
     } catch (e) {
       status.textContent = e.code === 'TOKEN_EXPIRED' ? 'Token expired' : 'Error: ' + e.message
       if (e.code === 'TOKEN_EXPIRED') { TOKEN.clear(); refreshTokenStatus() }

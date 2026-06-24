@@ -658,10 +658,16 @@
       const raw = await fetchDaily(sym)
       DB.sym      = sym
       DB.daily    = [...raw].sort((a, b) => a.date.localeCompare(b.date))
-      await loadLpmCacheForSym(sym) // histori LPM tersimpan permanen — load dulu sebelum render, supaya tidak fetch ulang yang sudah ada
+      DB.lpmCache = {} // reset WAJIB -- cegah render LPM simbol SEBELUMNYA nyangkut selama cache baru belum siap
       status.textContent = ''
       document.getElementById('sym-input').value = sym
-      _rebuildChart()
+      _rebuildChart() // render SEGERA (candle + indikator lain) -- JANGAN tunggu LPM cache
+
+      // LPM cache di-load PARALEL di background (gsLoad ambil SELURUH sheet
+      // chart-lpm-cache, makin banyak simbol/hari pernah di-scan makin besar
+      // datanya -- ini yang bikin loading lama kalau di-await sebelum render).
+      // LPM-nya nyusul tampil begitu cache siap, TIDAK menghalangi chart utama.
+      loadLpmCacheForSym(sym).then(() => { if (DB.sym === sym) _updateLpmForVisibleRange() })
     } catch (e) {
       status.textContent = e.code === 'TOKEN_EXPIRED' ? 'Token expired' : 'Error: ' + e.message
       if (e.code === 'TOKEN_EXPIRED') { TOKEN.clear(); refreshTokenStatus() }
@@ -705,11 +711,15 @@
       if (document.getElementById(`ind-${key}`).checked) _addIndicator(key)
     })
 
-    // LPM (bar & overlay) — fetch+render ditangani terpisah, dipicu setelah chart siap
+    // LPM (bar & overlay) — fetch+render dipicu SETELAH loadLpmCacheForSym
+    // resolve di _loadSym() (.then()), BUKAN di sini -- DB.lpmCache baru saja
+    // di-reset kosong, kalau di-trigger di sini semua tanggal kelihatan
+    // "belum ada" & fetch ulang Stockbit sia-sia (padahal mungkin sudah ada
+    // di Sheets, cuma belum sempat di-load ke memori). Subscribe di sini cuma
+    // utk scroll/zoom SETELAH initial load, bukan trigger pertama kali.
     _lpmBarSeries = null
     _lpmOverlaySeries = null
     chart.timeScale().subscribeVisibleLogicalRangeChange(_debouncedLpmUpdate)
-    _updateLpmForVisibleRange()
 
     chart.timeScale().fitContent()
 
