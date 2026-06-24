@@ -39,6 +39,19 @@ const SHEET_NAMED_LISTS = 'haka-named-lists'
 // SEKSI 3: LOAD
 // ============================================================
 
+/** Pastikan card "multi" selalu ada — bisa dipanggil SINKRON sebelum loadAll()
+ * resolve, supaya ada minimal 1 card siap dirender SEGERA tanpa nunggu Sheets. */
+function _ensureMultiCard() {
+  if (!DB.cards.find(c => c.id === MULTI_CARD_ID)) {
+    DB.cards.unshift({ id: MULTI_CARD_ID, type: 'multi', syms: [], mode: 'buy', threshold: 500e6, alerts: [] })
+  }
+}
+
+/** Dipanggil di init(), SEBELUM loadAll() — render awal langsung punya card "multi" minimal. */
+export function ensureDefaultCards() {
+  _ensureMultiCard()
+}
+
 export async function loadAll() {
   const [cardsRes, named] = await Promise.allSettled([
     gsLoad(SHEET_CARDS),
@@ -56,9 +69,7 @@ export async function loadAll() {
     }))
   }
   // Card "multi" HARUS selalu ada — kalau belum pernah tersimpan (pengguna baru), buat default kosong.
-  if (!DB.cards.find(c => c.id === MULTI_CARD_ID)) {
-    DB.cards.unshift({ id: MULTI_CARD_ID, type: 'multi', syms: [], mode: 'buy', threshold: 500e6, alerts: [] })
-  }
+  _ensureMultiCard()
 
   if (named.status === 'fulfilled') {
     const obj = {}

@@ -159,7 +159,7 @@
   import { fmtRp, fmtNum } from '../../shared/format.js'
   import { createMonitor } from './poll.js'
   import {
-    DB, loadAll, MULTI_CARD_ID,
+    DB, loadAll, ensureDefaultCards, MULTI_CARD_ID,
     cardAdd, cardRemove, cardSetMode, cardSetThreshold,
     multiCardToggleSym, multiCardSetSyms,
     namedListSave, namedListDelete,
@@ -178,18 +178,23 @@
     ])
     window.addEventListener('ihsg:token-saved', refreshTokenStatus)
 
-    await _loadEmitenInfo()
-    await loadAll()
-
+    ensureDefaultCards() // sinkron -- minimal card "multi" SELALU siap, tidak nunggu apa pun
     _bindAddCard()
     _bindStartStop()
     _bindWlModal()
-    _renderAllCards()
+    _renderAllCards() // render SEGERA
 
     monitor.init({
       onAlert:  _routeAlert,
       onError:  handleError
     })
+
+    // Data tersimpan (card lain + watchlist custom + daftar 894 saham)
+    // di-load PARALEL di background -- TIDAK lagi blocking sebelum card
+    // pertama kelihatan (pola sama dgn fix Chart/Broker Analyzer: render
+    // duluan, cache nyusul render ulang begitu siap masing-masing).
+    _loadEmitenInfo().then(() => _renderAllCards())
+    loadAll().then(() => _renderAllCards())
   }
 
   async function _loadEmitenInfo() {
