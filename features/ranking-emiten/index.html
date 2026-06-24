@@ -225,12 +225,18 @@
     document.getElementById('scan-btn').disabled = true
     showProgress(progEl)
     logProgress(progEl, 'Fetch IHSG...', 'info')
+    let failedSyms = []
     try {
       await fetchWatchlist(
         syms, fromDate, toDate,
         (sym, i, total) => setProgress(progEl, i, total, `Mengambil ${sym}`),
         (sym, result) => {
-          logProgress(progEl, `${sym}: ${result.daysFetched} hari diambil, ${result.daysSkipped} sudah ter-cache`, 'ok')
+          if (result.error) {
+            failedSyms.push(sym)
+            logProgress(progEl, `${sym}: GAGAL (${result.error.code || result.error.message}) — lanjut ke saham lain`, 'err')
+          } else {
+            logProgress(progEl, `${sym}: ${result.daysFetched} hari diambil, ${result.daysSkipped} sudah ter-cache`, 'ok')
+          }
         }
       )
       setProgress(progEl, syms.length, syms.length, 'Menghitung ranking...')
@@ -253,9 +259,12 @@
         return { ...r, validation: validateSplit(rows) }
       })
 
-      logProgress(progEl, `Selesai: ${syms.length} emiten.`, 'ok')
+      const okCount = syms.length - failedSyms.length
+      logProgress(progEl, `Selesai: ${okCount}/${syms.length} saham berhasil.`, failedSyms.length ? 'warn' : 'ok')
       hideProgress(progEl)
-      statusEl.textContent = `Selesai — ${syms.length} saham, ${fromDate} s.d. ${toDate}.`
+      statusEl.textContent = failedSyms.length
+        ? `Selesai — ${okCount}/${syms.length} berhasil. Gagal: ${failedSyms.join(', ')}.`
+        : `Selesai — ${syms.length} saham, ${fromDate} s.d. ${toDate}.`
       document.getElementById('results-panel').classList.remove('hidden')
       _renderResults(rankingWithValidation, syms.length)
     } catch (err) {

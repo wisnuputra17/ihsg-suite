@@ -253,22 +253,40 @@ export async function estimateFetch(syms, fromDate, toDate, onProgress = () => {
   return out
 }
 
+const RATE_LIMIT_BACKOFF_MS = 5000 // jeda sebelum lanjut simbol berikutnya kalau kena rate limit
+
 /**
  * Fetch IHSG dulu (sekali, dipakai semua simbol), lalu tiap simbol BERURUTAN
  * (bukan paralel) — sengaja, biar tidak membombardir Stockbit & kena RATE_LIMITED.
+ *
+ * 1 simbol gagal TIDAK menggagalkan seluruh watchlist — lanjut ke simbol
+ * berikutnya, error-nya dilaporkan lewat onResult (bukan diam-diam dilewati
+ * tanpa jejak). KECUALI TOKEN_EXPIRED/TOKEN_NOT_SET — itu FATAL utk SEMUA
+ * simbol berikutnya juga (token yang sama dipakai semua request, pasti
+ * gagal sama persis), jadi langsung dilempar ke atas.
+ *
  * @param {string[]} syms
  * @param {function} onProgress - (sym, i, total) => void, dipanggil SEBELUM fetch 1 simbol
- * @param {function} onResult   - (sym, result, i, total) => void, dipanggil SETELAH 1 simbol selesai
- *   (mirip _log() di ihsg-lab.html -- dipakai utk log baris "SYM: X hari diambil")
+ * @param {function} onResult   - (sym, result, i, total) => void, dipanggil SETELAH 1 simbol
+ *   selesai (sukses ATAU gagal — cek result.error). Mirip _log() di ihsg-lab.html.
  */
 export async function fetchWatchlist(syms, fromDate, toDate, onProgress = () => {}, onResult = () => {}) {
   await fetchIhsgRange(fromDate, toDate)
   const results = []
   for (let i = 0; i < syms.length; i++) {
     onProgress(syms[i], i, syms.length)
-    const r = await fetchSymRange(syms[i], fromDate, toDate)
-    results.push({ sym: syms[i], ...r })
-    onResult(syms[i], r, i, syms.length)
+    try {
+      const r = await fetchSymRange(syms[i], fromDate, toDate)
+      results.push({ sym: syms[i], ...r, error: null })
+      onResult(syms[i], { ...r, error: null }, i, syms.length)
+    } catch (err) {
+      if (err.code === 'TOKEN_EXPIRED' || err.code === 'TOKEN_NOT_SET') throw err
+
+      results.push({ sym: syms[i], daysFetched: 0, daysSkipped: 0, error: err })
+      onResult(syms[i], { daysFetched: 0, daysSkipped: 0, error: err }, i, syms.length)
+
+      if (err.code === 'RATE_LIMITED') await new Promise(r => setTimeout(r, RATE_LIMIT_BACKOFF_MS))
+    }
   }
   return results
 }

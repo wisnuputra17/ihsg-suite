@@ -20,12 +20,18 @@ let _mockDailyBySym    = {}
 let _mockIntradayBySym = {} // {sym: [{unix_timestamp, close, open, volume, frequency}]} -- FLAT, tidak per-hari (mensimulasikan 1 response yg cover banyak hari)
 let _mockSheets        = {}
 let _stockbitIntradayCalls = []
+let _forceDailyStatus  = {} // {sym: statusCode} -- simulasikan error HTTP tertentu utk fetchDaily simbol ini
+let _dailyCallOrder    = [] // urutan simbol yang BENAR-BENAR di-fetchDaily (cek short-circuit abort)
 
 globalThis.fetch = async (url, options) => {
   if (url.startsWith('https://exodus.stockbit.com')) {
     const symMatch = url.match(/chartbit\/([A-Z0-9]+)\/price\/(daily|intraday)/)
     const sym = symMatch[1], kind = symMatch[2]
     if (kind === 'daily') {
+      _dailyCallOrder.push(sym)
+      if (_forceDailyStatus[sym]) {
+        return { ok: false, status: _forceDailyStatus[sym], json: async () => ({}) }
+      }
       const rows = _mockDailyBySym[sym] || []
       return { ok: true, status: 200, json: async () => ({ data: { chartbit: rows } }) }
     }
@@ -52,6 +58,7 @@ globalThis.fetch = async (url, options) => {
 
 function resetMocks() {
   _mockDailyBySym = {}; _mockIntradayBySym = {}; _mockSheets = {}; _stockbitIntradayCalls = []
+  _forceDailyStatus = {}; _dailyCallOrder = []
 }
 
 const { extractCheckpoints, extractIEPRaw, fetchIhsgTrend, fetchSymRange, fetchIhsgRange, fetchWatchlist } =
@@ -245,4 +252,46 @@ test('fetchWatchlist: IHSG di-fetch SEKALI di awal, sebelum loop simbol', async 
 
   assert.ok(order.indexOf('IHSG') < order.indexOf('GOTO'))
   assert.ok(order.indexOf('IHSG') < order.indexOf('ASII'))
+})
+
+// ============================================================
+// fetchWatchlist — resilience: 1 simbol gagal tidak gagalkan semua
+// ============================================================
+
+test('fetchWatchlist: 1 simbol gagal (SERVER_ERROR) -- simbol lain TETAP lanjut diproses', async () => {
+  resetMocks()
+  _mockDailyBySym.AAAA = [{ date: '2026-01-15', open: 100, high: 105, low: 95, close: 102, volume: 1, foreignbuy: 0, foreignsell: 0 }]
+  _mockDailyBySym.CCCC = [{ date: '2026-01-15', open: 200, high: 205, low: 195, close: 202, volume: 1, foreignbuy: 0, foreignsell: 0 }]
+  _forceDailyStatus.BBBB = 503
+
+  const results = await fetchWatchlist(['AAAA', 'BBBB', 'CCCC'], '2026-01-15', '2026-01-15')
+
+  assert.equal(results.length, 3)
+  assert.equal(results[0].sym, 'AAAA'); assert.equal(results[0].error, null)
+  assert.equal(results[1].sym, 'BBBB'); assert.equal(results[1].error.code, 'SERVER_ERROR')
+  assert.equal(results[2].sym, 'CCCC'); assert.equal(results[2].error, null)
+  assert.ok(_dailyCallOrder.includes('CCCC')) // CCCC benar2 di-fetch, bukan di-skip
+})
+
+test('fetchWatchlist: TOKEN_EXPIRED langsung ABORT -- simbol setelahnya TIDAK PERNAH dicoba', async () => {
+  resetMocks()
+  _mockDailyBySym.AAAA = [{ date: '2026-01-15', open: 100, high: 105, low: 95, close: 102, volume: 1, foreignbuy: 0, foreignsell: 0 }]
+  _forceDailyStatus.BBBB = 401
+
+  await assert.rejects(
+    () => fetchWatchlist(['AAAA', 'BBBB', 'CCCC'], '2026-01-15', '2026-01-15'),
+    (err) => err.code === 'TOKEN_EXPIRED'
+  )
+  assert.ok(!_dailyCallOrder.includes('CCCC')) // CCCC TIDAK PERNAH dicoba
+})
+
+test('fetchWatchlist: RATE_LIMITED tidak abort (lanjut ke simbol berikutnya, BUKAN seperti TOKEN_EXPIRED)', { timeout: 10000 }, async () => {
+  resetMocks()
+  _forceDailyStatus.AAAA = 429
+  _mockDailyBySym.BBBB = [{ date: '2026-01-15', open: 100, high: 105, low: 95, close: 102, volume: 1, foreignbuy: 0, foreignsell: 0 }]
+
+  const results = await fetchWatchlist(['AAAA', 'BBBB'], '2026-01-15', '2026-01-15')
+  assert.equal(results[0].error.code, 'RATE_LIMITED')
+  assert.equal(results[1].error, null)
+  assert.ok(_dailyCallOrder.includes('BBBB'))
 })
