@@ -54,11 +54,11 @@
  *                    Firestore, bukan diganti, persis demi kompatibilitas itu.
  */
 
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js'
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js'
 import {
   getFirestore, collection, getDocs, doc, query, where, writeBatch
-} from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js'
-import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js'
+} from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js'
+import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js'
 import { FIREBASE_CONFIG } from './firebase.config.js'
 
 // ============================================================
