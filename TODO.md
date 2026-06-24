@@ -29,6 +29,8 @@
 - ~~Win Rate Scanner error SHEETS_ERROR~~ — sudah confirmed jalan normal
 - ~~Ranking Emiten error CORS/500/404~~ — sudah confirmed jalan normal
 - ~~Retry otomatis `gsLoad`~~ — kamu putuskan "next time saja", tidak jadi dikerjakan
+- ~~Loading chart/HAKA lama~~ — sudah di-fix (render segera, cache di background)
+- ~~Audit sebelum migrasi Firebase~~ — sudah selesai, semua temuan di-fix (lihat HANDOFF.md §7)
 
 ---
 

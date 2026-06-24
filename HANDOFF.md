@@ -124,8 +124,9 @@ ihsg-suite/
 ## 7. Yang Masih Menggantung / Belum Selesai
 
 - **Migrasi Firebase** — lihat §2, ini prioritas utama sesi depan kalau Wisnu sudah setup.
-- **Retry otomatis di `gsLoad`** — sempat diusulkan utk Apps Script yang flaky, Wisnu bilang "tidak perlu, next time" — kemungkinan jadi tidak relevan lagi kalau migrasi Firebase jalan (Firestore tidak punya masalah flaky yang sama).
 - **Signal Validator (`validateSplit`) belum pernah dites Wisnu** — dibangun otomatis saat dia tidur, perlu verifikasi hasil di scan nyata sebelum dipercaya penuh.
+- **Audit penuh codebase (23 Jun, sebelum migrasi Firebase) — SUDAH SELESAI & di-fix:** versi Firebase SDK ketinggalan 2 major (10→12.15.0), debug artifact `window._wr`, 1 simbol gagal tidak lagi gagalkan seluruh scan watchlist (RATE_LIMITED dapat backoff+lanjut, TOKEN_EXPIRED tetap abort total karena fatal utk semua simbol berikutnya), HAKA render card SEGERA bukan nunggu Sheets dulu (pola sama dgn fix Chart/Broker Analyzer). Total skrg 144 test.
+- **Catatan tersisa dari audit, SENGAJA belum diubah** (bukan bug aktif, cuma inkonsistensi gaya): 2 mekanisme progress bar berbeda (expensive-fetch.js lama vs fetch-progress.js baru) — keduanya jalan benar, tidak ada kebutuhan fungsional buat disatukan.
 - **Ide besar yang masih didiskusikan, BELUM dikodekan apa pun:**
   - "Watchlist H-1" (filter saham layak dipantau dari data semalam: broker flow EOD, gap, ATR, foreign net) → beda lapisan dari "trigger real-time"
   - **ORB (Opening Range Breakout)** dan **VWAP reclaim/rejection** — disepakati sebagai kandidat trigger REAL-TIME yang valid (datanya live, beda dari kondisi H-1 yang snapshot statis), tapi belum ada spek konkret/kode sama sekali. Ini calon next step besar setelah signal validator teruji.
