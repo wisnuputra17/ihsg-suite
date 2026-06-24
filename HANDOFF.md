@@ -20,20 +20,38 @@
 
 ---
 
-## 2. ⚠️ PERUBAHAN BESAR: Migrasi Backend Apps Script → Firebase (SEDANG JALAN, BELUM SELESAI)
+## 2. ✅ Migrasi Backend Apps Script → Firebase — SELESAI (24 Jun 2026)
 
-**Kenapa:** Sepanjang sesi ini, Apps Script Web App (backend Sheets) terbukti **flaky berkali-kali** — CORS blocked / 500 / 404 muncul berubah-ubah jenis pada request yang SAMA PERSIS, tanpa kode diubah sama sekali. Sudah dicoba 2 perbaikan berbasis kode (race condition di `loadSym()`, idempoten di `_getOrCreateSheet()`) — **keduanya tidak menyelesaikan**, error tetap muncul dengan jenis berbeda setelahnya. Kesimpulan: ini soal infrastruktur Google Apps Script Web App, bukan bug kita.
+**Status: TUNTAS.** Semua fitur yang punya persistence (Ranking Emiten, Win Rate Scanner, Chart, Broker Analyzer) sudah pindah dari `shared/sheets.js` (Apps Script) ke `shared/firebase.js` (Firestore). HAKA tidak ikut migrasi karena sudah dihapus persistence-nya sama sekali (lihat §2b).
 
-**Status migrasi saat ini:**
-- ✅ `shared/firebase.js` sudah ditulis — kontrak fungsi (`gsLoad`/`gsSave`/`gsAppend`/`gsClear`) **identik** dengan `shared/sheets.js`, supaya tiap `db.js` fitur cuma ganti 1 baris import
-- ✅ `firestore.rules` sudah disiapkan (syaratkan anonymous auth, tolak akses asing)
-- ✅ `FIREBASE_SETUP.md` — panduan lengkap 7 langkah utk Wisnu (bikin project, aktifkan Firestore+Anonymous Auth, isi config, deploy rules, tes koneksi, pindahkan 1 fitur dulu)
-- ❌ **BELUM ADA satu pun `db.js` yang benar-benar pindah ke Firebase** — `shared/firebase.config.js` masih placeholder, Wisnu belum eksekusi langkah manual di Firebase Console
-- ❌ Belum ada fitur yang dites pakai Firebase sungguhan
+**Kenapa pindah:** Apps Script Web App terbukti flaky berkali-kali sepanjang sesi 23 Jun (CORS/500/404 berubah-ubah jenis tanpa kode diubah). 2 percobaan fix berbasis kode tidak menyelesaikan — keputusan akhir migrasi total.
 
-**KALAU SESI BARU MULAI DAN WISNU BILANG SUDAH SETUP FIREBASE:** cek dulu apakah `shared/firebase.config.js` sudah diisi config asli (bukan placeholder `GANTI_...`). Kalau sudah, mulai pindahkan `features/ranking-emiten/db.js` dulu (paling baru, datanya belum banyak, rencana sebagai pilot) — ganti import dari `sheets.js` ke `firebase.js`, minta Wisnu scan ulang BULL, bandingkan hasilnya. Kalau lancar, baru pindahkan fitur lain satu-satu (win-rate, chart, broker-analyzer, haka) — JANGAN langsung semua sekaligus.
+**Yang sudah jadi:**
+- `shared/firebase.js` — kontrak fungsi (`gsLoad`/`gsSave`/`gsAppend`/`gsClear`) identik dgn `sheets.js`, jadi tiap db.js fitur cuma ganti 1 baris import
+- `shared/firebase.config.js` — **sudah diisi config asli** (project `ihsg-suite`, bukan placeholder lagi)
+- `firestore.rules` — deployed, syaratkan anonymous auth
+- Semua 4 db.js (ranking-emiten, win-rate, chart, broker-analyzer) sudah ganti import ke firebase.js
+- Test (`db.test.js`/`fetch.test.js` ranking-emiten & win-rate) ditulis ulang pakai `mock.module()` (lihat §2c) — **bukan lagi mock fetch mentah**
 
-**Apps Script/`shared/sheets.js` TIDAK dihapus** — tetap ada sebagai fallback per-fitur kalau migrasi 1 fitur bermasalah.
+**`apps-script/Code.gs` & `shared/sheets.js` TIDAK dihapus dari repo** — disimpan sebagai referensi/fallback historis, tapi sudah tidak dipakai fitur manapun lagi.
+
+### 2b. HAKA — keputusan terpisah: TIDAK ADA persistence sama sekali
+
+Keputusan Wisnu (24 Jun 2026): HAKA tidak perlu sinkron cards/named lists ke database apa pun (Sheets ATAU Firebase) — semua in-memory, reset tiap reload. `features/haka/db.js` SUDAH TIDAK import sheets.js/firebase.js sama sekali. `ensureDefaultCards()` seed 1 card multi + **5 slot single kosong** (`syms:[]`, id sementara `slot-1`..`slot-5`) — begitu user pilih simbol via picker inline, `cardSetSymbol()` ubah `card.id` jadi simbol itu sendiri, card jadi berperilaku identik dgn card yang ditambah lewat `cardAdd()` biasa.
+
+### 2c. PENTING — cara test fitur yang pakai firebase.js
+
+`shared/firebase.js` import `'https://www.gstatic.com/...'` di top-level — Node.js ESM loader **TIDAK BISA** load URL `https://` sama sekali (`ERR_UNSUPPORTED_ESM_URL_SCHEME`, cuma dukung scheme `file`/`data`). Ini bikin SEMUA test yang transitif import `firebase.js` (lewat db.js) gagal total kalau di-mock pakai cara lama (mock `globalThis.fetch`).
+
+**Solusi:** pakai `mock.module()` dari `node:test` — ganti `shared/firebase.js` SELURUHNYA di level modul SEBELUM db.js diimport. Butuh flag `--experimental-test-module-mocks` (sudah ditambahkan ke `package.json`'s `"test"` script, CI otomatis ikut). Contoh pola (lihat `features/ranking-emiten/db.test.js` atau `features/win-rate/fetch.test.js` utk implementasi lengkap):
+```js
+import { test, mock } from 'node:test'
+mock.module('../../shared/firebase.js', {
+  namedExports: { gsLoad: async (...) => {...}, gsAppend: async (...) => {...}, ... }
+})
+const { ... } = await import('./db.js') // HARUS setelah mock.module(), bukan sebelum
+```
+**Kalau bikin db.js BARU yang pakai firebase.js dan butuh test** — WAJIB pakai pola ini, JANGAN coba mock `fetch` mentah seperti pola `sheets.js` lama, itu tidak akan jalan sama sekali.
 
 ---
 
