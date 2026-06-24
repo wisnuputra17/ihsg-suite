@@ -14,10 +14,10 @@
  */
 
 export const FIREBASE_CONFIG = {
-  apiKey:            'GANTI_DENGAN_API_KEY_ASLI',
-  authDomain:        'GANTI.firebaseapp.com',
-  projectId:         'GANTI_PROJECT_ID',
-  storageBucket:     'GANTI.firebasestorage.app',
-  messagingSenderId: 'GANTI_SENDER_ID',
-  appId:             'GANTI_APP_ID'
+  apiKey:            'AIzaSyCiYpqptrxvDx4QfKWMgjmwK_RNFSEvVaM',
+  authDomain:        'ihsg-suite.firebaseapp.com',
+  projectId:         'ihsg-suite',
+  storageBucket:     'ihsg-suite.firebasestorage.app',
+  messagingSenderId: '166051921224',
+  appId:             '1:166051921224:web:e8130fea19a2e6a610c77d'
 }
