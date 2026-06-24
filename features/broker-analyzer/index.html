@@ -130,7 +130,7 @@
 <script type="module">
   import { TOKEN, has, setEmitenInfo } from '../../shared/store.js'
   import { fetchDaily, fetchBroker, fetchEmitenJson } from '../../shared/api.js'
-  import { renderHeader, refreshTokenStatus, openTokenPopover } from '../../shared/header.js'
+  import { renderHeader, refreshTokenStatus, openTokenPopover, whenTokenReady } from '../../shared/header.js'
   import { bindSymSearch } from '../../shared/symsearch.js'
   import { fmtRp, fmtNum } from '../../shared/format.js'
   import { fetchWithConfirm } from '../../shared/expensive-fetch.js'
@@ -189,6 +189,7 @@
     const sym = document.getElementById('sym-input').value.trim().toUpperCase()
     const status = document.getElementById('status')
     if (!sym) return
+    await whenTokenReady()
     if (!TOKEN.isSet()) { openTokenPopover(); return }
 
     _loading = true

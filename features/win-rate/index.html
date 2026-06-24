@@ -107,7 +107,7 @@
 <script type="module">
   import { TOKEN, SYMS, LQ45, IDX80, has, setEmitenInfo } from '../../shared/store.js'
   import { fetchEmitenJson } from '../../shared/api.js'
-  import { renderHeader, refreshTokenStatus, openTokenPopover } from '../../shared/header.js'
+  import { renderHeader, refreshTokenStatus, openTokenPopover, whenTokenReady } from '../../shared/header.js'
   import { EXIT_KEYS, allConditionIds, runBacktestMulti } from './engine.js'
   import { DB, loadSym } from './db.js'
   import { estimateFetch, fetchWatchlist } from './fetch.js'
@@ -206,6 +206,7 @@
     if (syms.length === 0)        { statusEl.textContent = 'Pilih minimal 1 saham dulu.'; return }
     if (!fromDate || !toDate)     { statusEl.textContent = 'Isi rentang tanggal dulu.'; return }
     if (fromDate > toDate)        { statusEl.textContent = 'Tanggal "Dari" harus sebelum "Sampai".'; return }
+    await whenTokenReady()
     if (!TOKEN.isSet())           { openTokenPopover(); return }
 
     statusEl.textContent = ''

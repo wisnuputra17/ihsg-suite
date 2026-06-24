@@ -155,7 +155,7 @@
 <script type="module">
   import { TOKEN, SYMS, LQ45, IDX80, EMITEN_INFO, has, setEmitenInfo } from '../../shared/store.js'
   import { fetchEmitenJson } from '../../shared/api.js'
-  import { renderHeader, refreshTokenStatus, openTokenPopover } from '../../shared/header.js'
+  import { renderHeader, refreshTokenStatus, openTokenPopover, whenTokenReady } from '../../shared/header.js'
   import { fmtRp, fmtNum } from '../../shared/format.js'
   import { createMonitor } from './poll.js'
   import {
@@ -231,8 +231,9 @@
   // SEKSI 3: START/STOP MONITOR (global, 1 poller bersama)
   // ============================================================
   function _bindStartStop() {
-    document.getElementById('btn-start').addEventListener('click', () => {
+    document.getElementById('btn-start').addEventListener('click', async () => {
       if (monitor.isRunning()) { monitor.stop(); _setRunningUI(false); return }
+      await whenTokenReady()
       if (!TOKEN.isSet()) { openTokenPopover(); return }
       if (!_getAllSymbols().length) { alert('Tambah minimal 1 card / pilih emiten dulu.'); return }
       monitor.start(_getAllSymbols)

@@ -28,6 +28,8 @@ import { gsLoad, gsSave } from './sheets.js'
 const TOKEN_TTL_MS = 24 * 60 * 60 * 1000 // fallback kalau token bukan JWT / tanpa claim exp
 const SHEET_TOKEN = 'user-token'
 
+let _syncPromise = null // promise sync token dari Sheets yang sedang berjalan (kalau ada)
+
 /**
  * Render header ke dalam container yang diberikan.
  * @param {HTMLElement} container - elemen <header> tujuan
@@ -61,13 +63,38 @@ export function renderHeader(container, crumbs) {
 }
 
 /**
+ * Tunggu sinkronisasi token dari Sheets selesai (kalau sedang berjalan)
+ * SEBELUM mengecek TOKEN.isSet() di tempat yang butuh keputusan akurat.
+ *
+ * KENAPA INI PERLU: syncTokenFromSheetsIfNeeded() di renderHeader() itu
+ * fire-and-forget (tidak ditunggu) — kalau user klik tombol yang butuh
+ * token (mis. "Mulai Scan") SAAT sync itu masih berjalan, TOKEN.isSet()
+ * masih `false` walau sync OTOMATIS itu sebentar lagi berhasil. Tanpa
+ * nunggu ini, fitur salah simpul "token belum diisi sama sekali" dan
+ * munculin popover input manual — padahal cuma soal timing, bukan token
+ * benar-benar tidak ada.
+ *
+ * Aman dipanggil kapan saja: kalau tidak ada sync yang sedang berjalan
+ * (atau sudah selesai), langsung resolve tanpa delay tambahan.
+ */
+export async function whenTokenReady() {
+  if (_syncPromise) await _syncPromise
+}
+
+/**
  * Kalau token lokal tidak ada / sudah pasti expired, coba ambil dari Sheets
  * (sinkron antar device). Tidak menimpa token lokal yang masih valid.
  * Diekspor supaya halaman lain yang TIDAK pakai renderHeader (misal landing
  * page, yang punya UI token sendiri) bisa pakai logic yang sama — bukan
- * duplikasi.
+ * duplikasi. Promise-nya ditrack ke _syncPromise SEKALI DI SINI (bukan di
+ * pemanggil) supaya whenTokenReady() konsisten dari mana pun dipanggil.
  */
-export async function syncTokenFromSheetsIfNeeded() {
+export function syncTokenFromSheetsIfNeeded() {
+  _syncPromise = _doSync()
+  return _syncPromise
+}
+
+async function _doSync() {
   if (TOKEN.isSet()) {
     const expMs = TOKEN.getExpiryMs()
     if (expMs === null || expMs > Date.now()) return // token lokal masih oke (atau tak bisa dicek), jangan ganggu
