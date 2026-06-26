@@ -63,8 +63,14 @@ export async function loadBrokerCacheForSym(sym) {
 
 /**
  * Simpan permanen data broker yang BARU di-fetch (append, bukan timpa semua).
- * HANYA broker yang sedang dipilih user — supaya tidak membengkak nyimpan
- * 70+ broker/hari yang tidak pernah dilihat siapa-siapa.
+ * Caller (features/broker-analyzer/index.html, _fetchDateBatch) MENGIRIM
+ * SEMUA broker hasil 1 fetch (~100, sesuai limit API) -- BUKAN cuma yang
+ * sedang dipilih user. Ini WAJIB, bukan optimasi storage: Top 10 butuh
+ * data SEMUA broker utk ranking yang akurat di rentang waktu APA PUN, baik
+ * sesi yang sedang berjalan MAUPUN setelah reload (waktu itu data yang ada
+ * cuma yang sudah ke-persist ke sini). Sempat ada bug 24 Jun 2026 — fungsi
+ * ini SEBELUMNYA cuma terima broker yang dipilih dari caller, akibatnya
+ * Top 10 dari cache lama (setelah reload) cuma berisi sedikit broker.
  * Entry yang (date,broker)-nya SUDAH tersimpan (cek _persistedKeys) di-skip,
  * supaya tidak ada baris dobel kalau broker dihapus lalu ditambah lagi.
  * @param {string} sym

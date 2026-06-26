@@ -500,9 +500,17 @@
         Object.keys(dayMap).forEach(code => { dayMap[code].net = dayMap[code].buy - dayMap[code].sell })
         DB.brokerCache[date] = dayMap
 
-        // Persist HANYA broker yang sedang dipilih — bukan semua 70+ broker
-        DB.selectedBrokers.forEach(code => {
-          if (dayMap[code]) newlyFetched.push({ date, broker: code, ...dayMap[code] })
+        // Persist SEMUA broker yang dikembalikan API (~100, sesuai limit
+        // fetchBroker) -- BUKAN cuma broker yang sedang dipilih utk garis
+        // perbandingan. WAJIB begini, bukan optimasi storage seperti
+        // sebelumnya: Top 10 butuh data SEMUA broker utk ranking yang akurat
+        // di rentang APA PUN yang nanti di-zoom, termasuk SETELAH reload
+        // (waktu itu DB.brokerCache di memori sudah kosong, cuma yang
+        // PERSISTED ke Firestore yang ke-load ulang). Kalau cuma persist
+        // broker yg dipilih, Top 10 dari cache lama jadi cuma berisi
+        // beberapa broker itu doang -- BUG yang sempat ketemu 24 Jun 2026.
+        Object.entries(dayMap).forEach(([code, v]) => {
+          newlyFetched.push({ date, broker: code, ...v })
         })
       } catch (_) {
         DB.brokerCache[date] = null
