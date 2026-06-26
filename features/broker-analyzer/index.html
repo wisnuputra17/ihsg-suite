@@ -283,6 +283,7 @@
     // (bukan per-broker) — karena 1 fetch sudah cukup utk semua broker DAN
     // utk ranking Top 10 sekaligus (data yang sama dipakai berdua).
     const missing = visibleDates.filter(d => !(d in DB.brokerCache))
+    console.log('[DEBUG top10]', { visibleDatesCount: visibleDates.length, firstDate: visibleDates[0], lastDate: visibleDates.at(-1), missingCount: missing.length })
 
     // Tampilkan dari cache yang sudah ada duluan, sambil nunggu (kalau ada) konfirmasi
     if (DB.selectedBrokers.length) _renderAllBrokerLines()
@@ -331,6 +332,7 @@
     const topSellers = entries.filter(e => e.net < 0).sort((a, b) => a.net - b.net).slice(0, 10).map(e => ({ code: e.code, val: Math.abs(e.net) }))
 
     DB.brokerTop = { buys: topBuyers, sells: topSellers, rangeDays: rangeDates.length }
+    console.log('[DEBUG top10] hasil hitung:', { rangeDays: rangeDates.length, topBuyer: topBuyers[0], topSeller: topSellers[0] })
     _renderTop10Lists()
   }
 
