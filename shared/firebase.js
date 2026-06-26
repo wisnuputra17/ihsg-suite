@@ -200,3 +200,59 @@ export async function gsClear(sheet) {
 export async function gsLoadFiltered(sheet, field, value) {
   return gsLoad(sheet, { field, op: '==', value })
 }
+
+/**
+ * Pratinjau — hitung berapa dokumen yang AKAN terhapus oleh gsDeleteOlderThan
+ * dengan parameter yang sama, TANPA benar-benar menghapus apa pun. Selalu
+ * panggil ini DULU sebelum gsDeleteOlderThan — hapus permanen, tidak bisa
+ * dibatalkan.
+ * @returns {number} jumlah dokumen yang AKAN terhapus
+ */
+export async function gsCountOlderThan(sheet, dateField, cutoffDate) {
+  try {
+    const db   = await _ensureInit()
+    const col  = collection(db, sheet)
+    const snap = await getDocs(query(col, where(dateField, '<', cutoffDate)))
+    return snap.docs.length
+  } catch (e) {
+    throw _wrapError('SHEETS_ERROR', e)
+  }
+}
+
+/**
+ * Hapus SEMUA dokumen di collection yang field tanggalnya LEBIH LAMA dari
+ * cutoff — dipakai utk bersihkan cache lama (broker-analyzer-cache,
+ * chart-lpm-cache, dst) yang sudah tidak relevan, supaya storage tidak
+ * terus bertambah tanpa batas.
+ *
+ * Perbandingan string lexicographic AMAN buat format tanggal ISO
+ * 'YYYY-MM-DD' — urutan string-nya otomatis sama dengan urutan kronologis
+ * (tidak perlu parse jadi Date object dulu).
+ *
+ * ⚠️ PERMANEN, TIDAK BISA DIBATALKAN — panggil gsCountOlderThan() dulu
+ * dengan parameter yang sama utk lihat berapa yang akan terhapus.
+ *
+ * @param {string} sheet - nama collection
+ * @param {string} dateField - nama field tanggal di tiap dokumen (mis. 'date')
+ * @param {string} cutoffDate - 'YYYY-MM-DD' — dokumen dgn dateField < ini DIHAPUS
+ * @returns {number} jumlah dokumen yang dihapus
+ * @example
+ *   const n = await gsCountOlderThan('broker-analyzer-cache', 'date', '2025-06-01')
+ *   console.log(`${n} dokumen akan terhapus`) // cek dulu, baru lanjut kalau wajar
+ *   await gsDeleteOlderThan('broker-analyzer-cache', 'date', '2025-06-01')
+ */
+export async function gsDeleteOlderThan(sheet, dateField, cutoffDate) {
+  try {
+    const db   = await _ensureInit()
+    const col  = collection(db, sheet)
+    const snap = await getDocs(query(col, where(dateField, '<', cutoffDate)))
+    for (const chunk of _chunk(snap.docs, BATCH_LIMIT)) {
+      const batch = writeBatch(db)
+      chunk.forEach(d => batch.delete(d.ref))
+      await batch.commit()
+    }
+    return snap.docs.length
+  } catch (e) {
+    throw _wrapError('SHEETS_ERROR', e)
+  }
+}
