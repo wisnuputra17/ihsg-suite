@@ -41,14 +41,16 @@ Kalau ada yang baru muncul pas testing, kasih tau Claude di sesi manapun — "ta
 > Beda dari daftar di atas (itu utk Wisnu eksekusi) — ini daftar tugas yang
 > Claude akan kerjakan kalau Wisnu bilang "gunakan mode bakar token".
 > Wisnu nambah item di sini kapan saja kepikiran sambil kerja, tidak perlu
-> langsung dikerjakan saat itu. Urutan defaultnya (kalau list di bawah
-> kosong/belum ada prioritas spesifik):
->   1. ORB (Opening Range Breakout) — desain & bangun logic + test
->   2. VWAP reclaim/rejection — desain & bangun logic + test
->   3. Perluas Signal Validator (Wilson lower bound + train/test) ke Win Rate Scanner
+> langsung dikerjakan saat itu. Urutan default (per 24 Jun 2026, item 1-3 SUDAH SELESAI):
+>   1. ~~ORB (Opening Range Breakout) — desain & bangun logic + test~~ ✅ `shared/orb.js`, 14 test
+>   2. ~~VWAP reclaim/rejection — desain & bangun logic + test~~ ✅ `shared/vwap-signal.js`, 7 test
+>   3. ~~Perluas Signal Validator ke Win Rate Scanner~~ ✅ `runBacktestMultiSplit()`, 4 test + checkbox UI
 >   4. Watchlist H-1 (filter saham layak dipantau dari broker flow/gap/ATR semalam)
 >   5. Rapikan inkonsistensi kecil dari audit (2 gaya progress bar, dst)
 >   6. Perkuat test coverage di bagian yang masih tipis
+>
+> ⚠️ Item 1-3 BARU fondasi logic+test, BELUM diintegrasikan ke Chart/UI
+> real-time sama sekali, dan BELUM pernah dites Wisnu dgn data pasar nyata.
 >
 > Item spesifik yang Wisnu tambah di bawah ini DIDAHULUKAN dari urutan
 > default di atas.
