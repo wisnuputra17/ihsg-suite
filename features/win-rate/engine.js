@@ -27,6 +27,8 @@
  * runBacktest() & UI di atasnya tidak perlu diubah strukturnya.
  */
 
+import { wilsonLowerBound } from '../../shared/stats.js'
+
 // Entry TIDAK lagi snapshot intraday terpisah -- entry = today.open dari data
 // daily (=IEP, dikonfirmasi Wisnu: harga open candle harian Stockbit adalah
 // harga match lelang pra-pembukaan). EXIT_KEYS semua kelipatan 5 menit, bisa
@@ -217,4 +219,66 @@ export function runBacktestMulti(emitenDataBySym) {
     matrix = _accumulate(matrix, emitenDataBySym[sym])
   }
   return _finalize(matrix)
+}
+
+// ============================================================
+// SEKSI 5: VALIDASI TRAIN/TEST — perluasan signal validator
+// (sama metodologi dgn ranking-emiten/engine.js validateSplit(), diadaptasi
+// utk matrix gabungan banyak simbol, bukan "1 kondisi terbaik per simbol")
+// ============================================================
+
+const HOLD_THRESHOLD  = 0.8 // win rate uji harus >= 80% dari win rate latih utk dianggap "bertahan"
+const MIN_TEST_SAMPLE = 5   // di bawah ini, holds dianggap belum bisa disimpulkan (null)
+
+/**
+ * Backtest BANYAK simbol dengan validasi train/test — belah `daily` tiap
+ * simbol KRONOLOGIS di trainRatio (default 70%), akumulasi gabungan semua
+ * simbol bagian LATIH ke 1 matrix, bagian UJI ke matrix terpisah. Tiap sel
+ * (kondisi x exit) di matrix latih ditambah `wilsonLower` + `holds`
+ * (apakah win rate-nya bertahan di data uji yang BELUM PERNAH dilihat saat
+ * mencari kondisi terbaik).
+ *
+ * PENTING: potongan UJI tiap simbol WAJIB overlap 1 hari ke belakang (hari
+ * TERAKHIR bagian latih) — _accumulate() butuh `daily[i-1]` sbg "prev" utk
+ * klasifikasi kondisi (gap/RSI/MACD d-1). Tanpa overlap ini, hari PERTAMA
+ * di bagian uji kehilangan kesempatan diklasifikasi sama sekali.
+ *
+ * @param {Object<string,{daily,intraday}>} emitenDataBySym
+ * @param {number} trainRatio
+ * @returns {{train:Object, test:Object}} train = matrix sama struktur dgn
+ *   runBacktestMulti() + field wilsonLower & holds per sel; test = matrix
+ *   biasa (dipakai sbg pembanding, ditampilkan opsional di UI)
+ */
+export function runBacktestMultiSplit(emitenDataBySym, trainRatio = 0.7) {
+  let trainMatrix = _emptyMatrix()
+  let testMatrix  = _emptyMatrix()
+
+  for (const sym in emitenDataBySym) {
+    const { daily, intraday } = emitenDataBySym[sym]
+    const splitIdx = Math.floor(daily.length * trainRatio)
+    const trainDaily = daily.slice(0, splitIdx)
+    const testDaily   = daily.slice(splitIdx)
+    const testDailyWithPrev = splitIdx > 0 ? [daily[splitIdx - 1], ...testDaily] : testDaily
+
+    trainMatrix = _accumulate(trainMatrix, { daily: trainDaily, intraday })
+    testMatrix  = _accumulate(testMatrix, { daily: testDailyWithPrev, intraday })
+  }
+
+  trainMatrix = _finalize(trainMatrix)
+  testMatrix  = _finalize(testMatrix)
+
+  for (const condId in trainMatrix) {
+    for (const exitKey of EXIT_KEYS) {
+      const trainCell = trainMatrix[condId][exitKey]
+      const testCell  = testMatrix[condId][exitKey]
+      trainCell.wilsonLower = trainCell.n > 0 ? wilsonLowerBound(trainCell.wins, trainCell.n) : null
+      if (trainCell.n === 0 || testCell.n < MIN_TEST_SAMPLE) {
+        trainCell.holds = null // sample latih kosong ATAU sample uji terlalu kecil -- belum bisa disimpulkan
+      } else {
+        trainCell.holds = testCell.winRate >= trainCell.winRate * HOLD_THRESHOLD
+      }
+    }
+  }
+
+  return { train: trainMatrix, test: testMatrix }
 }

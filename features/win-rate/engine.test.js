@@ -4,7 +4,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { classifyCondition, allConditionIds, simulateTrade, runBacktest, runBacktestMulti, EXIT_KEYS } from './engine.js'
+import { classifyCondition, allConditionIds, simulateTrade, runBacktest, runBacktestMulti, runBacktestMultiSplit, EXIT_KEYS } from './engine.js'
 
 const EPS = 1e-9
 const close = (a, b, msg) => assert.ok(Math.abs(a - b) < EPS, msg || `${a} !== ${b}`)
@@ -221,4 +221,78 @@ test('runBacktestMulti: hasilnya SAMA dgn runBacktest() kalau cuma 1 simbol', ()
   const single = runBacktest(fixture)
   const multi = runBacktestMulti({ ONLY: fixture })
   assert.deepEqual(multi, single)
+})
+
+// ============================================================
+// runBacktestMultiSplit — train/test (perluasan signal validator)
+// ============================================================
+
+/**
+ * Bangun 1 simbol: hari ke-0 = seed (cuma penyedia "prev" utk hari ke-1,
+ * tidak pernah dievaluasi sendiri). SEMUA hari open=close=1000, rsi=50,
+ * macdHist=0 -> SELALU klasifikasi ke kondisi yg SAMA (Gap Netral + RSI
+ * Netral + MACD Netral), isolasi test ke 1 kondisi 1 exit (p0905) saja.
+ * Urutan: [trainWins][trainLosses][testWins][testLosses].
+ */
+function _buildSplitFixture(trainWins, trainLosses, testWins, testLosses) {
+  const daily = [{ date: 'd00', open: 1000, close: 1000, rsi: 50, macdHist: 0 }]
+  const intraday = {}
+  let idx = 1
+  const pushDay = (isWin) => {
+    const date = `d${String(idx).padStart(2, '0')}`
+    daily.push({ date, open: 1000, close: 1000, rsi: 50, macdHist: 0 })
+    intraday[date] = { p0905: isWin ? 1020 : 990 } // +2% win / -1% loss
+    idx++
+  }
+  for (let i = 0; i < trainWins;   i++) pushDay(true)
+  for (let i = 0; i < trainLosses; i++) pushDay(false)
+  for (let i = 0; i < testWins;    i++) pushDay(true)
+  for (let i = 0; i < testLosses;  i++) pushDay(false)
+  return { daily, intraday }
+}
+
+const NETRAL_COND = 'netral|netral|netral'
+
+test('runBacktestMultiSplit: kondisi BERTAHAN di data uji -> holds=true', () => {
+  // Train 14 hari (10W+4L) -> WR 71.43%. Test 6 hari (4W+2L) -> WR 66.67% (93% dari train, >= 80%)
+  // Total 21 hari (+1 seed) -> trainRatio=0.72 -> splitIdx=floor(21*0.72)=15 -> train evaluasi 14 hari, test evaluasi 6 hari
+  const fixture = _buildSplitFixture(10, 4, 4, 2)
+  const { train, test: testM } = runBacktestMultiSplit({ AAAA: fixture }, 0.72)
+
+  const cell = train[NETRAL_COND].p0905
+  close(cell.winRate, 100 * 10 / 14)
+  assert.equal(cell.n, 14)
+  assert.equal(cell.holds, true)
+  assert.ok(cell.wilsonLower < cell.winRate, 'wilsonLower harus < WR mentah')
+
+  const testCell = testM[NETRAL_COND].p0905
+  assert.equal(testCell.n, 6)
+  close(testCell.winRate, 100 * 4 / 6)
+})
+
+test('runBacktestMultiSplit: kondisi ANJLOK di data uji -> holds=false', () => {
+  // Test 6 hari (1W+5L) -> WR 16.67% (23% dari train, < 80%)
+  const fixture = _buildSplitFixture(10, 4, 1, 5)
+  const { train } = runBacktestMultiSplit({ AAAA: fixture }, 0.72)
+  const cell = train[NETRAL_COND].p0905
+  assert.equal(cell.holds, false)
+})
+
+test('runBacktestMultiSplit: sample uji terlalu kecil (<5) -> holds=null, BUKAN false', () => {
+  // Total 11 hari (+1 seed), trainRatio=0.75 -> splitIdx=floor(11*0.75)=8 -> train 7 hari, test 3 hari (<5)
+  const fixture = _buildSplitFixture(5, 2, 2, 1)
+  const { train, test: testM } = runBacktestMultiSplit({ AAAA: fixture }, 0.75)
+  const cell = train[NETRAL_COND].p0905
+  assert.equal(testM[NETRAL_COND].p0905.n, 3)
+  assert.equal(cell.holds, null) // BUKAN false -- belum bisa disimpulkan, beda dgn terbukti gagal
+})
+
+test('runBacktestMultiSplit: gabung lintas simbol -- akumulasi train & test masing2 digabung sebelum dihitung WR', () => {
+  // 2 simbol identik (10W+4L train, 4W+2L test) -> train gabungan harus 28 hari (14x2), bukan rata-rata 2 angka 14
+  const fixtureA = _buildSplitFixture(10, 4, 4, 2)
+  const fixtureB = _buildSplitFixture(10, 4, 4, 2)
+  const { train, test: testM } = runBacktestMultiSplit({ AAAA: fixtureA, BBBB: fixtureB }, 0.72)
+  assert.equal(train[NETRAL_COND].p0905.n, 28)
+  assert.equal(testM[NETRAL_COND].p0905.n, 12)
+  close(train[NETRAL_COND].p0905.winRate, 100 * 10 / 14) // WR tetap sama (proporsional), cuma n yg digabung
 })

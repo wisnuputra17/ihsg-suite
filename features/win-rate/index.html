@@ -95,6 +95,10 @@
       <label>Min. jumlah trade (n):
         <input type="number" class="input" id="min-n" value="5" min="0" style="width:60px;">
       </label>
+      <label style="display:flex; align-items:center; gap:4px;">
+        <input type="checkbox" id="show-validation">
+        Validasi (70/30)
+      </label>
       <span class="scan-status" id="results-meta"></span>
     </div>
     <div class="table-wrap" style="max-height:70vh;">
@@ -108,13 +112,14 @@
   import { TOKEN, SYMS, LQ45, IDX80, has, setEmitenInfo } from '../../shared/store.js'
   import { fetchEmitenJson } from '../../shared/api.js'
   import { renderHeader, refreshTokenStatus, openTokenPopover, whenTokenReady } from '../../shared/header.js'
-  import { EXIT_KEYS, allConditionIds, runBacktestMulti } from './engine.js'
+  import { EXIT_KEYS, allConditionIds, runBacktestMulti, runBacktestMultiSplit } from './engine.js'
   import { DB, loadSym } from './db.js'
   import { estimateFetch, fetchWatchlist } from './fetch.js'
   import { showProgress, hideProgress, setProgress, logProgress } from '../../shared/fetch-progress.js'
 
   let _selectedSyms = new Set()
   let _lastMatrix    = null
+  let _lastSplitResult = null // {train, test} dari runBacktestMultiSplit -- dihitung sekalian saat scan, ditampilkan kalau checkbox "Validasi" aktif
   const AUTO_FETCH_MAX = 100 // total hari belum ter-cache di bawah ini -> auto fetch tanpa konfirmasi
 
   // ============================================================
@@ -132,6 +137,7 @@
     document.getElementById('scan-btn').addEventListener('click', _runScan)
     document.getElementById('sort-exit').addEventListener('change', _renderTable)
     document.getElementById('min-n').addEventListener('input', _renderTable)
+    document.getElementById('show-validation').addEventListener('change', _renderTable)
 
     // Default rentang tanggal: 3 bulan terakhir (titik awal yang wajar, bebas diubah)
     const today = new Date()
@@ -257,6 +263,7 @@
       const emitenDataBySym = {}
       for (const sym of syms) emitenDataBySym[sym] = DB.emiten[sym] || (await loadSym(sym))
       _lastMatrix = runBacktestMulti(emitenDataBySym)
+      _lastSplitResult = runBacktestMultiSplit(emitenDataBySym)
 
       const okCount = syms.length - failedSyms.length
       logProgress(progEl, `Selesai: ${okCount}/${syms.length} saham berhasil.`, failedSyms.length ? 'warn' : 'ok')
@@ -294,8 +301,14 @@
     if (!_lastMatrix) return
     const anchorExit = document.getElementById('sort-exit').value
     const minN = Number(document.getElementById('min-n').value) || 0
+    const validationMode = document.getElementById('show-validation').checked
 
-    const rows = allConditionIds().map(c => ({ ...c, cells: _lastMatrix[c.id] }))
+    // Mode validasi: pakai matrix LATIH (70%) dari runBacktestMultiSplit --
+    // tiap sel sudah ditambah wilsonLower & holds (lihat engine.js). Mode
+    // normal: pakai matrix dari SEMUA data (runBacktestMulti), spt sebelumnya.
+    const sourceMatrix = (validationMode && _lastSplitResult) ? _lastSplitResult.train : _lastMatrix
+
+    const rows = allConditionIds().map(c => ({ ...c, cells: sourceMatrix[c.id] }))
     rows.sort((a, b) => {
       const an = a.cells[anchorExit].n, bn = b.cells[anchorExit].n
       if (an < minN && bn < minN) return 0
@@ -312,6 +325,20 @@
       const cells = EXIT_KEYS.map(k => {
         const c = r.cells[k]
         if (c.n === 0 || c.n < minN) return `<td class="wr-cell wr-empty">–</td>`
+
+        if (validationMode) {
+          // Warna berdasar HOLDS (bertahan di data uji), bukan ambang WR mentah --
+          // sel yg "kelihatan bagus" tapi gagal validasi akan kelihatan beda
+          // warnanya dari yg benar2 bertahan, walau WR-nya sama persis.
+          const cls = c.holds === true ? 'wr-good' : c.holds === false ? 'wr-bad' : 'wr-mid'
+          const holdsLabel = c.holds === true ? 'Bertahan' : c.holds === false ? 'Anjlok' : 'Sample kecil'
+          const wilsonTxt = c.wilsonLower != null ? `min ${c.wilsonLower.toFixed(0)}%` : '–'
+          return `<td class="wr-cell ${cls}" title="${holdsLabel} di data uji (30%)">
+            <div class="wr-pct">${c.winRate.toFixed(0)}%</div>
+            <div class="wr-sub">${wilsonTxt} · n=${c.n}</div>
+          </td>`
+        }
+
         const cls = c.winRate >= 60 ? 'wr-good' : c.winRate <= 40 ? 'wr-bad' : 'wr-mid'
         const sign = c.avgReturn >= 0 ? '+' : ''
         return `<td class="wr-cell ${cls}">
@@ -324,7 +351,8 @@
 
     document.getElementById('results-table').innerHTML = thead + tbody
     const totalN = rows.reduce((s, r) => s + EXIT_KEYS.reduce((s2, k) => s2 + r.cells[k].n, 0), 0)
-    document.getElementById('results-meta').textContent = `${totalN} total trade tersimulasi.`
+    const modeTxt = validationMode ? ' (matrix LATIH 70% -- warna berdasar bertahan/tidak di data UJI 30%)' : ''
+    document.getElementById('results-meta').textContent = `${totalN} total trade tersimulasi.${modeTxt}`
   }
 
   init()
