@@ -53,5 +53,10 @@ Kalau ada yang baru muncul pas testing, kasih tau Claude di sesi manapun — "ta
 > Item spesifik yang Wisnu tambah di bawah ini DIDAHULUKAN dari urutan
 > default di atas.
 
-- [ ] *(belum ada item spesifik — masih pakai urutan default di atas)*
+- [ ] **Screening Otomatis (GitHub Actions, jalan tiap pagi sebelum market buka)**
+  - Tujuan: screening watchlist otomatis tiap pagi (kandidat kriteria: gap, ATR, broker flow H-1 — lihat "Watchlist H-1" di urutan default di atas, ini SALING TERKAIT, bukan fitur terpisah)
+  - Mekanisme: GitHub Actions cron (gratis, TIDAK perlu kartu kredit/Blaze — sudah dibandingkan vs Firebase Cloud Functions yg wajib Blaze)
+  - Token Stockbit: Wisnu **kirim manual tiap hari** (bukan otomatis — Stockbit tidak punya cara login otomatis). Perlu didesain: cara Wisnu kirim token itu ke GitHub Actions (kandidat: GitHub Secret di-update manual via CLI/API, ATAU token disimpan ke Firestore lewat UI web yg sudah ada, GitHub Action baca dari situ saat jalan)
+  - Kalau token sudah expired pas jam cron jalan: WAJIB gagal graceful (log/notifikasi jelas "token expired", BUKAN diam-diam gagal tanpa jejak)
+  - Status: baru ide/rencana, BELUM ada desain teknis detail apa pun, apalagi kode
 
