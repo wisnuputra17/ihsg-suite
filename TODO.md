@@ -33,3 +33,25 @@
 ## Cara update list ini
 
 Kalau ada yang baru muncul pas testing, kasih tau Claude di sesi manapun — "tambahkan ke TODO.md" — biar tetap satu tempat, tidak kececer di histori chat.
+
+---
+
+# Mode Bakar Token — Pending Task untuk Claude
+
+> Beda dari daftar di atas (itu utk Wisnu eksekusi) — ini daftar tugas yang
+> Claude akan kerjakan kalau Wisnu bilang "gunakan mode bakar token".
+> Wisnu nambah item di sini kapan saja kepikiran sambil kerja, tidak perlu
+> langsung dikerjakan saat itu. Urutan defaultnya (kalau list di bawah
+> kosong/belum ada prioritas spesifik):
+>   1. ORB (Opening Range Breakout) — desain & bangun logic + test
+>   2. VWAP reclaim/rejection — desain & bangun logic + test
+>   3. Perluas Signal Validator (Wilson lower bound + train/test) ke Win Rate Scanner
+>   4. Watchlist H-1 (filter saham layak dipantau dari broker flow/gap/ATR semalam)
+>   5. Rapikan inkonsistensi kecil dari audit (2 gaya progress bar, dst)
+>   6. Perkuat test coverage di bagian yang masih tipis
+>
+> Item spesifik yang Wisnu tambah di bawah ini DIDAHULUKAN dari urutan
+> default di atas.
+
+- [ ] *(belum ada item spesifik — masih pakai urutan default di atas)*
+
