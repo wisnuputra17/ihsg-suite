@@ -500,18 +500,16 @@
         Object.keys(dayMap).forEach(code => { dayMap[code].net = dayMap[code].buy - dayMap[code].sell })
         DB.brokerCache[date] = dayMap
 
-        // Persist SEMUA broker yang dikembalikan API (~100, sesuai limit
-        // fetchBroker) -- BUKAN cuma broker yang sedang dipilih utk garis
-        // perbandingan. WAJIB begini, bukan optimasi storage seperti
-        // sebelumnya: Top 10 butuh data SEMUA broker utk ranking yang akurat
-        // di rentang APA PUN yang nanti di-zoom, termasuk SETELAH reload
-        // (waktu itu DB.brokerCache di memori sudah kosong, cuma yang
-        // PERSISTED ke Firestore yang ke-load ulang). Kalau cuma persist
-        // broker yg dipilih, Top 10 dari cache lama jadi cuma berisi
-        // beberapa broker itu doang -- BUG yang sempat ketemu 24 Jun 2026.
-        Object.entries(dayMap).forEach(([code, v]) => {
-          newlyFetched.push({ date, broker: code, ...v })
-        })
+        // Persist 1 entry utk SELURUH hari ini (field `brokers` = map SEMUA
+        // broker yang dikembalikan API, ~100 sesuai limit fetchBroker) --
+        // BUKAN N entry per broker seperti sebelumnya. Alasan ganda: (1)
+        // WAJIB semua broker tersimpan, bukan cuma yg dipilih utk garis
+        // perbandingan -- Top 10 butuh data lengkap utk ranking akurat di
+        // rentang APA PUN, termasuk SETELAH reload (bug yg sempat ketemu
+        // 24 Jun 2026). (2) 1 dokumen/hari (bukan ~100 dokumen/hari) turun
+        // writes Firestore ~100x -- fetch multi-tahun sempat tembus kuota
+        // gratis 20rb writes/hari dgn shape lama dalam 1 sesi fetch saja.
+        newlyFetched.push({ date, brokers: dayMap })
       } catch (_) {
         DB.brokerCache[date] = null
       }
