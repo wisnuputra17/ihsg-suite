@@ -55,6 +55,7 @@ Kalau ada yang baru muncul pas testing, kasih tau Claude di sesi manapun — "ta
 
 - [ ] **Screening Otomatis (GitHub Actions, jalan tiap pagi sebelum market buka)**
   - Tujuan: screening watchlist otomatis tiap pagi (kandidat kriteria: gap, ATR, broker flow H-1 — lihat "Watchlist H-1" di urutan default di atas, ini SALING TERKAIT, bukan fitur terpisah)
+  - **Referensi UI** (dari Wisnu, lihat `docs/reference/screener-ui-mockup.jpeg`): mirip screener Stockbit — "Nama Screener" (text input), "Stock Universe" (dropdown, mis. IHSG/LQ45), "Rules" (list kondisi yang bisa ditambah/dihapus dinamis lewat "+ Tambah Rules" + tombol X per rule, BUKAN hardcoded spt 16/27 kondisi di Win Rate Scanner/Ranking Emiten sekarang), tombol "Screen" (CTA utama) di bawah. Implikasi: butuh UI rule-builder yang fleksibel (pilih field+operator+nilai per rule), beda arsitektur dari kondisi hardcoded yang sudah ada.
   - Mekanisme: GitHub Actions cron (gratis, TIDAK perlu kartu kredit/Blaze — sudah dibandingkan vs Firebase Cloud Functions yg wajib Blaze)
   - Token Stockbit: Wisnu **kirim manual tiap hari** (bukan otomatis — Stockbit tidak punya cara login otomatis). Perlu didesain: cara Wisnu kirim token itu ke GitHub Actions (kandidat: GitHub Secret di-update manual via CLI/API, ATAU token disimpan ke Firestore lewat UI web yg sudah ada, GitHub Action baca dari situ saat jalan)
   - Kalau token sudah expired pas jam cron jalan: WAJIB gagal graceful (log/notifikasi jelas "token expired", BUKAN diam-diam gagal tanpa jejak)
