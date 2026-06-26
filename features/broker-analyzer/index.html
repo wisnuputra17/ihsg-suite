@@ -283,10 +283,9 @@
     // (bukan per-broker) — karena 1 fetch sudah cukup utk semua broker DAN
     // utk ranking Top 10 sekaligus (data yang sama dipakai berdua).
     const missing = visibleDates.filter(d => !(d in DB.brokerCache))
-    console.log('[DEBUG top10]', { visibleDatesCount: visibleDates.length, firstDate: visibleDates[0], lastDate: visibleDates.at(-1), missingCount: missing.length })
 
     // Tampilkan dari cache yang sudah ada duluan, sambil nunggu (kalau ada) konfirmasi
-    if (DB.selectedBrokers.length) _renderAllBrokerLines()
+    if (DB.selectedBrokers.length) _renderAllBrokerLines(fromIdx)
     _computeAndRenderTop10(visibleDates)
 
     await fetchWithConfirm({
@@ -297,7 +296,7 @@
       batchDelay: BATCH_DELAY,
       fetchFn: _fetchDateBatch,
       onComplete: () => {
-        if (DB.selectedBrokers.length) _renderAllBrokerLines()
+        if (DB.selectedBrokers.length) _renderAllBrokerLines(fromIdx)
         _computeAndRenderTop10(visibleDates)
       }
     })
@@ -332,7 +331,6 @@
     const topSellers = entries.filter(e => e.net < 0).sort((a, b) => a.net - b.net).slice(0, 10).map(e => ({ code: e.code, val: Math.abs(e.net) }))
 
     DB.brokerTop = { buys: topBuyers, sells: topSellers, rangeDays: rangeDates.length }
-    console.log('[DEBUG top10] hasil hitung:', { rangeDays: rangeDates.length, topBuyer: topBuyers[0], topSeller: topSellers[0] })
     _renderTop10Lists()
   }
 
@@ -517,7 +515,18 @@
   // ============================================================
   // SEKSI 8: RENDER GARIS KUMULATIF PER BROKER
   // ============================================================
-  function _renderAllBrokerLines() {
+  /**
+   * @param {number} [fromIdx] - index DB.daily TEMPAT garis kumulatif mulai
+   *   dihitung ulang dari 0 -- DIBERIKAN oleh caller yang sudah tahu rentang
+   *   visible (lihat _updateBrokerHistoryForVisibleRange), supaya tidak
+   *   query getVisibleLogicalRange() dobel. Kalau tidak diberikan/null,
+   *   ambil sendiri dari chart (dgn fallback ke 0 kalau chart belum siap).
+   */
+  function _renderAllBrokerLines(fromIdx = null) {
+    if (fromIdx == null) {
+      const range = chart?.timeScale().getVisibleLogicalRange()
+      fromIdx = range ? Math.max(0, Math.floor(range.from)) : 0
+    }
     DB.selectedBrokers.forEach((broker, i) => {
       if (_brokerSeries[broker]) { try { chart.removeSeries(_brokerSeries[broker]) } catch (_) {} }
       const color = BROKER_COLORS[i % BROKER_COLORS.length]
@@ -542,8 +551,12 @@
       }
 
       else {
-        // Kumulatif — net harian ditambah terus-menerus. PENTING: garis HARUS
-        // selalu sambung sebagai total berjalan — hari yang sudah DICEK tapi
+        // Kumulatif — net harian ditambah terus-menerus, REBASE ke 0 di awal
+        // rentang yang sedang KELIHATAN (fromIdx) -- BUKAN dari hari pertama
+        // SEMUA histori. Zoom/geser chart akan mengubah fromIdx, garis ikut
+        // "reset" mulai dari titik itu (konsisten dgn Top10 yang juga ikut
+        // rentang visible). PENTING: garis HARUS selalu sambung sebagai total
+        // berjalan — hari yang sudah DICEK tapi
         // broker tidak aktif (dayMap ada, tapi broker tidak ada di dalamnya)
         // tetap diberi titik DATAR (carry-forward), BUKAN dilewati. Kalau
         // dilewati, LineSeries akan menyambungkan garis lurus diagonal ke
@@ -555,7 +568,7 @@
         // dayMap[broker] tidak ada) yang tetap carry-forward datar.
         let cum = 0
         const points = []
-        DB.daily.forEach(d => {
+        DB.daily.slice(fromIdx).forEach(d => {
           const dayMap = DB.brokerCache[d.date]
           if (!dayMap) return // undefined (belum di-fetch) ATAU null (memang kosong) — lewati
           const v = dayMap[broker]
