@@ -152,6 +152,47 @@ ihsg-suite/
 
 ---
 
-## 8. Cara Pakai Dokumen Ini
+## 9. Fondasi Signal Engine (dikerjakan dlm "Mode Bakar Token", 24 Jun 2026)
+
+⚠️ **SEMUA item di section ini: pure logic + test, BELUM diintegrasikan ke
+UI/Chart real-time sama sekali, dan BELUM PERNAH divalidasi Wisnu dgn data
+pasar nyata.** Ini fondasi siap-pakai, BUKAN hasil analisis pasar final.
+
+- **`shared/orb.js`** — Opening Range Breakout. `computeOpeningRange()`,
+  `detectBreakout()` (dari CLOSE candle, bukan high/low — hindari sinyal
+  palsu dari wick), `scanForFirstBreakout()` (opsional syarat volume
+  konfirmasi). Sengaja TIDAK parsing timestamp — caller yg tentukan
+  alignment candle ke market-open. 14 test.
+- **`shared/vwap-signal.js`** — VWAP reclaim (bullish, cross ke atas
+  VWAP)/rejection (bearish, cross ke bawah). REUSE `calcVWAP()` yg sudah
+  ada di `shared/indicators.js`, cuma deteksi titik cross-nya. Definisi
+  SIMETRIS — **perlu dikonfirmasi Wisnu** kalau maksudnya beda (mis.
+  "rejection" sbg "gagal breakout dari bawah", bukan "cross balik ke
+  bawah" — itu definisi lain yg belum diimplementasikan). 7 test.
+- **`shared/watchlist-h1.js`** — Scoring saham "layak dipantau besok"
+  murni dari data H-1 (REUSE PERSIS 7 dari 16 kondisi Ranking Emiten yg
+  murni H-1: ATR%, ATR Ratio, RSI H-1, MACD Hist H-1, Vol/MA H-1, Foreign
+  Net H-1, IHSG H-1 Trend — BUKAN ambang baru). `scoreH1Watchlist()` +
+  `rankWatchlistCandidates()` (tie-break by ATR Ratio, BOLEH diganti). 9 test.
+- **`features/win-rate/engine.js` — `runBacktestMultiSplit()`** — perluasan
+  Signal Validator (Wilson lower bound + train/test, sebelumnya cuma ada
+  di Ranking Emiten) ke Win Rate Scanner. Checkbox "Validasi (70/30)" baru
+  di UI win-rate, toggle antara matrix normal vs matrix LATIH+holds. 4 test.
+
+**Total test proyek sekarang: 178** (naik dari 144 sebelum sesi ini).
+
+**Langkah selanjutnya yang BELUM dikerjakan** (butuh keputusan/testing
+Wisnu, tidak bisa dikerjakan blind tanpa pengawasan live):
+- Integrasi visual ORB/VWAP ke Chart (marker breakout/cross di candle) —
+  scope baru, belum disepakati detail UI-nya
+- Kalibrasi threshold Watchlist H-1 (skor berapa baru dianggap layak
+  dipantau) dgn data nyata
+- Rapikan inkonsistensi 2 gaya progress bar (expensive-fetch.js vs
+  fetch-progress.js) — item #5 default queue, SENGAJA tidak dikerjakan
+  blind krn menyentuh kode Chart/Broker Analyzer yg sudah beberapa kali
+  diperbaiki sesi ini, risiko visual/UX regression tanpa testing live
+  lebih tinggi drpd manfaatnya (murni kosmetik, bukan bug fungsional)
+
+## 10. Cara Pakai Dokumen Ini
 
 Paste seluruh isi dokumen ini di awal sesi baru. Kalau Wisnu bilang sudah setup Firebase, cek §2 dulu sebelum lanjut kerja apa pun yang menyentuh data — jangan asumsi migrasi sudah/belum selesai tanpa tanya/cek `firebase.config.js`.
