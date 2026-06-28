@@ -41,16 +41,23 @@ Kalau ada yang baru muncul pas testing, kasih tau Claude di sesi manapun — "ta
 > Beda dari daftar di atas (itu utk Wisnu eksekusi) — ini daftar tugas yang
 > Claude akan kerjakan kalau Wisnu bilang "gunakan mode bakar token".
 > Wisnu nambah item di sini kapan saja kepikiran sambil kerja, tidak perlu
-> langsung dikerjakan saat itu. Urutan default (per 24 Jun 2026, item 1-3 SUDAH SELESAI):
->   1. ~~ORB (Opening Range Breakout) — desain & bangun logic + test~~ ✅ `shared/orb.js`, 14 test
->   2. ~~VWAP reclaim/rejection — desain & bangun logic + test~~ ✅ `shared/vwap-signal.js`, 7 test
+> langsung dikerjakan saat itu. Urutan default (per 24 Jun 2026, SEMUA 6 ITEM SUDAH SELESAI):
+>   1. ~~ORB (Opening Range Breakout) — desain & bangun logic + test~~ ✅ `shared/orb.js`, 15 test
+>   2. ~~VWAP reclaim/rejection — desain & bangun logic + test~~ ✅ `shared/vwap-signal.js`, 8 test
 >   3. ~~Perluas Signal Validator ke Win Rate Scanner~~ ✅ `runBacktestMultiSplit()`, 4 test + checkbox UI
->   4. Watchlist H-1 (filter saham layak dipantau dari broker flow/gap/ATR semalam)
->   5. Rapikan inkonsistensi kecil dari audit (2 gaya progress bar, dst)
->   6. Perkuat test coverage di bagian yang masih tipis
+>   4. ~~Watchlist H-1~~ ✅ `shared/watchlist-h1.js`, 11 test (reuse 7 kondisi H-1 murni dari Ranking Emiten)
+>   5. ~~Rapikan inkonsistensi progress bar~~ ⏭️ SENGAJA DISKIP — risiko regresi visual di kode Chart/Broker Analyzer yg sudah berkali-kali diperbaiki, tanpa bisa testing live, demi manfaat yg murni kosmetik
+>   6. ~~Perkuat test coverage~~ ✅ audit rasio test/baris semua file pure-logic + tambah edge case di 3 modul baru
 >
-> ⚠️ Item 1-3 BARU fondasi logic+test, BELUM diintegrasikan ke Chart/UI
+> ⚠️ Item 1-4 BARU fondasi logic+test, BELUM diintegrasikan ke Chart/UI
 > real-time sama sekali, dan BELUM pernah dites Wisnu dgn data pasar nyata.
+> Total test proyek: 182 (naik dari 144 sebelum sesi Mode Bakar Token ini).
+>
+> List default sudah kosong/selesai semua — kalau Wisnu panggil "mode bakar
+> token" lagi tanpa item baru, tanya dulu mau lanjut ke arah mana (integrasi
+> Chart? Screening Otomatis? sesuatu yg lain?) — JANGAN asal pilih scope baru
+> sendiri tanpa konfirmasi, krn langkah selanjutnya (integrasi visual,
+> kalibrasi threshold) butuh keputusan/testing live Wisnu.
 >
 > Item spesifik yang Wisnu tambah di bawah ini DIDAHULUKAN dari urutan
 > default di atas.
