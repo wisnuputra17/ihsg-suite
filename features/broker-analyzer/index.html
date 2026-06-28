@@ -283,23 +283,30 @@
     // (bukan per-broker) — karena 1 fetch sudah cukup utk semua broker DAN
     // utk ranking Top 10 sekaligus (data yang sama dipakai berdua).
     const missing = visibleDates.filter(d => !(d in DB.brokerCache))
+    console.log('[DEBUG fetch-btn]', { visibleDatesCount: visibleDates.length, fromIdx, toIdx, missingCount: missing.length, autoMax: AUTO_FETCH_MAX })
 
     // Tampilkan dari cache yang sudah ada duluan, sambil nunggu (kalau ada) konfirmasi
     if (DB.selectedBrokers.length) _renderAllBrokerLines(fromIdx)
     _computeAndRenderTop10(visibleDates)
 
-    await fetchWithConfirm({
-      missingDates: missing,
-      statusEl: document.getElementById('status'),
-      autoMax: AUTO_FETCH_MAX,
-      batchSize: BATCH_SIZE,
-      batchDelay: BATCH_DELAY,
-      fetchFn: _fetchDateBatch,
-      onComplete: () => {
-        if (DB.selectedBrokers.length) _renderAllBrokerLines(fromIdx)
-        _computeAndRenderTop10(visibleDates)
-      }
-    })
+    console.log('[DEBUG fetch-btn] sebelum panggil fetchWithConfirm...')
+    try {
+      await fetchWithConfirm({
+        missingDates: missing,
+        statusEl: document.getElementById('status'),
+        autoMax: AUTO_FETCH_MAX,
+        batchSize: BATCH_SIZE,
+        batchDelay: BATCH_DELAY,
+        fetchFn: _fetchDateBatch,
+        onComplete: () => {
+          if (DB.selectedBrokers.length) _renderAllBrokerLines(fromIdx)
+          _computeAndRenderTop10(visibleDates)
+        }
+      })
+      console.log('[DEBUG fetch-btn] fetchWithConfirm SELESAI tanpa error')
+    } catch (err) {
+      console.error('[DEBUG fetch-btn] fetchWithConfirm THROW:', err)
+    }
   }
 
   /** Jumlahkan buy/sell per broker sepanjang rangeDates (= rentang yang TERLIHAT di chart), ranking top 10 masing2. */
