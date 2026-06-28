@@ -39,6 +39,19 @@ test('scoreH1Watchlist: field kosong/undefined semua -> score=0, TIDAK crash', (
   assert.equal(result.score, 0)
 })
 
+test('scoreH1Watchlist: row NULL (bukan cuma field kosong, objek itu sendiri null) -> tetap score=0, TIDAK crash', () => {
+  // r.atrPct dst akan throw TypeError kalau r=null -- harus tertangkap PER
+  // SINYAL (try/catch di scoreH1Watchlist), bukan bikin seluruh fungsi crash.
+  const result = scoreH1Watchlist(null)
+  assert.equal(result.score, 0)
+  assert.deepEqual(result.matched, [])
+})
+
+test('scoreH1Watchlist: ihsgH1Trend bertipe aneh (bukan string) -- tidak crash, dianggap tidak match', () => {
+  const result = scoreH1Watchlist({ ihsgH1Trend: 12345 })
+  assert.equal(result.score, 0)
+})
+
 test('rankWatchlistCandidates: urutan descending berdasar score', () => {
   const rowsBySym = {
     AAAA: { atrPct: 1.5, atrRatio: 2.0, rsi: 35, macdHist: 0.5, vmaRatio: 2.0, foreignNet: 1000000, ihsgH1Trend: 'up' },   // score 7

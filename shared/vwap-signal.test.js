@@ -56,3 +56,20 @@ test('detectFirstVwapCross: cuma ambil cross PERTAMA, bukan semua', () => {
 test('detectFirstVwapCross: tidak ada cross -> null', () => {
   assert.equal(detectFirstVwapCross([{ close: 110 }], [105]), null)
 })
+
+test('detectVwapCrosses: BANYAK cross berselang-seling (reclaim-rejection-reclaim) -- SEMUA tertangkap, bukan cuma yg pertama/terakhir', () => {
+  // i=1: 100<104(prevVwap[0]=104)? perlu prevVwap[0] != null dulu. Susun:
+  // vwap konstan 100 sepanjang test ini (sengaja, isolasi cuma close yg berubah)
+  const candles    = [
+    { close: 95 },  // i=0: di bawah vwap(100)
+    { close: 105 }, // i=1: RECLAIM (95<100 -> 105>=100)
+    { close: 98 },  // i=2: REJECTION (105>100 -> 98<=100)
+    { close: 102 }, // i=3: RECLAIM lagi (98<100 -> 102>=100)
+    { close: 97 }   // i=4: REJECTION lagi (102>100 -> 97<=100)
+  ]
+  const vwapValues = [100, 100, 100, 100, 100]
+  const crosses = detectVwapCrosses(candles, vwapValues)
+  assert.equal(crosses.length, 4)
+  assert.deepEqual(crosses.map(c => c.direction), ['reclaim', 'rejection', 'reclaim', 'rejection'])
+  assert.deepEqual(crosses.map(c => c.barIndex), [1, 2, 3, 4])
+})

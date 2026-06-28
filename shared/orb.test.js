@@ -129,3 +129,15 @@ test('scanForFirstBreakout: minVolumeMultiplier tapi avgRangeVolume=0 -- tidak c
   const result = scanForFirstBreakout(candles, 3, { minVolumeMultiplier: 1.5 })
   assert.equal(result, null) // tidak ada breakout LAIN yg lolos syarat volume, dan yg ini di-skip krn volumeRatio null
 })
+
+test('scanForFirstBreakout: candle breakout dgn volume UNDEFINED (bukan cuma range bars) -- tidak crash', () => {
+  const candles = [
+    { high: 105, low: 95, close: 100, volume: 1000 },
+    { high: 108, low: 98, close: 103, volume: 1200 },
+    { high: 106, low: 99, close: 102, volume: 900 },
+    { high: 112, low: 104, close: 110 } // breakout, volume TIDAK ADA sama sekali (bukan 0, undefined)
+  ]
+  const result = scanForFirstBreakout(candles, 3) // tanpa syarat volume, harus tetap ketemu breakout-nya
+  assert.equal(result.direction, 'bull')
+  assert.equal(result.volumeRatio, 0) // (undefined||0)/avgVol = 0/avgVol = 0, bukan NaN/crash
+})
