@@ -1,6 +1,13 @@
 /**
  * shared/firebase.js
  * ====================
+ * ⚠️ DEPRECATED (29 Jun 2026) — TIDAK DIPAKAI fitur manapun lagi.
+ * Backend pindah LAGI ke shared/indexeddb.js (lokal browser) krn kuota
+ * gratis Firestore Spark kena 2x dalam 1 hari testing, Wisnu tidak punya
+ * kartu kredit utk upgrade Blaze. File ini DIPERTAHANKAN di repo sbg
+ * referensi historis saja (sama spt shared/sheets.js sebelumnya) — JANGAN
+ * dihapus, tapi JANGAN diimport fitur baru manapun juga.
+ * ===================================================================
  * Pengganti shared/sheets.js — backend pindah dari Google Sheets/Apps Script
  * ke Firebase Firestore. Kontrak fungsi (nama, parameter, return value)
  * DIJAGA IDENTIK dengan sheets.js — tiap db.js fitur cuma perlu ganti 1

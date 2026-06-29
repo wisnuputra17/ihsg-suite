@@ -1,33 +1,28 @@
 /**
  * features/ranking-emiten/db.test.js
  * =====================================
- * db.js sekarang import dari shared/firebase.js (migrasi dari sheets.js,
- * 23 Jun 2026) -- firebase.js TIDAK BISA di-load langsung di Node (import
- * 'https://www.gstatic.com/...' di top-level, Node ESM loader cuma dukung
- * scheme file/data). Jadi di-mock di LEVEL MODUL pakai mock.module() (butuh
- * flag --experimental-test-module-mocks, lihat package.json), BUKAN lagi
- * mock global fetch mentah seperti versi sheets.js sebelumnya.
+ * db.js sekarang import dari shared/indexeddb.js (migrasi dari firebase.js,
+ * 29 Jun 2026) -- BEDA dari firebase.js, indexeddb.js BISA di-load langsung
+ * di Node lewat 'fake-indexeddb/auto' (implementasi MURNI JS dari spec
+ * IndexedDB asli, bukan sekadar mock) -- jadi test ini pakai STORAGE ASLI,
+ * BUKAN simulasi manual seperti sebelumnya. gsAppend di-wrap mock.fn() (dari
+ * node:test) supaya TETAP bisa diperiksa "berapa kali & data apa" -- spy ini
+ * tetap MEMANGGIL implementasi asli di baliknya, behavior storage 100% nyata.
  */
+import 'fake-indexeddb/auto'
 import { test, mock } from 'node:test'
 import assert from 'node:assert/strict'
+import * as IDB from '../../shared/indexeddb.js'
 
-let _mockSheets = {}
-let _appendCalls = []
+const _gsAppendSpy = mock.fn(IDB.gsAppend)
 
-mock.module('../../shared/firebase.js', {
+mock.module('../../shared/indexeddb.js', {
   namedExports: {
-    gsLoad: async (sheet, filter = null) => {
-      let rows = _mockSheets[sheet] || []
-      if (filter) rows = rows.filter(r => r[filter.field] === filter.value)
-      return rows
-    },
-    gsAppend: async (sheet, data) => {
-      _appendCalls.push({ sheet, data })
-      _mockSheets[sheet] = [...(_mockSheets[sheet] || []), ...data]
-    },
-    gsSave: async (sheet, data) => { _mockSheets[sheet] = [...data] },
-    gsClear: async (sheet) => { _mockSheets[sheet] = [] },
-    gsLoadFiltered: async (sheet, field, value) => (_mockSheets[sheet] || []).filter(r => r[field] === value)
+    gsLoad: IDB.gsLoad,
+    gsAppend: _gsAppendSpy,
+    gsSave: IDB.gsSave,
+    gsClear: IDB.gsClear,
+    gsLoadFiltered: IDB.gsLoadFiltered
   }
 })
 
@@ -36,7 +31,15 @@ const {
   rowToDaily, dailyToRow, rowToIntraday, intradayToRow, rowToIep, iepToRow, rowToIhsg, ihsgToRow
 } = await import('./db.js')
 
-function resetMocks() { _mockSheets = {}; _appendCalls = [] }
+/** Daftar panggilan gsAppend sejauh ini -- {sheet, data}[], urut kronologis. */
+function _appendCalls() {
+  return _gsAppendSpy.mock.calls.map(c => ({ sheet: c.arguments[0], data: c.arguments[1] }))
+}
+
+async function resetMocks() {
+  _gsAppendSpy.mock.resetCalls()
+  await IDB._resetForTesting()
+}
 
 // ============================================================
 // Mapper round-trip — PURE, tidak butuh fetch
@@ -92,17 +95,15 @@ test('ihsgToRow -> rowToIhsg: round-trip, TIDAK ada field sym (global)', () => {
 // ============================================================
 
 test('loadSym: filter per simbol dengan benar, simbol lain tidak nyasar masuk', async () => {
-  resetMocks()
-  _mockSheets['ranking-daily'] = [
+  await resetMocks()
+  await IDB.gsSave('ranking-daily', [
     { sym: 'BBCA', date: '2026-01-15', open: '1000', high: '1050', low: '980', close: '1020',
       volume: '1000', foreignbuy: '1', foreignsell: '1', rsi: '50', macdHist: '0', atr: '10',
       vmaRatio: '1', foreignNet: '0', returnPct: '0' },
     { sym: 'TLKM', date: '2026-01-15', open: '500', high: '510', low: '490', close: '505',
       volume: '500', foreignbuy: '1', foreignsell: '1', rsi: '60', macdHist: '0', atr: '5',
       vmaRatio: '1', foreignNet: '0', returnPct: '0' }
-  ]
-  _mockSheets['ranking-intraday'] = []
-  _mockSheets['ranking-iep'] = []
+  ])
 
   const e = await loadSym('BBCA')
   assert.equal(e.daily.length, 1)
@@ -115,16 +116,16 @@ test('loadSym: filter per simbol dengan benar, simbol lain tidak nyasar masuk', 
 // ============================================================
 
 test('loadIhsg: load global (tidak per simbol), idempoten dalam 1 sesi', async () => {
-  resetMocks()
-  _mockSheets['ranking-ihsg'] = [
+  await resetMocks()
+  await IDB.gsSave('ranking-ihsg', [
     { date: '2026-01-15', close: '7500', ret: '0.8', trend: 'up' },
     { date: '2026-01-16', close: '7450', ret: '-0.67', trend: 'down' }
-  ]
+  ])
   const ihsg = await loadIhsg()
   assert.equal(Object.keys(ihsg).length, 2)
   assert.equal(ihsg['2026-01-15'].trend, 'up')
 
-  _mockSheets['ranking-ihsg'].push({ date: '2026-01-17', close: '7600', ret: '2', trend: 'up' })
+  await IDB.gsAppend('ranking-ihsg', [{ date: '2026-01-17', close: '7600', ret: '2', trend: 'up' }])
   await loadIhsg() // panggilan ke-2 -- harusnya tidak fetch ulang
   assert.equal(Object.keys(DB.ihsg).length, 2) // tetap 2, bukan ikut data baru yg disuntik manual
 })
@@ -134,7 +135,7 @@ test('loadIhsg: load global (tidak per simbol), idempoten dalam 1 sesi', async (
 // ============================================================
 
 test('appendDaily: hari yang sudah ada di-skip, cuma hari baru yang dikirim ke gsAppend', async () => {
-  resetMocks()
+  await resetMocks()
   await loadSym('UNVR')
 
   const day1 = { date: '2026-02-01', open: 100, high: 105, low: 95, close: 102, volume: 1,
@@ -145,27 +146,27 @@ test('appendDaily: hari yang sudah ada di-skip, cuma hari baru yang dikirim ke g
   await appendDaily('UNVR', [day1])
   const r2 = await appendDaily('UNVR', [day1, day2])
   assert.equal(r2.written, 1)
-  assert.equal(_appendCalls.length, 2)
-  assert.equal(_appendCalls[1].data.length, 1)
-  assert.equal(_appendCalls[1].data[0].date, '2026-02-02')
+  assert.equal(_appendCalls().length, 2)
+  assert.equal(_appendCalls()[1].data.length, 1)
+  assert.equal(_appendCalls()[1].data[0].date, '2026-02-02')
   assert.equal(DB.emiten.UNVR.daily.length, 2)
 })
 
 test('appendIntraday: dedup per tanggal, tidak network call lagi kalau tanggal sama', async () => {
-  resetMocks()
+  await resetMocks()
   await loadSym('ICBP')
 
   const r1 = await appendIntraday('ICBP', [{ date: '2026-02-01', snap: { p0902: 1000, p1600: 1050 } }])
   assert.equal(r1.written, 1)
-  assert.equal(_appendCalls.length, 1)
+  assert.equal(_appendCalls().length, 1)
 
   const r2 = await appendIntraday('ICBP', [{ date: '2026-02-01', snap: { p0902: 1000, p1600: 1050 } }])
   assert.equal(r2.written, 0)
-  assert.equal(_appendCalls.length, 1)
+  assert.equal(_appendCalls().length, 1)
 })
 
 test('appendIepRaw: simpan RAW (totalVol/totalFreq) saja, dedup per tanggal', async () => {
-  resetMocks()
+  await resetMocks()
   await loadSym('ASII')
 
   await appendIepRaw('ASII', [{ date: '2026-02-01', totalVol: 1000, totalFreq: 50 }])
@@ -174,7 +175,7 @@ test('appendIepRaw: simpan RAW (totalVol/totalFreq) saja, dedup per tanggal', as
     { date: '2026-02-02', totalVol: 2000, totalFreq: 80 }  // baru
   ])
   assert.equal(r2.written, 1)
-  assert.equal(_appendCalls.at(-1).data.length, 1)
+  assert.equal(_appendCalls().at(-1).data.length, 1)
   assert.equal(DB.emiten.ASII.iep.length, 2)
   assert.equal('surge' in DB.emiten.ASII.iep[0], false) // tetap raw, bukan surge final
 })
@@ -184,19 +185,19 @@ test('appendIepRaw: simpan RAW (totalVol/totalFreq) saja, dedup per tanggal', as
 // ============================================================
 
 test('appendIhsg: dedup per tanggal (global, tidak per simbol)', async () => {
-  resetMocks()
+  await resetMocks()
   await loadIhsg()
 
   const r1 = await appendIhsg({ '2026-03-01': { close: 7000, ret: null, trend: 'unknown' } })
   assert.equal(r1.written, 1)
-  assert.equal(_appendCalls.length, 1)
+  assert.equal(_appendCalls().length, 1)
 
   const r2 = await appendIhsg({
     '2026-03-01': { close: 7000, ret: null, trend: 'unknown' }, // duplikat
     '2026-03-02': { close: 7100, ret: 1.43, trend: 'up' }       // baru
   })
   assert.equal(r2.written, 1)
-  assert.equal(_appendCalls.at(-1).data.length, 1)
+  assert.equal(_appendCalls().at(-1).data.length, 1)
   // DB.ihsg singleton (sama spt _loadedSyms) numpuk antar test dalam 1 file --
   // cek key spesifik yg baru ditambah test ini, bukan total count absolut
   assert.equal(DB.ihsg['2026-03-01'].close, 7000)

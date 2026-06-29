@@ -2,12 +2,21 @@
  * features/chart/db.js
  * =====================
  * Database in-memory untuk fitur Chart.
- * Data harga selalu fetch ulang (bukan input user) — tidak disimpan ke Sheets.
- * Hanya preferensi indikator (localStorage) dan garis gambar/drawings (Sheets,
- * karena itu hasil kerja manual user yang harus sinkron multi-device).
+ * Data harga selalu fetch ulang (bukan input user) — tidak disimpan permanen.
+ * Preferensi indikator (localStorage) dan garis gambar/drawings, LPM cache
+ * — semua via shared/indexeddb.js (lokal per browser, lihat §⚠️ di bawah).
+ *
+ * ⚠️ TRADE-OFF YANG PERLU DISADARI (29 Jun 2026, migrasi dari Firestore ke
+ * IndexedDB krn kuota gratis Firestore kena, Wisnu tidak punya kartu kredit
+ * utk Blaze): drawings (garis gambar manual) SEBELUMNYA didesain explicit
+ * utk SINKRON MULTI-DEVICE (gambar di laptop, kelihatan di device lain).
+ * IndexedDB TIDAK BISA itu — data lokal per-browser/laptop saja. DITERIMA
+ * krn Wisnu cuma pakai 1 laptop. Kalau nanti pakai >1 device, drawings
+ * TIDAK akan muncul di device lain — perlu didesain ulang (mis. export/
+ * import manual) kalau itu jadi kebutuhan nyata.
  */
 
-import { gsLoad, gsSave, gsAppend } from '../../shared/firebase.js'
+import { gsLoad, gsSave, gsAppend } from '../../shared/indexeddb.js'
 
 export const DB = {
   sym:    null,
@@ -21,15 +30,14 @@ const SHEET_DRAWINGS  = 'chart-drawings'
 const SHEET_LPM_CACHE = 'chart-lpm-cache'
 
 /**
- * Load histori LPM untuk 1 saham dari Sheets (persist permanen, sekali fetch
- * tidak perlu diulang lagi di sesi/device manapun). Dipanggil tiap ganti saham.
+ * Load histori LPM untuk 1 saham (persist permanen di IndexedDB, sekali
+ * fetch tidak perlu diulang lagi di sesi yang sama). Dipanggil tiap ganti saham.
  */
-/** Google Sheets otomatis ubah string tanggal jadi Date cell — saat dibaca
- * balik formatnya jadi ISO lengkap ("2024-11-19T00:00:00.000Z"), bukan
- * "2024-11-19" polos seperti yang kita kirim. WAJIB dinormalisasi balik,
- * kalau tidak key cache tidak akan pernah cocok dengan tanggal yang dicek
- * di tempat lain (akibatnya: dianggap "belum di-fetch" terus, fetch ulang
- * tiap kali ganti saham meski sudah pernah tersimpan).
+/** CATATAN HISTORIS (sudah tidak relevan utk IndexedDB, TAPI normalisasi ini
+ * tetap aman & tidak mengganggu — dipertahankan sbg jaring pengaman, bukan
+ * krn masih dibutuhkan): dulu Google Sheets otomatis ubah string tanggal
+ * jadi Date cell, ASCII penuh saat dibaca balik. IndexedDB/Firestore tidak
+ * punya masalah itu sama sekali.
  */
 function _normalizeDate(d) {
   return String(d).slice(0, 10)
@@ -66,15 +74,17 @@ export function appendLpmCache(sym, entries) {
   )
 }
 
-/** Load semua drawing (semua saham) dari Sheets — dipanggil sekali saat init. */
+/** Load semua drawing (semua saham) dari IndexedDB — dipanggil sekali saat init. */
 export async function loadDrawings() {
   try {
     const rows = await gsLoad(SHEET_DRAWINGS)
     DB.drawings = rows.map(r => ({
       id: r.id, sym: r.sym, type: r.type,
-      // t1/t2 utk timeframe D/W berupa string tanggal ("2024-11-19") — kena
-      // auto-convert Sheets jadi ISO penuh, normalisasi balik. Utk intraday
-      // (angka unix timestamp) aman, tidak kena konversi ini, dibiarkan saja.
+      // CATATAN HISTORIS (tidak relevan lagi utk IndexedDB, normalisasi
+      // dipertahankan sbg jaring pengaman saja): dulu Google Sheets auto-
+      // convert string tanggal jadi ISO penuh. t1/t2 utk timeframe D/W
+      // berupa string tanggal ("2024-11-19"), intraday berupa unix timestamp
+      // (number, tidak kena normalisasi ini, dibiarkan saja).
       t1: typeof r.t1 === 'number' ? r.t1 : _normalizeDate(r.t1), p1: Number(r.p1),
       t2: typeof r.t2 === 'number' ? r.t2 : _normalizeDate(r.t2), p2: Number(r.p2)
     }))
@@ -84,13 +94,13 @@ export async function loadDrawings() {
   }
 }
 
-/** Tambah 1 drawing baru, sinkron ke Sheets (timpa seluruh list). */
+/** Tambah 1 drawing baru, simpan ke IndexedDB lokal (timpa seluruh list) -- TIDAK sinkron antar device, lihat catatan trade-off di header file. */
 export function addDrawing(d) {
   DB.drawings.push(d)
   _saveDrawings()
 }
 
-/** Hapus 1 drawing by id, sinkron ke Sheets. */
+/** Hapus 1 drawing by id, simpan ke IndexedDB lokal. */
 export function removeDrawing(id) {
   DB.drawings = DB.drawings.filter(d => d.id !== id)
   _saveDrawings()
@@ -98,7 +108,7 @@ export function removeDrawing(id) {
 
 function _saveDrawings() {
   gsSave(SHEET_DRAWINGS, DB.drawings).catch(e =>
-    console.warn('[chart/db] sync drawings gagal:', e.message)
+    console.warn('[chart/db] simpan drawings gagal:', e.message)
   )
 }
 

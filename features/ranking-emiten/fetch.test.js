@@ -2,13 +2,14 @@
  * features/ranking-emiten/fetch.test.js
  * ========================================
  * Stockbit di-mock via global fetch (shared/api.js masih fetch() langsung,
- * tidak berubah). Sheets/Firebase di-mock via mock.module() ke
- * shared/firebase.js -- file itu TIDAK BISA di-load langsung di Node
- * (import 'https://www.gstatic.com/...' di top-level), jadi harus diganti
- * di level modul (butuh flag --experimental-test-module-mocks).
+ * tidak berubah). Sheets/Firebase (skrg IndexedDB) pakai 'fake-indexeddb/auto'
+ * -- implementasi MURNI JS dari spec IndexedDB asli, jadi test ini pakai
+ * STORAGE ASLI lewat shared/indexeddb.js, BUKAN simulasi manual.
  */
+import 'fake-indexeddb/auto'
 import { test, mock } from 'node:test'
 import assert from 'node:assert/strict'
+import * as IDB from '../../shared/indexeddb.js'
 
 // --- Mock localStorage (dibutuhkan TOKEN.get() di shared/store.js) ---
 class LocalStorageMock {
@@ -20,10 +21,9 @@ class LocalStorageMock {
 globalThis.localStorage = new LocalStorageMock()
 globalThis.localStorage.setItem('ihsglab_token', 'fake.token.value')
 
-// --- Mock fetch: CUMA Stockbit (Sheets sekarang lewat mock.module di bawah) ---
+// --- Mock fetch: CUMA Stockbit (Sheets sekarang lewat fake-indexeddb) ---
 let _mockDailyBySym    = {}
 let _mockIntradayBySym = {} // {sym: [{unix_timestamp, close, open, volume, frequency}]} -- FLAT, tidak per-hari (mensimulasikan 1 response yg cover banyak hari)
-let _mockSheets        = {}
 let _stockbitIntradayCalls = []
 let _forceDailyStatus  = {} // {sym: statusCode} -- simulasikan error HTTP tertentu utk fetchDaily simbol ini
 let _dailyCallOrder    = [] // urutan simbol yang BENAR-BENAR di-fetchDaily (cek short-circuit abort)
@@ -50,26 +50,20 @@ globalThis.fetch = async (url, options) => {
   return { ok: true, status: 200, json: async () => ({ data: { chartbit: rows } }) }
 }
 
-// --- Mock module: Sheets/Firebase (dipakai db.js, transitif dari fetch.js) ---
-mock.module('../../shared/firebase.js', {
+mock.module('../../shared/indexeddb.js', {
   namedExports: {
-    gsLoad: async (sheet, filter = null) => {
-      let rows = _mockSheets[sheet] || []
-      if (filter) rows = rows.filter(r => r[filter.field] === filter.value)
-      return rows
-    },
-    gsAppend: async (sheet, data) => {
-      _mockSheets[sheet] = [...(_mockSheets[sheet] || []), ...data]
-    },
-    gsSave: async (sheet, data) => { _mockSheets[sheet] = [...data] },
-    gsClear: async (sheet) => { _mockSheets[sheet] = [] },
-    gsLoadFiltered: async (sheet, field, value) => (_mockSheets[sheet] || []).filter(r => r[field] === value)
+    gsLoad: IDB.gsLoad,
+    gsAppend: IDB.gsAppend,
+    gsSave: IDB.gsSave,
+    gsClear: IDB.gsClear,
+    gsLoadFiltered: IDB.gsLoadFiltered
   }
 })
 
-function resetMocks() {
-  _mockDailyBySym = {}; _mockIntradayBySym = {}; _mockSheets = {}; _stockbitIntradayCalls = []
+async function resetMocks() {
+  _mockDailyBySym = {}; _mockIntradayBySym = {}; _stockbitIntradayCalls = []
   _forceDailyStatus = {}; _dailyCallOrder = []
+  await IDB._resetForTesting()
 }
 
 const { extractCheckpoints, extractIEPRaw, fetchIhsgTrend, fetchSymRange, fetchIhsgRange, fetchWatchlist } =
@@ -158,7 +152,7 @@ test('extractIEPRaw: hasil terurut tanggal ascending', () => {
 // ============================================================
 
 test('fetchIhsgTrend: klasifikasi trend up/down/flat/unknown dengan benar', async () => {
-  resetMocks()
+  await resetMocks()
   _mockIntradayBySym.IHSG = [
     wib1m('2026-01-15', 15, 0, { close: 7000 }),
     wib1m('2026-01-16', 15, 0, { close: 7100 }), // +1.43% -> up
@@ -175,7 +169,7 @@ test('fetchIhsgTrend: klasifikasi trend up/down/flat/unknown dengan benar', asyn
 })
 
 test('fetchIhsgTrend: WAJIB sort by unix dulu -- hasil benar walau response API tidak terurut', async () => {
-  resetMocks()
+  await resetMocks()
   // Sengaja taruh candle TIDAK terurut (terbaru duluan) -- mensimulasikan bug yg sempat ketemu di win-rate
   _mockIntradayBySym.IHSG = [
     wib1m('2026-01-16', 15, 0, { close: 7100 }),
@@ -193,11 +187,11 @@ function close(a, b) { assert.ok(Math.abs(a - b) < 1e-9, `${a} !== ${b}`) }
 // ============================================================
 
 test('fetchSymRange: hari yang sudah ada di cache TIDAK di-fetch ulang', async () => {
-  resetMocks()
-  _mockSheets['ranking-intraday'] = [
+  await resetMocks()
+  await IDB.gsSave('ranking-intraday', [
     { sym: 'TLKM', date: '2026-01-15', p0902: 100, p0905: '', p0910: '', p0915: '', p0920: '',
       p0930: '', p1000: '', p1100: '', p1530: '', p1600: 105 }
-  ]
+  ])
   _mockDailyBySym.TLKM = [
     { date: '2026-01-15', open: 100, high: 110, low: 95, close: 105, volume: 1000, foreignbuy: 0, foreignsell: 0 },
     { date: '2026-01-16', open: 105, high: 112, low: 100, close: 108, volume: 900, foreignbuy: 0, foreignsell: 0 },
@@ -210,11 +204,11 @@ test('fetchSymRange: hari yang sudah ada di cache TIDAK di-fetch ulang', async (
 })
 
 test('fetchSymRange: chunk yang SEMUA harinya sudah ter-cache di-skip total (tidak ada call Stockbit)', async () => {
-  resetMocks()
-  _mockSheets['ranking-intraday'] = [
+  await resetMocks()
+  await IDB.gsSave('ranking-intraday', [
     { sym: 'BBRI', date: '2026-01-15', p0902: 100, p0905: '', p0910: '', p0915: '', p0920: '',
       p0930: '', p1000: '', p1100: '', p1530: '', p1600: 105 }
-  ]
+  ])
   _mockDailyBySym.BBRI = [
     { date: '2026-01-15', open: 100, high: 110, low: 95, close: 105, volume: 1000, foreignbuy: 0, foreignsell: 0 }
   ]
@@ -228,11 +222,11 @@ test('fetchSymRange: chunk yang SEMUA harinya sudah ter-cache di-skip total (tid
 // ============================================================
 
 test('fetchIhsgRange: skip fetch total kalau semua hari kerja sudah ter-cache', async () => {
-  resetMocks()
-  _mockSheets['ranking-ihsg'] = [
+  await resetMocks()
+  await IDB.gsSave('ranking-ihsg', [
     { date: '2026-01-19', close: '7000', ret: '', trend: 'unknown' },
     { date: '2026-01-20', close: '7050', ret: '0.71', trend: 'up' },
-  ]
+  ])
   const r = await fetchIhsgRange('2026-01-19', '2026-01-20') // Senin-Selasa, keduanya sudah ada
   assert.equal(r.written, 0)
   assert.equal(_stockbitIntradayCalls.filter(c => c.sym === 'IHSG').length, 0)
@@ -243,8 +237,7 @@ test('fetchIhsgRange: skip fetch total kalau semua hari kerja sudah ter-cache', 
 // ============================================================
 
 test('fetchWatchlist: IHSG di-fetch SEKALI di awal, sebelum loop simbol', async () => {
-  resetMocks()
-  _mockSheets['ranking-ihsg'] = []
+  await resetMocks()
   _mockIntradayBySym.IHSG = [wib1m('2026-01-15', 15, 0, { close: 7000 })]
   _mockDailyBySym.GOTO = [{ date: '2026-01-15', open: 100, high: 105, low: 95, close: 102, volume: 1, foreignbuy: 0, foreignsell: 0 }]
   _mockDailyBySym.ASII = [{ date: '2026-01-15', open: 200, high: 205, low: 195, close: 202, volume: 1, foreignbuy: 0, foreignsell: 0 }]
@@ -270,7 +263,7 @@ test('fetchWatchlist: IHSG di-fetch SEKALI di awal, sebelum loop simbol', async 
 // ============================================================
 
 test('fetchWatchlist: 1 simbol gagal (SERVER_ERROR) -- simbol lain TETAP lanjut diproses', async () => {
-  resetMocks()
+  await resetMocks()
   _mockDailyBySym.AAAA = [{ date: '2026-01-15', open: 100, high: 105, low: 95, close: 102, volume: 1, foreignbuy: 0, foreignsell: 0 }]
   _mockDailyBySym.CCCC = [{ date: '2026-01-15', open: 200, high: 205, low: 195, close: 202, volume: 1, foreignbuy: 0, foreignsell: 0 }]
   _forceDailyStatus.BBBB = 503
@@ -285,7 +278,7 @@ test('fetchWatchlist: 1 simbol gagal (SERVER_ERROR) -- simbol lain TETAP lanjut 
 })
 
 test('fetchWatchlist: TOKEN_EXPIRED langsung ABORT -- simbol setelahnya TIDAK PERNAH dicoba', async () => {
-  resetMocks()
+  await resetMocks()
   _mockDailyBySym.AAAA = [{ date: '2026-01-15', open: 100, high: 105, low: 95, close: 102, volume: 1, foreignbuy: 0, foreignsell: 0 }]
   _forceDailyStatus.BBBB = 401
 
@@ -297,7 +290,7 @@ test('fetchWatchlist: TOKEN_EXPIRED langsung ABORT -- simbol setelahnya TIDAK PE
 })
 
 test('fetchWatchlist: RATE_LIMITED tidak abort (lanjut ke simbol berikutnya, BUKAN seperti TOKEN_EXPIRED)', { timeout: 10000 }, async () => {
-  resetMocks()
+  await resetMocks()
   _forceDailyStatus.AAAA = 429
   _mockDailyBySym.BBBB = [{ date: '2026-01-15', open: 100, high: 105, low: 95, close: 102, volume: 1, foreignbuy: 0, foreignsell: 0 }]
 

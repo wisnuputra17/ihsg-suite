@@ -2,7 +2,7 @@
  * features/ranking-emiten/db.js
  * ===============================
  * State Ranking Emiten: DB.emiten[sym] = {daily, intraday, iep} + DB.ihsg (GLOBAL)
- * Cache persisten via Sheets (4 sheet): ranking-daily, ranking-intraday,
+ * Cache persisten via IndexedDB (lokal browser, 4 collection): ranking-daily, ranking-intraday,
  * ranking-iep, ranking-ihsg
  *
  * BEDA dari win-rate/db.js:
@@ -19,7 +19,7 @@
  *   - _persistedKeys Set utk cegah gsAppend dobel kalau scan di-rerun
  *   - Batch append (1 request utk banyak baris), bukan 1 request per hari
  */
-import { gsLoad, gsAppend } from '../../shared/firebase.js'
+import { gsLoad, gsAppend } from '../../shared/indexeddb.js'
 import { ENTRY_KEY, EXIT_KEYS } from './engine.js'
 
 const INTRADAY_KEYS = [ENTRY_KEY, ...EXIT_KEYS] // 10 kolom fix: p0902 + 9 exit

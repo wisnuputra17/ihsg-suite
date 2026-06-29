@@ -27,9 +27,17 @@
  * ⚠️ MIGRASI: shape lama TIDAK kompatibel dgn shape baru (field `broker`
  * tunggal vs `brokers` map). Data lama di collection ini perlu di-gsClear()
  * dulu sebelum dipakai lagi -- lihat TODO.md.
+ *
+ * UPDATE 29 Jun 2026: backend pindah LAGI dari Firestore ke IndexedDB
+ * (lokal browser, lihat shared/indexeddb.js) -- Firestore Spark kena kuota
+ * gratis 2x dalam 1 hari testing, Wisnu tidak punya kartu kredit utk Blaze.
+ * Shape "1 dokumen/hari" di atas TETAP DIPERTAHANKAN walau alasan kuota
+ * writes-nya sudah tidak relevan lagi (IndexedDB tidak ada limit jumlah
+ * operasi) -- shape ini tetap praktik yang baik (lebih sedikit record =
+ * lebih efisien baca/tulis), jadi tidak perlu diubah lagi.
  */
 
-import { gsLoad, gsAppend } from '../../shared/firebase.js'
+import { gsLoad, gsAppend } from '../../shared/indexeddb.js'
 
 export const DB = {
   sym:    null,
@@ -44,17 +52,17 @@ const PREF_KEY = 'broker_analyzer_prefs'
 
 // Lacak TANGGAL (bukan lagi date|broker, krn 1 dokumen = 1 hari penuh
 // SEMUA broker sekaligus -- tidak ada lagi skenario "sebagian broker hari
-// itu sudah tersimpan, sebagian belum") yang SUDAH tersimpan di Firestore.
+// itu sudah tersimpan, sebagian belum") yang SUDAH tersimpan di IndexedDB.
 const _persistedDates = new Set()
 
-/** Firestore TIDAK auto-convert string tanggal jadi Date (beda dari Google
- * Sheets versi lama) -- normalisasi ini cuma jaring pengaman, harusnya
- * sudah selalu bersih, tapi tidak ada salahnya tetap dijaga. */
+/** CATATAN HISTORIS (tidak relevan lagi, normalisasi dipertahankan sbg
+ * jaring pengaman): dulu Google Sheets auto-convert string tanggal jadi
+ * Date. IndexedDB/Firestore tidak punya masalah itu sama sekali. */
 function _normalizeDate(d) {
   return String(d).slice(0, 10)
 }
 
-/** Load histori broker (HANYA utk sym ini, filter SERVER-SIDE) dari Firestore — dipanggil tiap ganti saham. */
+/** Load histori broker (HANYA utk sym ini, filter via index IndexedDB) — dipanggil tiap ganti saham. */
 export async function loadBrokerCacheForSym(sym) {
   _persistedDates.clear()
   try {

@@ -2,7 +2,7 @@
  * features/win-rate/db.js
  * ========================
  * State Win Rate Scanner: DB.emiten[sym] = {daily, intraday}
- * Cache persisten via Sheets (2 sheet): winrate-daily, winrate-intraday
+ * Cache persisten via IndexedDB (lokal browser, 2 collection): winrate-daily, winrate-intraday
  *
  * Skema intraday SENGAJA cuma 9 kolom (EXIT_KEYS dari engine.js, semua
  * kelipatan 5 menit) — BUKAN grid per-menit, dan BUKAN termasuk entry.
@@ -14,7 +14,7 @@
  *   - _persistedKeys Set utk cegah gsAppend dobel kalau backtest di-rerun
  *   - Batch append (1 request utk banyak baris), bukan 1 request per hari
  */
-import { gsLoad, gsAppend } from '../../shared/firebase.js'
+import { gsLoad, gsAppend } from '../../shared/indexeddb.js'
 import { EXIT_KEYS } from './engine.js'
 
 const INTRADAY_KEYS = [...EXIT_KEYS] // 9 kolom fix, urutan konsisten (TANPA entry)
