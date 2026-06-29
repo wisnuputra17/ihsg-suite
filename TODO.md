@@ -12,6 +12,8 @@
 - [x] ~~Bersihkan cache broker yang ke-corrupt~~ — **tidak relevan lagi**, backend sudah pindah ke IndexedDB (data lama di Firestore otomatis tidak terpakai, mulai bersih dari nol)
 - [x] ~~Bersihkan cache LPM semua saham~~ — **tidak relevan lagi**, sama alasan di atas
 
+- [ ] **Verifikasi fix `cache:'no-store'` HAKA** (29 Jun 2026) — delay ~3 menit alert pertama (2 tab, sama saham), diduga kena cache browser di fetch running-trade. Sudah di-fix (`cache:'no-store'` + logging diagnostik permanen di `poll.js`), tapi BELUM dites — tunggu market buka lagi. Cara tes: 2 tab, 1 jalan duluan 1 baru di-start, bandingkan log `[haka/poll]` di Console tab yang baru.
+
 - [ ] **Cek kolom "Validasi" di Ranking Emiten** — fitur ini ditambahkan otomatis (belum pernah saya tes sendiri). Scan beberapa saham, lihat kolom "Validasi" (✓ Bertahan / ✗ Anjlok / – sample kecil) — apakah hasilnya masuk akal dibanding angka Win Rate mentahnya?
 
 ---
