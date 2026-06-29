@@ -146,6 +146,28 @@
   let _displayMode = 'cumulative' // 'cumulative' | 'bar'
 
   const AUTO_FETCH_MAX = 40
+
+  // Akses diagnostik PERMANEN dari Console -- supaya kapan pun perlu cek
+  // state internal (chart range, cache, dst), tinggal jalankan langsung
+  // tanpa perlu tempel/hapus console.log manual ke kode tiap kali debug.
+  // Contoh: window.__debug.visibleRange() / window.__debug.DB.brokerCache
+  window.__debug = {
+    DB,
+    get chart() { return chart },
+    visibleRange: () => chart?.timeScale().getVisibleLogicalRange() ?? null,
+    visibleDates: () => {
+      const range = chart?.timeScale().getVisibleLogicalRange()
+      if (!range || !DB.daily.length) return null
+      const fromIdx = Math.max(0, Math.floor(range.from))
+      const toIdx   = Math.min(DB.daily.length - 1, Math.ceil(range.to))
+      return DB.daily.slice(fromIdx, toIdx + 1).map(d => d.date)
+    },
+    missingDates: () => {
+      const dates = window.__debug.visibleDates()
+      return dates ? dates.filter(d => !(d in DB.brokerCache)) : null
+    },
+    AUTO_FETCH_MAX
+  }
   const BATCH_SIZE      = 5
   const BATCH_DELAY     = 400
 
