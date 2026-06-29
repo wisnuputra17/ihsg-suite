@@ -631,7 +631,8 @@
         })
         const s = chart.addSeries(LightweightCharts.LineSeries, {
           color, lineWidth: 1.5, title: broker,
-          priceScaleId: 'broker-cum-scale'
+          priceScaleId: 'broker-cum-scale',
+          priceLineVisible: false // matikan garis horizontal putus-putus di nilai terakhir (default true) -- mengganggu visual, tidak diperlukan
         }, 0) // pane 0 = overlay bareng candle
         s.setData(points)
         try { s.priceScale().applyOptions({ scaleMargins: { top: 0.05, bottom: 0.05 } }) } catch (_) {}
