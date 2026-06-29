@@ -170,6 +170,7 @@
   }
   const BATCH_SIZE      = 5
   const BATCH_DELAY     = 400
+  const MAX_SELECTED_BROKERS = 20 // maksimal broker yang bisa dibandingkan sekaligus (garis kumulatif)
 
   // ============================================================
   // SEKSI 1: INIT
@@ -251,7 +252,7 @@
     const prefs = loadPrefs()
     const saved = prefs[sym]
     if (Array.isArray(saved) && saved.length) {
-      DB.selectedBrokers = saved.slice(0, 10)
+      DB.selectedBrokers = saved.slice(0, MAX_SELECTED_BROKERS)
       _renderSelectedChips()
     }
   }
@@ -418,7 +419,7 @@
   }
 
   function _addBroker(code) {
-    if (DB.selectedBrokers.length >= 10) { alert('Maksimal 10 broker sekaligus.'); return }
+    if (DB.selectedBrokers.length >= MAX_SELECTED_BROKERS) { alert(`Maksimal ${MAX_SELECTED_BROKERS} broker sekaligus.`); return }
     if (DB.selectedBrokers.includes(code)) return
     DB.selectedBrokers.push(code)
     _savePrefsNow()
