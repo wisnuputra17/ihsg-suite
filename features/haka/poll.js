@@ -117,7 +117,10 @@ export function createMonitor() {
 
     let res
     try {
-      res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token } })
+      res = await fetch(url, {
+        headers: { 'Authorization': 'Bearer ' + token },
+        cache: 'no-store' // WAJIB -- endpoint real-time, browser TIDAK BOLEH cache respons sama sekali. Tanpa ini, poll berulang ke URL yang identik (simbol+parameter sama tiap 3 detik) bisa kena cache browser & dapat data basi -- diduga ini akar masalah delay ~3 menit yang dilaporkan Wisnu (2 tab beda nasib di endpoint sama).
+      })
     } catch (e) {
       throw Object.assign(new Error('FETCH_FAILED'), { code: 'FETCH_FAILED', detail: e.message })
     }
