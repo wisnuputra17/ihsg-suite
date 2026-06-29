@@ -291,23 +291,38 @@
    * Tarik chart sejauh apapun (misal 300 hari) → Top 10 & garis broker
    * sama-sama mengikuti 300 hari itu.
    */
-  async function _updateBrokerHistoryForVisibleRange() {
-    if (!chart || !DB.daily.length) return
+  /** Render ulang (garis broker + Top10) pakai rentang visible chart SAAT INI
+   * dipanggil. Dipisah dari _updateBrokerHistoryForVisibleRange supaya bisa
+   * dipanggil ulang dari onComplete TANPA trigger fetch lagi (cegah rekursi
+   * tak berujung) -- dan supaya SELALU pakai posisi TERKINI, bukan posisi
+   * usang yang di-capture sebelum fetch mulai (user bisa pan/zoom lagi
+   * SELAGI fetch besar masih berjalan -- itu yang bikin garis kelihatan
+   * "kacau", rebase ke posisi yg sudah tidak relevan lagi).
+   * @returns {{fromIdx:number, visibleDates:string[]}|null}
+   */
+  function _renderForCurrentVisibleRange() {
+    if (!chart || !DB.daily.length) return null
     const range = chart.timeScale().getVisibleLogicalRange()
-    if (!range) return
+    if (!range) return null
     const fromIdx = Math.max(0, Math.floor(range.from))
     const toIdx   = Math.min(DB.daily.length - 1, Math.ceil(range.to))
-    if (fromIdx > toIdx) return
+    if (fromIdx > toIdx) return null
     const visibleDates = DB.daily.slice(fromIdx, toIdx + 1).map(d => d.date)
+
+    if (DB.selectedBrokers.length) _renderAllBrokerLines(fromIdx)
+    _computeAndRenderTop10(visibleDates)
+    return { fromIdx, visibleDates }
+  }
+
+  async function _updateBrokerHistoryForVisibleRange() {
+    const result = _renderForCurrentVisibleRange()
+    if (!result) return
+    const { visibleDates } = result
 
     // 1 tanggal dianggap "missing" kalau BELUM PERNAH di-fetch sama sekali
     // (bukan per-broker) — karena 1 fetch sudah cukup utk semua broker DAN
     // utk ranking Top 10 sekaligus (data yang sama dipakai berdua).
     const missing = visibleDates.filter(d => !(d in DB.brokerCache))
-
-    // Tampilkan dari cache yang sudah ada duluan, sambil nunggu (kalau ada) konfirmasi
-    if (DB.selectedBrokers.length) _renderAllBrokerLines(fromIdx)
-    _computeAndRenderTop10(visibleDates)
 
     await fetchWithConfirm({
       missingDates: missing,
@@ -317,8 +332,10 @@
       batchDelay: BATCH_DELAY,
       fetchFn: _fetchDateBatch,
       onComplete: () => {
-        if (DB.selectedBrokers.length) _renderAllBrokerLines(fromIdx)
-        _computeAndRenderTop10(visibleDates)
+        // Render ulang pakai rentang TERKINI (bukan visibleDates di atas yg
+        // sudah di-pakai sebelum fetch mulai) -- TIDAK panggil fetch lagi
+        // di sini, cuma render. Cegah rekursi tak berujung & garis "kacau".
+        _renderForCurrentVisibleRange()
       }
     })
   }
