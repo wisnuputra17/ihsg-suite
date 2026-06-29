@@ -548,7 +548,15 @@
         // writes Firestore ~100x -- fetch multi-tahun sempat tembus kuota
         // gratis 20rb writes/hari dgn shape lama dalam 1 sesi fetch saja.
         newlyFetched.push({ date, brokers: dayMap })
-      } catch (_) {
+      } catch (err) {
+        // PENTING: exception (network/RATE_LIMITED/TOKEN_EXPIRED/dst) BEDA
+        // dari "API genuinely tidak punya data broker hari itu" -- console.warn
+        // eksplisit di sini supaya kalau ada fetch yang gagal diam-diam,
+        // langsung kelihatan merah di Console, BUKAN ke-treat sama persis
+        // dgn hari yang memang kosong transaksinya (bug yang sama pernah
+        // ketemu di LPM Chart, baru ketemu lagi di sini 29 Jun 2026 --
+        // gejalanya: nullCount = SEMUA tanggal di 1 rentang, bukan wajar).
+        console.warn(`[broker-analyzer] fetch GAGAL utk ${DB.sym} ${date} (BUKAN data kosong, ini error):`, err.message || err)
         DB.brokerCache[date] = null
       }
     }))
