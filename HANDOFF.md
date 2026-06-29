@@ -55,6 +55,33 @@ const { ... } = await import('./db.js') // HARUS setelah mock.module(), bukan se
 
 ---
 
+## 2d. ✅ MIGRASI KE-2: Firestore → IndexedDB — SELESAI (29 Jun 2026)
+
+**Status: TUNTAS.** Backend pindah LAGI, dari Firestore ke `shared/indexeddb.js` (lokal browser, IndexedDB). Firestore (§2 di atas) sekarang JUGA deprecated, sama seperti Apps Script/Sheets sebelumnya.
+
+**Kenapa pindah:** Wisnu kena kuota gratis Firestore Spark **2x dalam 1 hari testing intensif** (read+write quota habis), dan **tidak punya kartu kredit** sama sekali — jadi upgrade ke Blaze (yang sebenarnya ujungnya murah, ~recehan) **tidak bisa dieksekusi**. Sempat dipertimbangkan Supabase (alternatif gratis tanpa kartu kredit, tapi paradigma SQL beda total, migrasi besar lagi dgn risiko baru) — Wisnu pilih IndexedDB karena:
+- **TIDAK ADA konsep kuota/limit operasi SAMA SEKALI** (beda fundamental dari Firestore yang limitnya di JUMLAH OPERASI per hari)
+- Tidak perlu kartu kredit, tidak perlu internet
+- Trade-off yang DISADARI & DITERIMA: **tidak sinkron antar device** (Wisnu cuma pakai 1 laptop), dan **drawings Chart kehilangan sinkron multi-device** yang sebelumnya jadi tujuan desainnya (lihat flag di `chart/db.js`)
+
+**Yang sudah jadi:**
+- `shared/indexeddb.js` — kontrak fungsi IDENTIK dgn firebase.js (`gsLoad`/`gsSave`/`gsAppend`/`gsClear`/`gsLoadFiltered`), jadi tiap db.js cuma ganti 1 baris import. SATU object store ('records') utk SEMUA collection (field `collection` + index), bukan 1 store per collection.
+- Semua 4 db.js (ranking-emiten, win-rate, chart, broker-analyzer) sudah ganti import ke indexeddb.js
+- **Testing JAUH LEBIH BAIK** drpd era firebase.js: pakai npm package `fake-indexeddb` (implementasi MURNI JS dari spec IndexedDB asli, BUKAN sekadar mock) — bisa test kode indexeddb.js SESUNGGUHNYA di Node. Semua 4 file test (db.test.js/fetch.test.js ranking-emiten & win-rate) ditulis ulang pakai `import 'fake-indexeddb/auto'` + storage asli (gsAppend di-wrap `mock.fn()` dari node:test, tetap panggil implementasi asli, cuma utk spy "berapa kali dipanggil").
+- `.gitignore` BARU dibuat (repo ini belum pernah punya sebelumnya) — exclude `node_modules` (dependency npm pertama yang benar2 dipakai: `fake-indexeddb`, devDependency saja, TIDAK dipakai di production code).
+- `package.json` punya `package-lock.json` sekarang (ikut di-commit, standar praktik).
+
+**TIDAK ADA setup manual apa pun yang diperlukan** (beda total dari FIREBASE_SETUP.md) — IndexedDB otomatis tersedia di semua browser modern, tidak perlu akun/config/API key sama sekali. `FIREBASE_SETUP.md` & `shared/firebase.config.js` masih ada di repo (historis), tidak relevan lagi.
+
+**Cara verifikasi cepat (Console, halaman apa pun):**
+```js
+const { gsAppend, gsLoad } = await import('./shared/indexeddb.js') // sesuaikan path relatif
+await gsAppend('test-collection', [{ hello: 'world', ts: Date.now() }])
+console.log(await gsLoad('test-collection'))
+```
+
+`apps-script/Code.gs`, `shared/sheets.js`, `shared/firebase.js`, `shared/firebase.config.js`, `firestore.rules`, `FIREBASE_SETUP.md` — SEMUA dipertahankan di repo sbg referensi historis (2 migrasi backend sebelumnya), TIDAK dihapus, TIDAK dipakai fitur manapun.
+
 ## 3. Struktur File Saat Ini
 
 ```
