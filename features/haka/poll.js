@@ -40,6 +40,7 @@ export function createMonitor() {
   let _running     = false
   let _callbacks   = {}
   let _getSymbols  = () => []   // dipanggil tiap poll — selalu ambil simbol TERBARU dari coordinator
+  let _startedAt   = null       // timestamp mulai monitor, utk diagnostik timing
 
   function init(callbacks) {
     _callbacks = callbacks
@@ -61,6 +62,8 @@ export function createMonitor() {
     _running    = true
     _pollCount  = 0
     _lastIds    = new Set()
+    _startedAt  = Date.now()
+    console.log(`[haka/poll] START — ${new Date(_startedAt).toLocaleTimeString('id-ID')}, simbol:`, getSymbolsFn())
 
     _poll()
     _timer = setInterval(_poll, POLL_MS)
@@ -82,11 +85,13 @@ export function createMonitor() {
     if (_pollCount % RESET_EVERY === 0) _lastIds = new Set()
 
     const batches = _chunk(watchlist, BATCH_SIZE)
+    let totalReceived = 0, totalNew = 0
 
     for (const batch of batches) {
       try {
         const trades = await _fetchBatch(batch)
-        _processTrades(trades)
+        totalReceived += trades.length
+        totalNew += _processTrades(trades)
       } catch (e) {
         if (e.code === 'TOKEN_EXPIRED') {
           stop()
@@ -96,6 +101,9 @@ export function createMonitor() {
         console.warn('[haka/poll] batch error:', e.message)
       }
     }
+
+    const elapsedSec = _startedAt ? ((Date.now() - _startedAt) / 1000).toFixed(1) : '?'
+    console.log(`[haka/poll] poll #${_pollCount} (+${elapsedSec}s) — diterima:${totalReceived} baru:${totalNew} lastIds:${_lastIds.size}`)
 
     if (_callbacks.onPollDone) _callbacks.onPollDone(_pollCount)
   }
@@ -129,10 +137,12 @@ export function createMonitor() {
    * threshold-nya sendiri-sendiri sekarang, bukan 1 nilai global lagi).
    */
   function _processTrades(trades) {
+    let newCount = 0
     for (const t of trades) {
       const id = t.id || `${t.code}-${t.time}-${t.lot}-${t.price}-${t.action}`
       if (_lastIds.has(id)) continue
       _lastIds.add(id)
+      newCount++
 
       // WAJIB strip koma — price/lot bisa berformat "1,740"
       const lot   = parseFloat((t.lot   || '0').toString().replace(/,/g, '')) || 0
@@ -157,8 +167,11 @@ export function createMonitor() {
         time:   t.time || new Date().toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta' }),
         id
       }
+      const elapsedSec = _startedAt ? ((Date.now() - _startedAt) / 1000).toFixed(1) : '?'
+      console.log(`[haka/poll] TRADE BARU (+${elapsedSec}s sejak start) — jam transaksi asli: ${alert.time}, ${alert.sym} ${alert.action} value:${value.toLocaleString('id-ID')}`)
       if (_callbacks.onAlert) _callbacks.onAlert(alert)
     }
+    return newCount
   }
 
   return { init, start, stop, isRunning }
