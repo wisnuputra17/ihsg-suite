@@ -7,6 +7,14 @@
 
 ## Prioritas tinggi
 
+- [ ] **Bersihkan cache broker yang ke-corrupt** (29 Jun 2026) — ditemukan via `window.__debug`: tanggal yang fetch-nya GAGAL (network/rate limit/dst) sempat ditandai diam-diam sebagai "data kosong" (bug yang baru di-fix). Console di halaman Broker Analyzer:
+  ```js
+  const { gsClear } = await import('../../shared/firebase.js')
+  await gsClear('broker-analyzer-cache')
+  console.log('Broker cache dibersihkan')
+  ```
+  Lalu fetch ulang. **Kali ini perhatikan Console** — kalau ada `[broker-analyzer] fetch GAGAL...` muncul merah, itu akar masalah SEBENARNYA (catat tanggal & pesan errornya, kasih tau Claude).
+
 - [ ] **Bersihkan cache LPM SEMUA saham yang pernah di-scan** (bukan cuma BULL) — bug elemen-terakhir-bukan-sum itu memengaruhi SEMUA saham yang pernah pakai indikator LPM di Chart sebelum fix-nya ter-push. ⚠️ Chart sekarang pakai Firebase (bukan Sheets lagi) — Console di halaman Chart:
   ```js
   const { gsClear } = await import('../../shared/firebase.js')
