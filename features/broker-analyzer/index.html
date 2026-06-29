@@ -214,8 +214,8 @@
       // ada di Sheets, cuma belum sempat di-load ke memori).
       loadBrokerCacheForSym(sym).then(() => {
         if (DB.sym !== sym) return // user sudah ganti simbol lagi sebelum ini selesai
-        _updateBrokerHistoryForVisibleRange()
-        _applySavedSelection(sym)
+        _applySavedSelection(sym) // cuma set DB.selectedBrokers + render chips -- TIDAK trigger fetch sendiri
+        _updateBrokerHistoryForVisibleRange() // SATU KALI saja, setelah selectedBrokers sudah benar (bukan 2x hampir bersamaan -- itu race condition yg bikin tombol fetch ketimpa sebelum sempat kelihatan)
       })
     } catch (e) {
       status.textContent = e.code === 'TOKEN_EXPIRED' ? 'Token expired' : 'Error: ' + e.message
@@ -231,7 +231,6 @@
     if (Array.isArray(saved) && saved.length) {
       DB.selectedBrokers = saved.slice(0, 10)
       _renderSelectedChips()
-      _updateBrokerHistoryForVisibleRange()
     }
   }
 
