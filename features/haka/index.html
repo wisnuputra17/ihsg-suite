@@ -403,6 +403,17 @@
   }
 
   /** Picker simbol INLINE utk slot card kosong — search+dropdown sama pola dgn "+ Tambah card" global. */
+  /** Posisikan dropdown jadi position:fixed berdasar lokasi input SAAT INI --
+   * lepas total dari .card-box yang overflow:hidden (kalau pakai position:
+   * absolute biasa, dropdown ke-potong begitu coba keluar dari batas card). */
+  function _positionDropdownFixed(input, dropdown) {
+    const rect = input.getBoundingClientRect()
+    dropdown.style.position = 'fixed'
+    dropdown.style.top   = `${rect.bottom + 2}px`
+    dropdown.style.left  = `${rect.left}px`
+    dropdown.style.width = `${rect.width}px`
+  }
+
   function _bindSlotPicker(slotId) {
     const input    = document.getElementById(`slot-search-${slotId}`)
     const dropdown = document.getElementById(`slot-dropdown-${slotId}`)
@@ -414,6 +425,7 @@
       const codeMatches = all.filter(([code]) => code.startsWith(q))
       const nameMatches  = all.filter(([code, info]) => !code.startsWith(q) && info.name && info.name.toUpperCase().includes(q))
       const results = [...codeMatches, ...nameMatches].slice(0, 20)
+      _positionDropdownFixed(input, dropdown)
       if (!results.length) { dropdown.innerHTML = `<div class="sym-dropdown-empty">Tidak ditemukan</div>`; dropdown.classList.remove('hidden'); return }
       dropdown.innerHTML = results.map(([code, info]) => `
         <div class="sym-option" data-code="${code}"><span class="sym-option-code">${code}</span><span class="sym-option-name">${info.name || ''}</span></div>
