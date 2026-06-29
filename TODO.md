@@ -7,7 +7,7 @@
 
 ## Prioritas tinggi
 
-- [ ] **Verifikasi IndexedDB jalan benar** (29 Jun 2026, migrasi backend ke-2: Firestore → IndexedDB) — coba scan/fetch ulang di salah satu fitur (Ranking Emiten/Win Rate/Chart/Broker Analyzer), pastikan data tersimpan & muncul lagi setelah reload halaman. Tidak perlu setup apa pun (beda dari Firebase) — IndexedDB otomatis ada di browser.
+- [x] ~~Verifikasi IndexedDB jalan benar~~ — **confirmed Wisnu (29 Jun 2026)**: scan saham, reload, scan ulang lebih cepat (cache lokal jalan)
 
 - [x] ~~Bersihkan cache broker yang ke-corrupt~~ — **tidak relevan lagi**, backend sudah pindah ke IndexedDB (data lama di Firestore otomatis tidak terpakai, mulai bersih dari nol)
 - [x] ~~Bersihkan cache LPM semua saham~~ — **tidak relevan lagi**, sama alasan di atas
