@@ -94,6 +94,7 @@
     <div class="display-mode-row" id="display-mode-row">
       <button class="pill active" data-mode="cumulative">Kumulatif</button>
       <button class="pill" data-mode="bar">Bar Harian</button>
+      <button class="pill" data-mode="candle">Candle</button>
     </div>
     <div class="selected-chip-row" id="selected-chip-row"></div>
     <span class="status-text" id="status"></span>
@@ -582,9 +583,43 @@
     }
     DB.selectedBrokers.forEach((broker, i) => {
       if (_brokerSeries[broker]) { try { chart.removeSeries(_brokerSeries[broker]) } catch (_) {} }
+      delete _brokerSeries[broker] // WAJIB -- cegah stale reference kalau broker ini di-skip (mis. mode candle, broker ke-2+ tidak dirender ulang)
       const color = BROKER_COLORS[i % BROKER_COLORS.length]
 
-      if (_displayMode === 'bar') {
+      if (_displayMode === 'candle') {
+        // Candle — overlay bareng chart harga (pane 0), TAPI cuma broker
+        // PERTAMA yang dipilih (dikonfirmasi Wisnu: paling jelas dibaca,
+        // candle dari banyak broker tumpang tindih akan padat & sulit dibaca,
+        // beda dari garis kumulatif yang masih bisa dibaca walau banyak warna).
+        if (i !== 0) return
+        // REUSE PERSIS logic akumulasi cum dari mode kumulatif di bawah --
+        // bedanya cuma direpresentasikan sbg open (sebelum net hari ini)/
+        // close (sesudah net hari ini) per hari, bukan 1 titik garis.
+        // high/low = max/min(open,close) krn cuma py 1 nilai per hari
+        // (tidak ada data intraday utk cum ini) -- candle jadi hijau kalau
+        // net hari itu positif (close>open), merah kalau negatif.
+        let cum = 0
+        const candles = []
+        DB.daily.slice(fromIdx).forEach(d => {
+          const dayMap = DB.brokerCache[d.date]
+          if (!dayMap) return
+          const v = dayMap[broker]
+          const open = cum
+          if (v) cum += v.net
+          const close = cum
+          candles.push({ time: d.date, open, high: Math.max(open, close), low: Math.min(open, close), close })
+        })
+        const s = chart.addSeries(LightweightCharts.CandlestickSeries, {
+          title: broker,
+          priceScaleId: 'broker-cum-scale',
+          priceLineVisible: false
+        }, 0) // pane 0 = overlay bareng candle harga
+        s.setData(candles)
+        try { s.priceScale().applyOptions({ scaleMargins: { top: 0.05, bottom: 0.05 } }) } catch (_) {}
+        _brokerSeries[broker] = s
+      }
+
+      else if (_displayMode === 'bar') {
         // Bar harian — net per hari APA ADANYA (bukan kumulatif), supaya hari
         // dengan masuk/keluar besar langsung kelihatan sebagai bar tinggi.
         // Bar boleh berdiri sendiri per hari (bar dipahami sebagai kejadian
