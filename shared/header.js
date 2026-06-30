@@ -100,7 +100,13 @@ async function _doSync() {
     if (expMs === null || expMs > Date.now()) return // token lokal masih oke (atau tak bisa dicek), jangan ganggu
   }
   try {
-    const rows = await gsLoad(SHEET_TOKEN)
+    // Timeout 4 detik -- Sheets API kadang lambat/quota habis, JANGAN sampai
+    // halaman terasa "gagal memuat" hanya karena nunggu sync token antar
+    // device yang sebenarnya optional (bukan blocking utama).
+    const rows = await Promise.race([
+      gsLoad(SHEET_TOKEN),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT_SYNC_TOKEN')), 4000))
+    ])
     const remoteToken = rows?.[0]?.token
     if (!remoteToken) return
     TOKEN.set(remoteToken)
@@ -231,3 +237,4 @@ export function openTokenPopover() {
   popover.classList.remove('hidden')
   if (input) input.focus()
 }
+
