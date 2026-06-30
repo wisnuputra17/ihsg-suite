@@ -158,35 +158,72 @@
   const EMITEN_PROFILES = [
     {
       sym: 'RAJA',
-      indicatorName: 'Kunci RAJA',
-      summary: 'RSI(14)≤40 + Close<MA20×0.95 + MACD hist<0 → entry. Close>MA20×1.10 → hindari.',
-      stat: { n: 156, wlb: '96.5%', horizon: '10 hari' },
+      indicatorName: 'Kunci RAJA v2',
+      summary: 'Entry: RSI(14)≤40 + Close<MA20×0.95 + MACD hist<0 + Volume(3H)>rata-rata(20H). Exit: Trailing stop 20% dari titik tertinggi sejak entry.',
+      stat: { n: 54, wlb: '90.2%', horizon: 'trailing, avg hold ~48 hari' },
       rules: [
         { type: 'entry', text: 'RSI(14) ≤ 40' },
         { type: 'entry', text: 'Close < MA20 × 0.95' },
         { type: 'entry', text: 'MACD histogram < 0' },
-        { type: 'exit',  text: 'Close > MA20 × 1.10 (hindari)' },
+        { type: 'entry', text: 'Volume rata-rata 3 hari > rata-rata 20 hari' },
+        { type: 'exit',  text: 'Trailing stop 20% dari harga tertinggi sejak entry' },
       ],
-      // Hitung indikator turunan, hasilkan flag entry/avoid per bar
+      // Hitung indikator turunan, lalu jalankan state machine entry/exit (trailing stop)
       compute(daily) {
-        const closes = daily.map(d => d.close)
-        const rsi    = calcRSI(closes, 14)
-        const ma20   = calcSMA(closes, 20)
-        const macd   = calcMACD(closes)
+        const closes  = daily.map(d => d.close)
+        const volumes = daily.map(d => d.volume)
+        const rsi   = calcRSI(closes, 14)
+        const ma20  = calcSMA(closes, 20)
+        const macd  = calcMACD(closes)
+        const vol20 = calcSMA(volumes, 20)
 
-        return daily.map((d, i) => {
-          const r = rsi[i]
-          const m20 = ma20[i]
-          const hist = macd.hist[i]
-          let signal = null
-          if (r != null && m20 != null && hist != null) {
-            const entry = r <= 40 && d.close < m20 * 0.95 && hist < 0
-            const avoid = d.close > m20 * 1.10
-            if (entry) signal = 'entry'
-            else if (avoid) signal = 'avoid'
+        // Volume rata-rata 3 hari terakhir (termasuk hari ini)
+        const vol3 = new Array(daily.length).fill(null)
+        for (let i = 2; i < daily.length; i++) {
+          vol3[i] = (volumes[i] + volumes[i - 1] + volumes[i - 2]) / 3
+        }
+
+        const out = daily.map((d, i) => ({
+          ...d,
+          _rsi: rsi[i],
+          _ma20: ma20[i],
+          _macdHist: macd.hist[i],
+          _vol3: vol3[i],
+          _vol20: vol20[i],
+          _signal: null, // diisi state machine di bawah
+        }))
+
+        // STATE MACHINE: trailing stop. Saat tidak ada posisi terbuka & syarat
+        // entry terpenuhi -> buka posisi (marker entry), lalu ikuti highest
+        // close sampai drawdown >= 20% dari highest -> tutup posisi (marker exit).
+        const TRAIL_PCT = 20
+        let inPosition = false
+        let highestSinceEntry = null
+
+        for (let i = 0; i < out.length; i++) {
+          const d = out[i]
+          if (!inPosition) {
+            const entryOk = d._rsi != null && d._rsi <= 40
+              && d._ma20 != null && d.close < d._ma20 * 0.95
+              && d._macdHist != null && d._macdHist < 0
+              && d._vol3 != null && d._vol20 != null && d._vol3 > d._vol20
+            if (entryOk) {
+              d._signal = 'entry'
+              inPosition = true
+              highestSinceEntry = d.close
+            }
+          } else {
+            if (d.close > highestSinceEntry) highestSinceEntry = d.close
+            const drawdown = (highestSinceEntry - d.close) / highestSinceEntry * 100
+            if (drawdown >= TRAIL_PCT) {
+              d._signal = 'avoid' // exit/trailing-stop hit
+              inPosition = false
+              highestSinceEntry = null
+            }
           }
-          return { ...d, _rsi: r, _ma20: m20, _macdHist: hist, _signal: signal }
-        })
+        }
+
+        return out
       }
     }
   ]
@@ -249,7 +286,7 @@
     document.getElementById('focus-indicator-name').textContent = profile.indicatorName
     document.getElementById('legend-row').innerHTML = `
       <span class="legend-item"><span class="legend-dot" style="background:#4ade80;"></span> Entry</span>
-      <span class="legend-item"><span class="legend-dot" style="background:#f0635c;"></span> Hindari</span>
+      <span class="legend-item"><span class="legend-dot" style="background:#f0635c;"></span> Exit (Trailing Stop)</span>
     `
     document.getElementById('status-strip').innerHTML = `<span class="item">Memuat data...</span>`
 
@@ -293,7 +330,7 @@
       .filter(d => d._signal)
       .map(d => d._signal === 'entry'
         ? { time: d.date, position: 'belowBar', color: '#4ade80', shape: 'arrowUp', text: 'ENTRY' }
-        : { time: d.date, position: 'aboveBar', color: '#f0635c', shape: 'arrowDown', text: 'HINDARI' }
+        : { time: d.date, position: 'aboveBar', color: '#f0635c', shape: 'arrowDown', text: 'EXIT' }
       )
     LightweightCharts.createSeriesMarkers(candleSeries, markers)
 
@@ -304,10 +341,23 @@
     const last = computed[computed.length - 1]
     const strip = document.getElementById('status-strip')
 
+    // Tentukan apakah SAAT INI sedang dalam posisi terbuka (entry sudah trigger,
+    // belum ada exit sesudahnya) -- scan dari belakang sampai ketemu signal terakhir
+    let positionStatus = 'Tidak ada posisi terbuka'
+    let entrySince = null
+    for (let i = computed.length - 1; i >= 0; i--) {
+      if (computed[i]._signal === 'avoid') break // exit terakhir -> tidak ada posisi terbuka
+      if (computed[i]._signal === 'entry') {
+        positionStatus = `Posisi TERBUKA sejak ${computed[i].date}`
+        entrySince = computed[i]
+        break
+      }
+    }
+
     const signalHtml = last._signal === 'entry'
       ? `<span class="signal-active">ENTRY AKTIF</span>`
       : last._signal === 'avoid'
-        ? `<span class="signal-avoid">HINDARI</span>`
+        ? `<span class="signal-avoid">EXIT (trailing stop kena)</span>`
         : `<span>Netral</span>`
 
     strip.innerHTML = `
@@ -316,10 +366,12 @@
       <span class="item">RSI <b>${last._rsi != null ? last._rsi.toFixed(1) : '–'}</b></span>
       <span class="item">MA20 <b>${last._ma20 != null ? last._ma20.toLocaleString('id-ID', {maximumFractionDigits:0}) : '–'}</b></span>
       <span class="item">MACD Hist <b>${last._macdHist != null ? last._macdHist.toFixed(2) : '–'}</b></span>
-      <span class="item">Sinyal: ${signalHtml}</span>
+      <span class="item">Sinyal hari ini: ${signalHtml}</span>
+      <span class="item" style="width:100%; padding-top:6px; border-top:1px solid var(--line); margin-top:4px;">${positionStatus}</span>
     `
   }
 </script>
 
 </body>
 </html>
+
