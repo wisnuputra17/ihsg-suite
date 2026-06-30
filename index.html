@@ -362,38 +362,7 @@
 
 <!-- TradingView widgets — load async setelah halaman siap -->
 <script>
-  function _loadTvMiniWidget(containerId, symbol, height) {
-    const wrap = document.getElementById(containerId)
-    if (!wrap) return
-
-    const div = document.createElement('div')
-    div.id = containerId + '-tv'
-    wrap.style.height = height + 'px'
-    wrap.appendChild(div)
-
-    const script = document.createElement('script')
-    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js'
-    script.async = true
-    script.innerHTML = JSON.stringify({
-      symbol,
-      width:           '100%',
-      height:          height,
-      locale:          'id',
-      dateRange:       '1M',
-      colorTheme:      'dark',
-      trendLineColor:  'rgba(217, 142, 43, 0.8)',
-      underLineColor:  'rgba(217, 142, 43, 0.08)',
-      underLineBottomColor: 'rgba(10, 9, 8, 0)',
-      isTransparent:   true,
-      autosize:        true,
-      largeChartUrl:   '',
-      noTimeScale:     false,
-      chartOnly:       false,
-    })
-    wrap.appendChild(script)
-  }
-
-  function _loadTvCandleWidget(containerId, symbol, height) {
+  function _loadTvCandleWidget(containerId, symbol, height, interval) {
     const wrap = document.getElementById(containerId)
     if (!wrap) return
 
@@ -412,7 +381,7 @@
     script.async = true
     script.innerHTML = JSON.stringify({
       symbol,
-      interval: '60',
+      interval,
       timezone: 'Asia/Jakarta',
       theme: 'dark',
       style: '1',
@@ -433,8 +402,8 @@
 
   // Tunggu DOM siap baru inject widget
   document.addEventListener('DOMContentLoaded', () => {
-    _loadTvMiniWidget('widget-usdidr', 'PEPPERSTONE:USDIDR', 160)
-    _loadTvCandleWidget('widget-eido', 'AMEX:EIDO', 240)
+    _loadTvCandleWidget('widget-usdidr', 'PEPPERSTONE:USDIDR', 240, '60')
+    _loadTvCandleWidget('widget-eido',   'AMEX:EIDO',          240, '60')
   })
 </script>
 
