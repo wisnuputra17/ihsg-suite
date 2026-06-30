@@ -245,6 +245,12 @@
       display: block;
     }
 
+    /* Symbol-info widget cenderung terlalu besar untuk sidebar 280px —
+       perkecil proporsional dengan CSS zoom */
+    .market-card .tv-symbol-info-wrap {
+      zoom: 0.55;
+    }
+
     /* ── FOOTER ── */
     .app-footer {
       padding: 18px 0 28px;
@@ -333,13 +339,13 @@
 
       <!-- USD/IDR -->
       <div class="market-card">
-        <div id="widget-usdidr-info"></div>
+        <div class="tv-symbol-info-wrap" id="widget-usdidr-info"></div>
         <div class="tv-widget-wrap" id="widget-usdidr"></div>
       </div>
 
       <!-- EIDO -->
       <div class="market-card">
-        <div id="widget-eido-info"></div>
+        <div class="tv-symbol-info-wrap" id="widget-eido-info"></div>
         <div class="tv-widget-wrap" id="widget-eido"></div>
       </div>
     </aside>
