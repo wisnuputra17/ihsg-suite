@@ -658,7 +658,7 @@
     try {
       const raw = await fetchDaily(sym)
       DB.sym      = sym
-      DB.daily    = [...raw].sort((a, b) => a.date.localeCompare(b.date))
+      DB.daily    = [...raw].sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0)
       DB.lpmCache = {} // reset WAJIB -- cegah render LPM simbol SEBELUMNYA nyangkut selama cache baru belum siap
       status.textContent = ''
       document.getElementById('sym-input').value = sym
@@ -1370,3 +1370,4 @@
 
 </body>
 </html>
+
