@@ -159,13 +159,13 @@
     {
       sym: 'RAJA',
       indicatorName: 'Kunci RAJA',
-      summary: 'Entry: RSI(14)≤40 + Close<MA20×0.95 + MACD hist<0. Exit: Trailing stop 20% dari titik tertinggi sejak entry.',
-      stat: { n: 15, wlb: '48.0%', horizon: 'per-trade, avg hold ~98 hari kalender' },
+      summary: 'Entry: RSI(14)≤40 + Close<MA20×0.95 + MACD hist<0. Exit: Trailing stop 15% dari titik tertinggi sejak entry.',
+      stat: { n: 20, wlb: '83.9%', horizon: 'per-trade, avg hold ~59 hari kalender' },
       rules: [
         { type: 'entry', text: 'RSI(14) ≤ 40' },
         { type: 'entry', text: 'Close < MA20 × 0.95' },
         { type: 'entry', text: 'MACD histogram < 0' },
-        { type: 'exit',  text: 'Trailing stop 20% dari harga tertinggi sejak entry' },
+        { type: 'exit',  text: 'Trailing stop 15% dari harga tertinggi sejak entry' },
       ],
       // Hitung indikator turunan, lalu jalankan state machine entry/exit (trailing stop)
       compute(daily) {
@@ -184,8 +184,8 @@
 
         // STATE MACHINE: trailing stop. Saat tidak ada posisi terbuka & syarat
         // entry terpenuhi -> buka posisi (marker entry), lalu ikuti highest
-        // close sampai drawdown >= 20% dari highest -> tutup posisi (marker exit).
-        const TRAIL_PCT = 20
+        // close sampai drawdown >= 15% dari highest -> tutup posisi (marker exit).
+        const TRAIL_PCT = 15
         let inPosition = false
         let highestSinceEntry = null
 
@@ -398,6 +398,7 @@
 
 </body>
 </html>
+
 
 
 
