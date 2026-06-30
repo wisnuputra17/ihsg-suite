@@ -275,8 +275,8 @@
     const needsLpm    = _selected.has('lpm')
     const slowCount = (needsBroker ? days : 0) + (needsLpm ? days : 0)
 
-    let html = `<b>${_currentSym}</b> · ~${days} hari bursa dalam rentang ini.<br>`
-    html += `OHLC: <b>1 request</b>.`
+    let html = `<b>${_currentSym}</b> · ~${days} hari bursa dalam rentang EXPORT.<br>`
+    html += `OHLC: <b>1 request</b> (histori PENUH sejak listing, untuk warmup RSI/MACD/MA akurat — file hasil tetap dipotong ke rentang tanggal di atas).`
     if (slowCount > 0) {
       html += `<br>Broker/LPM: <b>~${slowCount} request</b> (1 per hari per indikator) — bisa makan waktu.`
     }
@@ -317,53 +317,64 @@
     showProgress(progressEl)
 
     try {
-      // ── 1. OHLC (selalu, 1 request) ──
-      setProgress(progressEl, 0, 1, 'Mengambil OHLC')
-      logProgress(progressEl, `${_currentSym}: fetch OHLC harian...`, 'info')
-      const dailyAll = await fetchDaily(_currentSym, to, from)
-      const daily = dailyAll.filter(d => d.date >= from && d.date <= to)
-      logProgress(progressEl, `${_currentSym}: ${daily.length} bar harian diterima`, 'ok')
+      // ── 1. OHLC: fetch SEMUA histori yang tersedia (warmup penuh), bukan
+      // cuma rentang from-to. RSI/MACD/MA dihitung secara rekursif/EMA --
+      // kalau dipotong duluan ke rentang export, nilainya BIAS karena basis
+      // smoothing terlalu pendek (lihat insiden Kunci RAJA: RSI 33.7 vs 58.3
+      // di tanggal sama, beda krn basis histori beda). Maka: hitung indikator
+      // dari dailyAll (histori penuh sejak 2000), filter ke from-to PALING
+      // AKHIR cuma untuk apa yang di-export ke file.
+      setProgress(progressEl, 0, 1, 'Mengambil OHLC (histori penuh utk warmup)')
+      logProgress(progressEl, `${_currentSym}: fetch OHLC histori penuh (warmup indikator)...`, 'info')
+      const dailyAll = await fetchDaily(_currentSym) // tanpa from/to = semua histori sejak 2000
+      const dailyAllSorted = [...dailyAll].sort((a, b) => a.date.localeCompare(b.date))
+      logProgress(progressEl, `${_currentSym}: ${dailyAllSorted.length} bar histori penuh diterima (${dailyAllSorted[0]?.date} – ${dailyAllSorted[dailyAllSorted.length-1]?.date})`, 'ok')
 
-      // ── 2. Indikator turunan (cepat, dihitung lokal) ──
-      const closes  = daily.map(d => d.close)
-      const volumes = daily.map(d => d.volume)
+      // ── 2. Indikator turunan — dihitung dari SELURUH histori (dailyAllSorted) ──
+      const closesAll  = dailyAllSorted.map(d => d.close)
+      const volumesAll = dailyAllSorted.map(d => d.volume)
 
       if (_selected.has('rsi')) {
-        const rsi = calcRSI(closes, 14)
-        daily.forEach((d, i) => d.rsi = rsi[i])
+        const rsi = calcRSI(closesAll, 14)
+        dailyAllSorted.forEach((d, i) => d.rsi = rsi[i])
       }
       if (_selected.has('macd')) {
-        const macd = calcMACD(closes)
-        daily.forEach((d, i) => { d.macd = macd.macd[i]; d.macdSignal = macd.signal[i]; d.macdHist = macd.hist[i] })
+        const macd = calcMACD(closesAll)
+        dailyAllSorted.forEach((d, i) => { d.macd = macd.macd[i]; d.macdSignal = macd.signal[i]; d.macdHist = macd.hist[i] })
       }
       if (_selected.has('maVolume')) {
-        const maVol = calcSMA(volumes, 20)
-        daily.forEach((d, i) => d.maVolume20 = maVol[i])
+        const maVol = calcSMA(volumesAll, 20)
+        dailyAllSorted.forEach((d, i) => d.maVolume20 = maVol[i])
       }
-      if (_selected.has('ma10'))  { const ma = calcSMA(closes, 10);  daily.forEach((d, i) => d.ma10  = ma[i]) }
-      if (_selected.has('ma20'))  { const ma = calcSMA(closes, 20);  daily.forEach((d, i) => d.ma20  = ma[i]) }
-      if (_selected.has('ma50'))  { const ma = calcSMA(closes, 50);  daily.forEach((d, i) => d.ma50  = ma[i]) }
-      if (_selected.has('ma100')) { const ma = calcSMA(closes, 100); daily.forEach((d, i) => d.ma100 = ma[i]) }
+      if (_selected.has('ma10'))  { const ma = calcSMA(closesAll, 10);  dailyAllSorted.forEach((d, i) => d.ma10  = ma[i]) }
+      if (_selected.has('ma20'))  { const ma = calcSMA(closesAll, 20);  dailyAllSorted.forEach((d, i) => d.ma20  = ma[i]) }
+      if (_selected.has('ma50'))  { const ma = calcSMA(closesAll, 50);  dailyAllSorted.forEach((d, i) => d.ma50  = ma[i]) }
+      if (_selected.has('ma100')) { const ma = calcSMA(closesAll, 100); dailyAllSorted.forEach((d, i) => d.ma100 = ma[i]) }
 
       if (_selected.has('bbWidth')) {
-        const bb = calcBollinger(closes, 20, 2)
-        daily.forEach((d, i) => {
+        const bb = calcBollinger(closesAll, 20, 2)
+        dailyAllSorted.forEach((d, i) => {
           d.bbWidth = (bb.upper[i] != null && bb.middle[i]) ? (bb.upper[i] - bb.lower[i]) / bb.middle[i] * 100 : null
         })
       }
       if (_selected.has('vwma20')) {
-        const vwma = calcVWMA(closes, volumes, 20)
-        daily.forEach((d, i) => d.vwma20 = vwma[i])
+        const vwma = calcVWMA(closesAll, volumesAll, 20)
+        dailyAllSorted.forEach((d, i) => d.vwma20 = vwma[i])
       }
       if (_selected.has('poc')) {
-        const poc = calcVolumeProfilePOC(daily, 60, 20)
-        daily.forEach((d, i) => d.poc60 = poc[i])
+        const poc = calcVolumeProfilePOC(dailyAllSorted, 60, 20)
+        dailyAllSorted.forEach((d, i) => d.poc60 = poc[i])
       }
       if (_selected.has('rsiDiv')) {
-        const rsiForDiv = _selected.has('rsi') ? daily.map(d => d.rsi) : calcRSI(closes, 14)
-        const divFlags = calcRSIDivergence(closes, rsiForDiv, 3)
-        daily.forEach((d, i) => d.rsiBullishDiv = divFlags[i])
+        const rsiForDiv = _selected.has('rsi') ? dailyAllSorted.map(d => d.rsi) : calcRSI(closesAll, 14)
+        const divFlags = calcRSIDivergence(closesAll, rsiForDiv, 3)
+        dailyAllSorted.forEach((d, i) => d.rsiBullishDiv = divFlags[i])
       }
+
+      // ── 3. FILTER ke rentang export yang dipilih user — PALING AKHIR,
+      // setelah semua indikator selesai dihitung dgn basis histori penuh ──
+      const daily = dailyAllSorted.filter(d => d.date >= from && d.date <= to)
+      logProgress(progressEl, `Dipotong ke rentang export: ${daily.length} bar (${from} – ${to})`, 'ok')
 
       // ── 3. Broker & LPM (lambat, per hari) ──
       const dateList = _dateRangeArray(from, to)
@@ -493,4 +504,5 @@
 
 </body>
 </html>
+
 
