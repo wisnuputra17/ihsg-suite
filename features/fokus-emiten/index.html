@@ -285,7 +285,8 @@
     document.getElementById('focus-sym').textContent = profile.sym
     document.getElementById('focus-indicator-name').textContent = profile.indicatorName
     document.getElementById('legend-row').innerHTML = `
-      <span class="legend-item"><span class="legend-dot" style="background:#4ade80;"></span> Entry</span>
+      <span class="legend-item"><span class="legend-dot" style="background:#4ade80;"></span> Entry (closed)</span>
+      <span class="legend-item"><span class="legend-dot" style="background:#60a5fa;"></span> Entry (masih terbuka)</span>
       <span class="legend-item"><span class="legend-dot" style="background:#f0635c;"></span> Exit (Trailing Stop)</span>
     `
     document.getElementById('status-strip').innerHTML = `<span class="item">Memuat data...</span>`
@@ -325,13 +326,28 @@
     })
     ma20Series.setData(computed.filter(d => d._ma20 != null).map(d => ({ time: d.date, value: d._ma20 })))
 
-    // Marker entry/avoid
+    // Marker entry/exit — entry TERAKHIR yang belum punya exit sesudahnya
+    // (posisi masih terbuka sampai hari ini) ditandai beda supaya jelas
+    // ini bukan siklus yang sudah selesai.
+    const lastEntryIdx = computed.findLastIndex
+      ? computed.findLastIndex(d => d._signal === 'entry')
+      : (() => { for (let i = computed.length - 1; i >= 0; i--) if (computed[i]._signal === 'entry') return i; return -1 })()
+    const hasExitAfterLastEntry = lastEntryIdx >= 0 &&
+      computed.slice(lastEntryIdx + 1).some(d => d._signal === 'avoid')
+    const openEntryIdx = (lastEntryIdx >= 0 && !hasExitAfterLastEntry) ? lastEntryIdx : -1
+
     const markers = computed
       .filter(d => d._signal)
-      .map(d => d._signal === 'entry'
-        ? { time: d.date, position: 'belowBar', color: '#4ade80', shape: 'arrowUp', text: 'ENTRY' }
-        : { time: d.date, position: 'aboveBar', color: '#f0635c', shape: 'arrowDown', text: 'EXIT' }
-      )
+      .map((d, _, arr) => {
+        const idxInComputed = computed.indexOf(d)
+        if (d._signal === 'entry') {
+          const isOpen = idxInComputed === openEntryIdx
+          return isOpen
+            ? { time: d.date, position: 'belowBar', color: '#60a5fa', shape: 'arrowUp', text: 'ENTRY (open)' }
+            : { time: d.date, position: 'belowBar', color: '#4ade80', shape: 'arrowUp', text: 'ENTRY' }
+        }
+        return { time: d.date, position: 'aboveBar', color: '#f0635c', shape: 'arrowDown', text: 'EXIT' }
+      })
     LightweightCharts.createSeriesMarkers(candleSeries, markers)
 
     chart.timeScale().fitContent()
@@ -374,4 +390,5 @@
 
 </body>
 </html>
+
 
