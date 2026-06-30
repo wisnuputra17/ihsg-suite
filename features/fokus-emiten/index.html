@@ -159,13 +159,11 @@
     {
       sym: 'RAJA',
       indicatorName: 'Kunci RAJA',
-      summary: 'Entry: RSI(14)≤40 + Close<MA20×0.95 + MACD hist<0. Exit: Trailing stop 15% dari titik tertinggi sejak entry.',
-      stat: { n: 20, wlb: '83.9%', horizon: 'per-trade, avg hold ~59 hari kalender' },
+      summary: 'Entry: RSI(14)≤30. Exit: Trailing stop 35% dari titik tertinggi sejak entry. CATATAN: sample kecil (n=5) — gunakan dengan hati-hati, bukan jaminan statistik kuat.',
+      stat: { n: 5, wlb: '37.6%', horizon: 'per-trade, avg hold ~352 hari kalender (sample kecil)' },
       rules: [
-        { type: 'entry', text: 'RSI(14) ≤ 40' },
-        { type: 'entry', text: 'Close < MA20 × 0.95' },
-        { type: 'entry', text: 'MACD histogram < 0' },
-        { type: 'exit',  text: 'Trailing stop 15% dari harga tertinggi sejak entry' },
+        { type: 'entry', text: 'RSI(14) ≤ 30' },
+        { type: 'exit',  text: 'Trailing stop 35% dari harga tertinggi sejak entry' },
       ],
       // Hitung indikator turunan, lalu jalankan state machine entry/exit (trailing stop)
       compute(daily) {
@@ -184,17 +182,22 @@
 
         // STATE MACHINE: trailing stop. Saat tidak ada posisi terbuka & syarat
         // entry terpenuhi -> buka posisi (marker entry), lalu ikuti highest
-        // close sampai drawdown >= 15% dari highest -> tutup posisi (marker exit).
-        const TRAIL_PCT = 15
+        // close sampai drawdown >= 35% dari highest -> tutup posisi (marker exit).
+        // CATATAN PENTING: formula ini disederhanakan jadi RSI<=30 SAJA (1 syarat)
+        // setelah eksplorasi luas (RSI+MA20+MACD, ATR breakout, Donchian, dst)
+        // tidak ada yang lebih baik. Sample trade kecil (n=5) -- WLB rendah (37.6%)
+        // krn entry sering CLUSTER (RSI<=30 beberapa hari berturut jadi 1 trade
+        // saja di state machine, bukan independen). Forward-return mentah (tanpa
+        // state machine, k=60 hari) menunjukkan WLB 86.8% -- tapi itu BUKAN
+        // simulasi trading real (overlapping). Pakai dengan kesadaran ini.
+        const TRAIL_PCT = 35
         let inPosition = false
         let highestSinceEntry = null
 
         for (let i = 0; i < out.length; i++) {
           const d = out[i]
           if (!inPosition) {
-            const entryOk = d._rsi != null && d._rsi <= 40
-              && d._ma20 != null && d.close < d._ma20 * 0.95
-              && d._macdHist != null && d._macdHist < 0
+            const entryOk = d._rsi != null && d._rsi <= 30
             if (entryOk) {
               d._signal = 'entry'
               inPosition = true
@@ -398,6 +401,7 @@
 
 </body>
 </html>
+
 
 
 
