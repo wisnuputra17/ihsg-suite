@@ -245,6 +245,16 @@
       display: block;
     }
 
+    /* Symbol-info widget: sembunyikan baris judul besar (nama instrumen),
+       sisakan hanya harga + perubahan % di bawahnya */
+    .market-card .tv-symbol-info-wrap {
+      overflow: hidden;
+      height: 64px; /* tinggi area harga+persen, judul terpotong di atas */
+    }
+    .market-card .tv-symbol-info-wrap iframe {
+      margin-top: -54px; /* geser ke atas untuk crop baris judul */
+    }
+
     /* ── FOOTER ── */
     .app-footer {
       padding: 18px 0 28px;
@@ -337,7 +347,7 @@
           <span class="market-card-title">USD / IDR</span>
           <span class="market-card-sub">FX</span>
         </div>
-        <div id="widget-usdidr-info"></div>
+        <div class="tv-symbol-info-wrap" id="widget-usdidr-info"></div>
         <div class="tv-widget-wrap" id="widget-usdidr"></div>
       </div>
 
@@ -347,7 +357,7 @@
           <span class="market-card-title">EIDO</span>
           <span class="market-card-sub">iShares MSCI Indonesia ETF</span>
         </div>
-        <div id="widget-eido-info"></div>
+        <div class="tv-symbol-info-wrap" id="widget-eido-info"></div>
         <div class="tv-widget-wrap" id="widget-eido"></div>
       </div>
     </aside>
