@@ -77,6 +77,14 @@ export const FEATURES = [
     desc:   'Kumpulkan OHLC, RSI, MACD, MA, Volume, Broker, dan LPM 1 emiten dalam 1 file untuk dianalisa.',
     tags:   ['export', 'data', 'analisa', 'broker', 'lpm', 'rsi', 'macd', 'moving average'],
     status: 'ready'
+  },
+  {
+    id:     'fokus-emiten',
+    name:   'Fokus Emiten',
+    desc:   'Chart dengan indikator BUY/SELL hasil formula tervalidasi per emiten — dimulai dari Kunci RAJA.',
+    tags:   ['chart', 'indikator', 'sinyal', 'entry', 'exit', 'raja', 'formula'],
+    status: 'ready'
   }
 ]
+
 
