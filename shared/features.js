@@ -70,5 +70,13 @@ export const FEATURES = [
     desc:   'Ranking saham berdasarkan win rate terbaik — 16 kondisi (IEP surge, gap, RSI, IHSG, dst) x 9 exit time.',
     tags:   ['ranking', 'win rate', 'backtest', 'ihsg', 'iep surge', 'scalping'],
     status: 'ready'
+  },
+  {
+    id:     'data-collector',
+    name:   'Data Collector',
+    desc:   'Kumpulkan OHLC, RSI, MACD, MA, Volume, Broker, dan LPM 1 emiten dalam 1 file untuk dianalisa.',
+    tags:   ['export', 'data', 'analisa', 'broker', 'lpm', 'rsi', 'macd', 'moving average'],
+    status: 'ready'
   }
 ]
+
