@@ -327,7 +327,13 @@
       setProgress(progressEl, 0, 1, 'Mengambil OHLC (histori penuh utk warmup)')
       logProgress(progressEl, `${_currentSym}: fetch OHLC histori penuh (warmup indikator)...`, 'info')
       const dailyAll = await fetchDaily(_currentSym) // tanpa from/to = semua histori sejak 2000
-      const dailyAllSorted = [...dailyAll].sort((a, b) => a.date.localeCompare(b.date))
+      // PENTING: jangan pakai localeCompare untuk sort tanggal -- perilakunya
+      // bisa beda antar locale browser (collation locale-sensitive), terbukti
+      // menyebabkan urutan sort SALAH TOTAL di sebagian browser meski terlihat
+      // benar saat ditest di Node.js. Perbandingan string langsung (a<b) selalu
+      // leksikal murni, deterministik di semua environment, aman utk format
+      // tanggal ISO (YYYY-MM-DD) yang memang urut leksikal = urut kronologis.
+      const dailyAllSorted = [...dailyAll].sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0)
       logProgress(progressEl, `${_currentSym}: ${dailyAllSorted.length} bar histori penuh diterima (${dailyAllSorted[0]?.date} – ${dailyAllSorted[dailyAllSorted.length-1]?.date})`, 'ok')
 
       // ── 2. Indikator turunan — dihitung dari SELURUH histori (dailyAllSorted) ──
@@ -504,5 +510,6 @@
 
 </body>
 </html>
+
 
 
