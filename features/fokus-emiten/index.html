@@ -272,6 +272,25 @@
 
   let chart = null
 
+  // Guard: pastikan library LightweightCharts (dari CDN) sudah ter-load
+  // sebelum dipakai. CDN kadang lambat/gagal di koneksi tertentu —
+  // tunggu sebentar (retry) sebelum benar2 menyerah.
+  function _waitForLightweightCharts(timeoutMs = 8000, intervalMs = 100) {
+    return new Promise((resolve, reject) => {
+      if (typeof LightweightCharts !== 'undefined') return resolve()
+      const start = Date.now()
+      const timer = setInterval(() => {
+        if (typeof LightweightCharts !== 'undefined') {
+          clearInterval(timer)
+          resolve()
+        } else if (Date.now() - start > timeoutMs) {
+          clearInterval(timer)
+          reject(new Error('Library chart (CDN) gagal dimuat — cek koneksi internet atau ad-blocker, lalu refresh halaman.'))
+        }
+      }, intervalMs)
+    })
+  }
+
   async function _openDetail(sym) {
     const profile = EMITEN_PROFILES.find(p => p.sym === sym)
     if (!profile) return
@@ -292,6 +311,7 @@
     document.getElementById('status-strip').innerHTML = `<span class="item">Memuat data...</span>`
 
     try {
+      await _waitForLightweightCharts()
       const raw = await fetchDaily(sym)
       const daily = [...raw].sort((a, b) => a.date.localeCompare(b.date))
       const computed = profile.compute(daily)
@@ -390,5 +410,6 @@
 
 </body>
 </html>
+
 
 
