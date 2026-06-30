@@ -159,11 +159,12 @@
     {
       sym: 'RAJA',
       indicatorName: 'Kunci RAJA',
-      summary: 'Entry: RSI(14)≤30. Exit: Trailing stop 35% dari titik tertinggi sejak entry. CATATAN: sample kecil (n=5) — gunakan dengan hati-hati, bukan jaminan statistik kuat.',
-      stat: { n: 5, wlb: '37.6%', horizon: 'per-trade, avg hold ~352 hari kalender (sample kecil)' },
+      summary: 'Entry: RSI(14)≤30. Exit: Trailing stop 35% ATAU MACD hist>100 (sinyal euforia/avoid yang sangat kuat — WLB 89.8% sbg sinyal balik arah).',
+      stat: { n: 6, wlb: '61.0%', horizon: 'per-trade, avg hold ~265 hari kalender (sample kecil)' },
       rules: [
         { type: 'entry', text: 'RSI(14) ≤ 30' },
         { type: 'exit',  text: 'Trailing stop 35% dari harga tertinggi sejak entry' },
+        { type: 'exit',  text: 'ATAU MACD histogram > 100 (sinyal euforia kuat)' },
       ],
       // Hitung indikator turunan, lalu jalankan state machine entry/exit (trailing stop)
       compute(daily) {
@@ -180,17 +181,27 @@
           _signal: null, // diisi state machine di bawah
         }))
 
-        // STATE MACHINE: trailing stop. Saat tidak ada posisi terbuka & syarat
-        // entry terpenuhi -> buka posisi (marker entry), lalu ikuti highest
-        // close sampai drawdown >= 35% dari highest -> tutup posisi (marker exit).
-        // CATATAN PENTING: formula ini disederhanakan jadi RSI<=30 SAJA (1 syarat)
-        // setelah eksplorasi luas (RSI+MA20+MACD, ATR breakout, Donchian, dst)
-        // tidak ada yang lebih baik. Sample trade kecil (n=5) -- WLB rendah (37.6%)
-        // krn entry sering CLUSTER (RSI<=30 beberapa hari berturut jadi 1 trade
-        // saja di state machine, bukan independen). Forward-return mentah (tanpa
-        // state machine, k=60 hari) menunjukkan WLB 86.8% -- tapi itu BUKAN
-        // simulasi trading real (overlapping). Pakai dengan kesadaran ini.
+        // STATE MACHINE: trailing stop ATAU MACD hist ekstrem.
+        // RIWAYAT EKSPLORASI (penting, jangan dihapus):
+        // 1. Formula awal (RSI+MA20+MACD<0, trail 15-20%) ternyata BIAS -- ada
+        //    bug localeCompare yg merusak sort tanggal & warmup indikator.
+        // 2. Setelah bug diperbaiki, semua indikator individual (RSI/MA/MACD/
+        //    Bollinger/VWMA/POC/RSIdiv/LPM/broker/ATR/Donchian/Supertrend/
+        //    Stochastic/Williams%R/CCI/MFI/ROC/price-action) WLB rendah di
+        //    state machine real, krn sinyal oversold cenderung CLUSTER
+        //    (beberapa hari berturut), bukan independen.
+        // 3. TEMUAN KUNCI: MACD hist > 100 sangat konsisten sbg sinyal BALIK
+        //    ARAH (euforia berlebihan -> harga jatuh) di SEMUA horizon untuk
+        //    RAJA -- WLB 85-90% di horizon 10-15 hari. Tapi threshold 100 ini
+        //    SPESIFIK utk skala harga RAJA, tidak generalize ke ANTM (skala
+        //    beda jauh) -- threshold relatif (percentile) tidak sekuat ini.
+        // 4. Kombinasi entry RSI<=30 + exit (trail35% ATAU MACD>100) adalah
+        //    yang terbaik ditemukan: WLB 61.0%, n=6, semua trade POSITIF,
+        //    avg +106%. MACD>100 membantu exit LEBIH CEPAT di beberapa kasus
+        //    (21-33 hari) drpd nunggu trailing stop kena.
+        // CATATAN: n=6 tetap kecil -- gunakan dgn kesadaran keterbatasan ini.
         const TRAIL_PCT = 35
+        const MACD_AVOID_THRESHOLD = 100
         let inPosition = false
         let highestSinceEntry = null
 
@@ -206,8 +217,9 @@
           } else {
             if (d.close > highestSinceEntry) highestSinceEntry = d.close
             const drawdown = (highestSinceEntry - d.close) / highestSinceEntry * 100
-            if (drawdown >= TRAIL_PCT) {
-              d._signal = 'avoid' // exit/trailing-stop hit
+            const macdExtreme = d._macdHist != null && d._macdHist > MACD_AVOID_THRESHOLD
+            if (drawdown >= TRAIL_PCT || macdExtreme) {
+              d._signal = 'avoid' // exit -- trailing stop ATAU MACD euforia
               inPosition = false
               highestSinceEntry = null
             }
@@ -401,6 +413,7 @@
 
 </body>
 </html>
+
 
 
 
