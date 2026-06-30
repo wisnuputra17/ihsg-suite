@@ -144,7 +144,7 @@
   import { TOKEN } from '../../shared/store.js'
   import { fetchDaily } from '../../shared/api.js'
   import { renderHeader, openTokenPopover, whenTokenReady } from '../../shared/header.js'
-  import { calcRSI, calcMACD, calcSMA } from '../../shared/indicators.js'
+  import { calcRSI, calcMACD, calcSMA, calcConnorsRSI } from '../../shared/indicators.js'
 
   renderHeader(document.getElementById('app-header'), [
     { label: 'IHSG Suite', href: '../../index.html' },
@@ -159,30 +159,27 @@
     {
       sym: 'RAJA',
       indicatorName: 'Kunci RAJA',
-      summary: 'Entry: RSI(14)≤30 + Volume hari ini ≥1.3x rata-rata 20 hari (mempersempit jeda ke rally dari ~28 hari jadi ~16 hari). Exit: Trailing stop 35% ATAU MACD hist>100.',
-      stat: { n: 5, wlb: '56.6%', horizon: 'per-trade, avg hold ~220 hari kalender s/d exit penuh (rally sendiri biasanya mulai jauh lebih cepat, ~16 hari median)' },
+      summary: 'Entry: Connors RSI ≤15 (RSI+streak+percentRank, lebih jarang cluster drpd RSI biasa). Exit: Trailing stop 30% ATAU MACD hist>100.',
+      stat: { n: 11, wlb: '52.3%', horizon: 'per-trade, avg hold ~125 hari kalender' },
       rules: [
-        { type: 'entry', text: 'RSI(14) ≤ 30' },
-        { type: 'entry', text: 'Volume ≥ 1.3 × rata-rata Volume 20 hari' },
-        { type: 'exit',  text: 'Trailing stop 35% dari harga tertinggi sejak entry' },
+        { type: 'entry', text: 'Connors RSI ≤ 15' },
+        { type: 'exit',  text: 'Trailing stop 30% dari harga tertinggi sejak entry' },
         { type: 'exit',  text: 'ATAU MACD histogram > 100 (sinyal euforia kuat)' },
       ],
       // Hitung indikator turunan, lalu jalankan state machine entry/exit (trailing stop)
       compute(daily) {
         const closes  = daily.map(d => d.close)
-        const volumes = daily.map(d => d.volume)
-        const rsi   = calcRSI(closes, 14)
-        const ma20  = calcSMA(closes, 20)
-        const macd  = calcMACD(closes)
-        const vol20 = calcSMA(volumes, 20)
+        const rsi    = calcRSI(closes, 14)
+        const ma20   = calcSMA(closes, 20)
+        const macd   = calcMACD(closes)
+        const cRsi   = calcConnorsRSI(closes, 3, 2, 100)
 
         const out = daily.map((d, i) => ({
           ...d,
           _rsi: rsi[i],
           _ma20: ma20[i],
           _macdHist: macd.hist[i],
-          _vol20: vol20[i],
-          _volRatio: (vol20[i] != null && vol20[i] > 0) ? d.volume / vol20[i] : null,
+          _connorsRsi: cRsi[i],
           _signal: null, // diisi state machine di bawah
         }))
 
@@ -190,33 +187,29 @@
         // RIWAYAT EKSPLORASI (penting, jangan dihapus):
         // 1. Formula awal (RSI+MA20+MACD<0, trail 15-20%) ternyata BIAS -- ada
         //    bug localeCompare yg merusak sort tanggal & warmup indikator.
-        // 2. Setelah bug diperbaiki, semua indikator individual WLB rendah di
-        //    state machine real, krn sinyal oversold cenderung CLUSTER.
-        // 3. TEMUAN: MACD hist > 100 sangat konsisten sbg sinyal BALIK ARAH
-        //    (euforia berlebihan -> harga jatuh) -- WLB 85-90% di horizon
-        //    10-15 hari, dipakai sbg exit tambahan selain trailing stop.
-        // 4. MASALAH BARU: avg hold sampai exit penuh 265 hari -- TERLALU
-        //    LAMA. Investigasi: RSI<=30 sering muncul jauh SEBELUM rally
-        //    sungguhan mulai (jeda rata2 28 hari ke titik +10% dari entry).
-        // 5. TEMUAN PENTING: Volume Ratio >=1.3x (vs MA20) saat RSI<=30
-        //    mempersempit jeda ke rally dari 28 hari -> 15.6 hari (median 11
-        //    hari), TANPA kehilangan reliability (tetap 100% berhasil capai
-        //    +10%). Maka: entry ditambah filter volume ini -- bukan utk
-        //    mempercepat EXIT (itu tetap trailing/MACD, jadi avgHold exit
-        //    penuh masih panjang ~220 hari), tapi memastikan ENTRY terjadi
-        //    LEBIH DEKAT ke awal rally sungguhan, bukan di titik oversold yg
-        //    masih jauh dari pembalikan nyata.
-        const TRAIL_PCT = 35
+        // 2. Setelah bug diperbaiki, RSI standar+VolRatio>=1.3 entry filter
+        //    bagus secara WLB (56.6%, win 100%) TAPI n kecil (5 trade) dan
+        //    avgHold sangat panjang (220 hari) -- sinyal RSI standar cluster
+        //    (beberapa hari berturut jadi 1 trade saja).
+        // 3. PIVOT KE CONNORS RSI: gabungan RSI harga (period pendek) +
+        //    RSI dari STREAK (hari berturut naik/turun) + percent rank
+        //    perubahan 1-hari. Didesain memang utk kurangi cluster -- TERBUKTI:
+        //    n naik dari 5 ke 11 trade, avgHold turun dari 220 ke 125 hari.
+        //    Trade-off: WLB sedikit turun (56.6%->52.3%), win rate turun
+        //    (100%->81.8%) -- lebih sering trading, kadang ada rugi.
+        // 4. MACD hist > 100 tetap dipertahankan sbg exit (sinyal balik arah
+        //    yg sangat kuat, WLB 85-90% di semua eksperimen sebelumnya).
+        // CATATAN: n=11 masih relatif kecil -- gunakan dgn kesadaran ini.
+        const TRAIL_PCT = 30
         const MACD_AVOID_THRESHOLD = 100
-        const VOL_RATIO_MIN = 1.3
+        const CONNORS_RSI_THRESHOLD = 15
         let inPosition = false
         let highestSinceEntry = null
 
         for (let i = 0; i < out.length; i++) {
           const d = out[i]
           if (!inPosition) {
-            const entryOk = d._rsi != null && d._rsi <= 30
-              && d._volRatio != null && d._volRatio >= VOL_RATIO_MIN
+            const entryOk = d._connorsRsi != null && d._connorsRsi <= CONNORS_RSI_THRESHOLD
             if (entryOk) {
               d._signal = 'entry'
               inPosition = true
@@ -413,7 +406,7 @@
       <span class="item">RSI <b>${last._rsi != null ? last._rsi.toFixed(1) : '–'}</b></span>
       <span class="item">MA20 <b>${last._ma20 != null ? last._ma20.toLocaleString('id-ID', {maximumFractionDigits:0}) : '–'}</b></span>
       <span class="item">MACD Hist <b>${last._macdHist != null ? last._macdHist.toFixed(2) : '–'}</b></span>
-      <span class="item">Vol Ratio <b>${last._volRatio != null ? last._volRatio.toFixed(2)+'x' : '–'}</b></span>
+      <span class="item">Connors RSI <b>${last._connorsRsi != null ? last._connorsRsi.toFixed(1) : '–'}</b></span>
       <span class="item">Sinyal hari ini: ${signalHtml}</span>
       <span class="item" style="width:100%; padding-top:6px; border-top:1px solid var(--line); margin-top:4px;">${positionStatus}</span>
     `
@@ -433,4 +426,5 @@
 
 
 <!-- rebuild trigger 1782838361 -->
+
 
