@@ -158,38 +158,27 @@
   const EMITEN_PROFILES = [
     {
       sym: 'RAJA',
-      indicatorName: 'Kunci RAJA v2',
-      summary: 'Entry: RSI(14)≤40 + Close<MA20×0.95 + MACD hist<0 + Volume(3H)>rata-rata(20H). Exit: Trailing stop 20% dari titik tertinggi sejak entry.',
-      stat: { n: 54, wlb: '90.2%', horizon: 'trailing, avg hold ~48 hari' },
+      indicatorName: 'Kunci RAJA',
+      summary: 'Entry: RSI(14)≤40 + Close<MA20×0.95 + MACD hist<0. Exit: Trailing stop 20% dari titik tertinggi sejak entry.',
+      stat: { n: 156, wlb: '85.5%', horizon: 'trailing, avg hold ~48 hari' },
       rules: [
         { type: 'entry', text: 'RSI(14) ≤ 40' },
         { type: 'entry', text: 'Close < MA20 × 0.95' },
         { type: 'entry', text: 'MACD histogram < 0' },
-        { type: 'entry', text: 'Volume rata-rata 3 hari > rata-rata 20 hari' },
         { type: 'exit',  text: 'Trailing stop 20% dari harga tertinggi sejak entry' },
       ],
       // Hitung indikator turunan, lalu jalankan state machine entry/exit (trailing stop)
       compute(daily) {
         const closes  = daily.map(d => d.close)
-        const volumes = daily.map(d => d.volume)
         const rsi   = calcRSI(closes, 14)
         const ma20  = calcSMA(closes, 20)
         const macd  = calcMACD(closes)
-        const vol20 = calcSMA(volumes, 20)
-
-        // Volume rata-rata 3 hari terakhir (termasuk hari ini)
-        const vol3 = new Array(daily.length).fill(null)
-        for (let i = 2; i < daily.length; i++) {
-          vol3[i] = (volumes[i] + volumes[i - 1] + volumes[i - 2]) / 3
-        }
 
         const out = daily.map((d, i) => ({
           ...d,
           _rsi: rsi[i],
           _ma20: ma20[i],
           _macdHist: macd.hist[i],
-          _vol3: vol3[i],
-          _vol20: vol20[i],
           _signal: null, // diisi state machine di bawah
         }))
 
@@ -206,7 +195,6 @@
             const entryOk = d._rsi != null && d._rsi <= 40
               && d._ma20 != null && d.close < d._ma20 * 0.95
               && d._macdHist != null && d._macdHist < 0
-              && d._vol3 != null && d._vol20 != null && d._vol3 > d._vol20
             if (entryOk) {
               d._signal = 'entry'
               inPosition = true
@@ -410,6 +398,7 @@
 
 </body>
 </html>
+
 
 
 
