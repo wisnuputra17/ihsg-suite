@@ -333,7 +333,7 @@ export function aggregateToDaily(candles) {
       byDay[date].volume += c.volume
     }
   }
-  return Object.values(byDay).sort((a, b) => a.date.localeCompare(b.date))
+  return Object.values(byDay).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0)
 }
 
 // ============================================================
@@ -448,5 +448,6 @@ export function calcRSIDivergence(closes, rsiArr, swingWindow = 3) {
 
   return flags
 }
+
 
 
