@@ -333,13 +333,19 @@
 
       <!-- USD/IDR -->
       <div class="market-card">
-        <div class="tv-symbol-info-wrap" id="widget-usdidr-info"></div>
+        <div class="market-card-header">
+          <span class="market-card-title">USD / IDR</span>
+          <span class="market-card-sub" id="usdidrQuote">···</span>
+        </div>
         <div class="tv-widget-wrap" id="widget-usdidr"></div>
       </div>
 
       <!-- EIDO -->
       <div class="market-card">
-        <div class="tv-symbol-info-wrap" id="widget-eido-info"></div>
+        <div class="market-card-header">
+          <span class="market-card-title">EIDO</span>
+          <span class="market-card-sub">iShares MSCI Indonesia ETF</span>
+        </div>
         <div class="tv-widget-wrap" id="widget-eido"></div>
       </div>
     </aside>
@@ -356,31 +362,6 @@
 
 <!-- TradingView widgets — load async setelah halaman siap -->
 <script>
-  function _loadTvSymbolInfo(containerId, symbol) {
-    const wrap = document.getElementById(containerId)
-    if (!wrap) return
-
-    const div = document.createElement('div')
-    div.className = 'tradingview-widget-container'
-    wrap.appendChild(div)
-
-    const inner = document.createElement('div')
-    inner.className = 'tradingview-widget-container__widget'
-    div.appendChild(inner)
-
-    const script = document.createElement('script')
-    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-single-quote.js'
-    script.async = true
-    script.innerHTML = JSON.stringify({
-      symbol,
-      width: '100%',
-      locale: 'id',
-      colorTheme: 'dark',
-      isTransparent: true,
-    })
-    div.appendChild(script)
-  }
-
   function _loadTvCandleWidget(containerId, symbol, height, interval) {
     const wrap = document.getElementById(containerId)
     if (!wrap) return
@@ -421,12 +402,28 @@
 
   // Tunggu DOM siap baru inject widget
   document.addEventListener('DOMContentLoaded', () => {
-    _loadTvSymbolInfo('widget-usdidr-info', 'PEPPERSTONE:USDIDR')
     _loadTvCandleWidget('widget-usdidr', 'PEPPERSTONE:USDIDR', 240, '60')
-
-    _loadTvSymbolInfo('widget-eido-info', 'AMEX:EIDO')
-    _loadTvCandleWidget('widget-eido', 'AMEX:EIDO', 240, '60')
+    _loadTvCandleWidget('widget-eido',   'AMEX:EIDO',          240, '60')
+    _loadUsdIdrQuote()
   })
+
+  // Header USD/IDR: ambil dari Frankfurter API (sumber sudah diverifikasi akurat, no CORS)
+  async function _loadUsdIdrQuote() {
+    const el = document.getElementById('usdidrQuote')
+    if (!el) return
+    try {
+      const res  = await fetch('https://api.frankfurter.dev/v2/rate/USD/IDR')
+      const data = await res.json()
+      const rate = data?.rates?.IDR
+      if (rate) {
+        el.textContent = rate.toLocaleString('id-ID', { maximumFractionDigits: 0 })
+      } else {
+        el.textContent = 'FX'
+      }
+    } catch (e) {
+      el.textContent = 'FX'
+    }
+  }
 </script>
 
 <script type="module">
