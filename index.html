@@ -245,12 +245,6 @@
       display: block;
     }
 
-    /* Symbol-info widget cenderung terlalu besar untuk sidebar 280px —
-       perkecil proporsional dengan CSS zoom */
-    .market-card .tv-symbol-info-wrap {
-      zoom: 0.55;
-    }
-
     /* ── FOOTER ── */
     .app-footer {
       padding: 18px 0 28px;
@@ -375,7 +369,7 @@
     div.appendChild(inner)
 
     const script = document.createElement('script')
-    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-symbol-info.js'
+    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-single-quote.js'
     script.async = true
     script.innerHTML = JSON.stringify({
       symbol,
