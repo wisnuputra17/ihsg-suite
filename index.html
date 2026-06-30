@@ -408,39 +408,33 @@
     div.appendChild(inner)
 
     const script = document.createElement('script')
-    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js'
+    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js'
     script.async = true
     script.innerHTML = JSON.stringify({
-      symbols: [[symbol]],
-      chartOnly: false,
-      width: '100%',
-      height: height,
+      symbol,
+      interval: '60',
+      timezone: 'Asia/Jakarta',
+      theme: 'dark',
+      style: '1',
       locale: 'id',
-      colorTheme: 'dark',
       autosize: true,
-      showVolume: false,
-      hideDateRanges: false,
-      hideMarketStatus: true,
-      hideSymbolLogo: true,
-      scalePosition: 'right',
-      scaleMode: 'Normal',
-      fontFamily: 'DM Mono, monospace',
-      noTimeScale: false,
-      valuesTracking: '1',
-      changeMode: 'price-and-percent',
-      chartType: 'candlesticks',
+      hide_top_toolbar: true,
+      hide_legend: true,
+      hide_volume: true,
+      allow_symbol_change: false,
+      save_image: false,
       backgroundColor: 'rgba(19, 18, 16, 1)',
-      lineWidth: 2,
-      lineType: 0,
-      dateRanges: ['1d|1', '1m|30', '3m|60', '12m|1D'],
+      gridColor: 'rgba(35, 32, 25, 0.5)',
+      withdateranges: false,
+      support_host: 'https://www.tradingview.com',
     })
     div.appendChild(script)
   }
 
   // Tunggu DOM siap baru inject widget
   document.addEventListener('DOMContentLoaded', () => {
-    _loadTvMiniWidget('widget-usdidr', 'FX_IDC:USDIDR', 160)
-    _loadTvCandleWidget('widget-eido', 'AMEX:EIDO', 220)
+    _loadTvMiniWidget('widget-usdidr', 'PEPPERSTONE:USDIDR', 160)
+    _loadTvCandleWidget('widget-eido', 'AMEX:EIDO', 240)
   })
 </script>
 
