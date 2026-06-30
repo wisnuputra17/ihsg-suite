@@ -449,5 +449,60 @@ export function calcRSIDivergence(closes, rsiArr, swingWindow = 3) {
   return flags
 }
 
+// ============================================================
+// SEKSI 12: CONNORS RSI
+// ============================================================
+// Gabungan 3 komponen: RSI harga (periode pendek), RSI dari streak
+// (berapa hari berturut naik/turun), dan percent rank perubahan 1-hari
+// terhadap window historis. Didesain untuk mengurangi cluster sinyal
+// dibanding RSI standar (lebih banyak sinyal independen, bukan numpuk
+// beberapa hari berturut).
+function _streakSeries(closes) {
+  const n = closes.length
+  const streak = new Array(n).fill(0)
+  for (let i = 1; i < n; i++) {
+    if (closes[i] > closes[i - 1]) streak[i] = streak[i - 1] > 0 ? streak[i - 1] + 1 : 1
+    else if (closes[i] < closes[i - 1]) streak[i] = streak[i - 1] < 0 ? streak[i - 1] - 1 : -1
+    else streak[i] = 0
+  }
+  return streak
+}
+
+function _percentRankSeries(closes, period = 100) {
+  const n = closes.length
+  const pctChange = new Array(n).fill(null)
+  for (let i = 1; i < n; i++) {
+    if (closes[i - 1] !== 0) pctChange[i] = (closes[i] - closes[i - 1]) / closes[i - 1] * 100
+  }
+  const rank = new Array(n).fill(null)
+  for (let i = period; i < n; i++) {
+    const window = []
+    for (let j = i - period + 1; j <= i; j++) {
+      if (pctChange[j] != null) window.push(pctChange[j])
+    }
+    if (!window.length) continue
+    const below = window.filter(x => x < pctChange[i]).length
+    rank[i] = below / window.length * 100
+  }
+  return rank
+}
+
+export function calcConnorsRSI(closes, rsiPeriod = 3, streakPeriod = 2, rankPeriod = 100) {
+  const rsiPrice = calcRSI(closes, rsiPeriod)
+  const streak = _streakSeries(closes)
+  const rsiStreak = calcRSI(streak.map(Number), streakPeriod)
+  const pctRank = _percentRankSeries(closes, rankPeriod)
+
+  const n = closes.length
+  const out = new Array(n).fill(null)
+  for (let i = 0; i < n; i++) {
+    if (rsiPrice[i] != null && rsiStreak[i] != null && pctRank[i] != null) {
+      out[i] = (rsiPrice[i] + rsiStreak[i] + pctRank[i]) / 3
+    }
+  }
+  return out
+}
+
+
 
 
