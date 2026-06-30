@@ -375,3 +375,78 @@ export function enrichDaily(days) {
 
   return days
 }
+
+// ============================================================
+// SEKSI 9: VWMA — Volume Weighted Moving Average
+// ============================================================
+// CATATAN: ini BUKAN VWAP asli (yang reset harian, butuh data intraday).
+// VWMA adalah rata-rata harga N hari tertimbang volume, dihitung murni
+// dari data harian — dipakai sebagai eksperimen pengganti MA biasa.
+export function calcVWMA(closes, volumes, n = 20) {
+  const out = new Array(closes.length).fill(null)
+  for (let i = n - 1; i < closes.length; i++) {
+    const cSlice = closes.slice(i - n + 1, i + 1)
+    const vSlice = volumes.slice(i - n + 1, i + 1)
+    const totalV = vSlice.reduce((s, v) => s + v, 0)
+    if (totalV === 0) continue
+    const weighted = cSlice.reduce((s, c, j) => s + c * vSlice[j], 0)
+    out[i] = weighted / totalV
+  }
+  return out
+}
+
+// ============================================================
+// SEKSI 10: VOLUME PROFILE / POC (Point of Control)
+// ============================================================
+// Rolling window: bagi rentang high-low jadi `bins` bucket harga, akumulasi
+// volume per bucket, POC = harga tengah bucket dengan volume terbanyak.
+export function calcVolumeProfilePOC(candles, window = 60, bins = 20) {
+  const out = new Array(candles.length).fill(null)
+  for (let i = window; i < candles.length; i++) {
+    const slice = candles.slice(i - window, i)
+    const lo = Math.min(...slice.map(d => d.low))
+    const hi = Math.max(...slice.map(d => d.high))
+    if (hi === lo) continue
+    const bucketSize = (hi - lo) / bins
+    const volPerBucket = new Array(bins).fill(0)
+    slice.forEach(d => {
+      const mid = (d.high + d.low) / 2
+      const b = Math.min(bins - 1, Math.floor((mid - lo) / bucketSize))
+      volPerBucket[b] += d.volume
+    })
+    const maxBucket = volPerBucket.indexOf(Math.max(...volPerBucket))
+    out[i] = lo + (maxBucket + 0.5) * bucketSize
+  }
+  return out
+}
+
+// ============================================================
+// SEKSI 11: RSI DIVERGENCE (bullish) — deteksi via swing low
+// ============================================================
+// Swing low = titik dengan close terendah dalam window simetris.
+// Bullish divergence = harga bikin lower-low DIBANDING swing low
+// sebelumnya, tapi RSI di titik itu justru lebih TINGGI (higher-low).
+// Sinyal langka secara alami (saham trending kuat jarang divergence).
+export function calcRSIDivergence(closes, rsiArr, swingWindow = 3) {
+  const n = closes.length
+  const flags = new Array(n).fill(false)
+
+  const swingLows = []
+  for (let i = swingWindow; i < n - swingWindow; i++) {
+    const slice = closes.slice(i - swingWindow, i + swingWindow + 1)
+    if (closes[i] === Math.min(...slice)) swingLows.push(i)
+  }
+
+  for (let j = 1; j < swingLows.length; j++) {
+    const iPrev = swingLows[j - 1]
+    const iCurr = swingLows[j]
+    if (rsiArr[iPrev] == null || rsiArr[iCurr] == null) continue
+    const priceLowerLow = closes[iCurr] < closes[iPrev]
+    const rsiHigherLow  = rsiArr[iCurr] > rsiArr[iPrev]
+    if (priceLowerLow && rsiHigherLow) flags[iCurr] = true
+  }
+
+  return flags
+}
+
+
