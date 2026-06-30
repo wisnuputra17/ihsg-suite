@@ -13,7 +13,8 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   calcSMA, calcEMA, calcRSI, calcATR, calcMACD, calcBollinger,
-  calcVWAP, calcSupertrend, extractIEP, aggregateToDaily, enrichDaily
+  calcVWAP, calcSupertrend, extractIEP, aggregateToDaily, enrichDaily,
+  calcVWMA, calcVolumeProfilePOC, calcRSIDivergence
 } from './indicators.js'
 
 const EPS = 1e-6
@@ -291,3 +292,78 @@ test('enrichDaily: tambah rsi/macdHist/atr/atrPct/vmaRatio/foreignNet/returnPct,
 test('enrichDaily: array kosong tidak crash, return apa adanya', () => {
   assert.deepEqual(enrichDaily([]), [])
 })
+
+// ============================================================
+// calcVWMA
+// ============================================================
+
+test('calcVWMA: volume sama rata == SMA biasa', () => {
+  const closes  = [100, 102, 101, 105, 110]
+  const volumes = [1000, 1000, 1000, 1000, 1000]
+  const out = calcVWMA(closes, volumes, 3)
+  assert.equal(out[0], null)
+  assert.equal(out[1], null)
+  close(out[2], 101.0) // (100+102+101)/3, vol sama -> identik SMA
+})
+
+test('calcVWMA: volume tidak sama membobot ke harga dgn volume tinggi', () => {
+  const closes  = [100, 102, 101, 105, 110]
+  const volumes = [3000, 1000, 1000, 1000, 1000]
+  const out = calcVWMA(closes, volumes, 3)
+  close(out[2], 100.6) // referensi independen Python: (100*3000+102*1000+101*1000)/5000
+})
+
+test('calcVWMA: total volume 0 di window -> null (hindari div/0)', () => {
+  const closes  = [100, 102, 101]
+  const volumes = [0, 0, 0]
+  const out = calcVWMA(closes, volumes, 3)
+  assert.equal(out[2], null)
+})
+
+// ============================================================
+// calcVolumeProfilePOC
+// ============================================================
+
+test('calcVolumeProfilePOC: bucket dgn volume terbanyak jadi POC', () => {
+  // 60 bar identik (high=110,low=90) kecuali 1 bar volume besar di harga rendah
+  const candles = Array.from({ length: 61 }, (_, i) => ({
+    high: 110, low: 90, volume: 100
+  }))
+  candles[10] = { high: 110, low: 90, volume: 100000 } // dominan, tapi posisi mid sama semua bar
+  const out = calcVolumeProfilePOC(candles, 60, 20)
+  assert.equal(out[59], null) // window belum cukup (butuh index >= window)
+  assert.ok(out[60] !== null)
+  assert.ok(out[60] >= 90 && out[60] <= 110) // POC harus dalam rentang harga
+})
+
+test('calcVolumeProfilePOC: window belum cukup data -> null', () => {
+  const candles = Array.from({ length: 10 }, () => ({ high: 110, low: 90, volume: 100 }))
+  const out = calcVolumeProfilePOC(candles, 60, 20)
+  assert.deepEqual(out, new Array(10).fill(null))
+})
+
+// ============================================================
+// calcRSIDivergence
+// ============================================================
+
+test('calcRSIDivergence: deteksi bullish divergence (lower-low harga, higher-low RSI)', () => {
+  // Swing low pertama di index lebih rendah dgn RSI rendah,
+  // swing low kedua: harga LEBIH RENDAH tapi RSI LEBIH TINGGI -> divergence
+  const closes = [100, 95, 100, 105, 90, 100, 110] // swing low di idx1 (95) & idx4 (90)
+  const rsiArr = [50,  20, 50,  60,  25, 50,  60]  // RSI idx4 (25) > RSI idx1 (20) -> divergence di idx4
+  const flags = calcRSIDivergence(closes, rsiArr, 1)
+  assert.equal(flags[4], true)
+})
+
+test('calcRSIDivergence: tidak ada divergence jika RSI juga lower-low', () => {
+  const closes = [100, 95, 100, 105, 90, 100, 110]
+  const rsiArr = [50,  20, 50,  60,  15, 50,  60] // RSI idx4 (15) < RSI idx1 (20) -> bukan divergence
+  const flags = calcRSIDivergence(closes, rsiArr, 1)
+  assert.equal(flags[4], false)
+})
+
+test('calcRSIDivergence: array kosong tidak crash', () => {
+  assert.deepEqual(calcRSIDivergence([], []), [])
+})
+
+
