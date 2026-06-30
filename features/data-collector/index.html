@@ -159,7 +159,7 @@
   import { fetchDaily, fetchBroker, fetchAbsorption, fetchEmitenJson } from '../../shared/api.js'
   import { renderHeader, openTokenPopover, whenTokenReady } from '../../shared/header.js'
   import { bindSymSearch } from '../../shared/symsearch.js'
-  import { calcRSI, calcMACD, calcSMA } from '../../shared/indicators.js'
+  import { calcRSI, calcMACD, calcSMA, calcBollinger, calcVWMA, calcVolumeProfilePOC, calcRSIDivergence } from '../../shared/indicators.js'
   import { showProgress, hideProgress, setProgress, logProgress } from '../../shared/fetch-progress.js'
 
   // ============================================================
@@ -185,6 +185,10 @@
     { id: 'ma100',     label: 'MA 100',          group: 'fast', default: false },
     { id: 'broker',    label: 'Broker (net buy/sell)', group: 'slow', default: false },
     { id: 'lpm',       label: 'LPM (absorption)',      group: 'slow', default: false },
+    { id: 'bbWidth',   label: 'Bollinger Width',  group: 'fast', default: false },
+    { id: 'vwma20',    label: 'VWMA (20)',        group: 'fast', default: false },
+    { id: 'poc',       label: 'Volume Profile POC', group: 'fast', default: false },
+    { id: 'rsiDiv',    label: 'RSI Divergence',   group: 'fast', default: false },
   ]
 
   const _selected = new Set(INDICATOR_DEFS.filter(d => d.default).map(d => d.id))
@@ -341,6 +345,26 @@
       if (_selected.has('ma50'))  { const ma = calcSMA(closes, 50);  daily.forEach((d, i) => d.ma50  = ma[i]) }
       if (_selected.has('ma100')) { const ma = calcSMA(closes, 100); daily.forEach((d, i) => d.ma100 = ma[i]) }
 
+      if (_selected.has('bbWidth')) {
+        const bb = calcBollinger(closes, 20, 2)
+        daily.forEach((d, i) => {
+          d.bbWidth = (bb.upper[i] != null && bb.middle[i]) ? (bb.upper[i] - bb.lower[i]) / bb.middle[i] * 100 : null
+        })
+      }
+      if (_selected.has('vwma20')) {
+        const vwma = calcVWMA(closes, volumes, 20)
+        daily.forEach((d, i) => d.vwma20 = vwma[i])
+      }
+      if (_selected.has('poc')) {
+        const poc = calcVolumeProfilePOC(daily, 60, 20)
+        daily.forEach((d, i) => d.poc60 = poc[i])
+      }
+      if (_selected.has('rsiDiv')) {
+        const rsiForDiv = _selected.has('rsi') ? daily.map(d => d.rsi) : calcRSI(closes, 14)
+        const divFlags = calcRSIDivergence(closes, rsiForDiv, 3)
+        daily.forEach((d, i) => d.rsiBullishDiv = divFlags[i])
+      }
+
       // ── 3. Broker & LPM (lambat, per hari) ──
       const dateList = _dateRangeArray(from, to)
       const brokerByDate = {}
@@ -432,11 +456,16 @@
     if (_selected.has('ma20'))     cols.push('ma20')
     if (_selected.has('ma50'))     cols.push('ma50')
     if (_selected.has('ma100'))    cols.push('ma100')
+    if (_selected.has('bbWidth'))  cols.push('bbWidth')
+    if (_selected.has('vwma20'))   cols.push('vwma20')
+    if (_selected.has('poc'))      cols.push('poc60')
+    if (_selected.has('rsiDiv'))   cols.push('rsiBullishDiv')
     if (_selected.has('broker'))   cols.push('broker')
     if (_selected.has('lpm'))      cols.push('lpm')
 
     const fmt = (v) => {
       if (v === null || v === undefined) return '–'
+      if (typeof v === 'boolean') return v ? '✓' : '–'
       if (typeof v === 'number') return v.toLocaleString('id-ID', { maximumFractionDigits: 2 })
       if (typeof v === 'object') return v.net !== undefined ? v.net.toLocaleString('id-ID') : JSON.stringify(v).slice(0, 30)
       return v
@@ -464,3 +493,4 @@
 
 </body>
 </html>
+
