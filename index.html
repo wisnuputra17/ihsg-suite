@@ -337,6 +337,7 @@
           <span class="market-card-title">USD / IDR</span>
           <span class="market-card-sub">FX</span>
         </div>
+        <div id="widget-usdidr-info"></div>
         <div class="tv-widget-wrap" id="widget-usdidr"></div>
       </div>
 
@@ -346,6 +347,7 @@
           <span class="market-card-title">EIDO</span>
           <span class="market-card-sub">iShares MSCI Indonesia ETF</span>
         </div>
+        <div id="widget-eido-info"></div>
         <div class="tv-widget-wrap" id="widget-eido"></div>
       </div>
     </aside>
@@ -362,6 +364,31 @@
 
 <!-- TradingView widgets — load async setelah halaman siap -->
 <script>
+  function _loadTvSymbolInfo(containerId, symbol) {
+    const wrap = document.getElementById(containerId)
+    if (!wrap) return
+
+    const div = document.createElement('div')
+    div.className = 'tradingview-widget-container'
+    wrap.appendChild(div)
+
+    const inner = document.createElement('div')
+    inner.className = 'tradingview-widget-container__widget'
+    div.appendChild(inner)
+
+    const script = document.createElement('script')
+    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-symbol-info.js'
+    script.async = true
+    script.innerHTML = JSON.stringify({
+      symbol,
+      width: '100%',
+      locale: 'id',
+      colorTheme: 'dark',
+      isTransparent: true,
+    })
+    div.appendChild(script)
+  }
+
   function _loadTvCandleWidget(containerId, symbol, height, interval) {
     const wrap = document.getElementById(containerId)
     if (!wrap) return
@@ -402,8 +429,11 @@
 
   // Tunggu DOM siap baru inject widget
   document.addEventListener('DOMContentLoaded', () => {
+    _loadTvSymbolInfo('widget-usdidr-info', 'PEPPERSTONE:USDIDR')
     _loadTvCandleWidget('widget-usdidr', 'PEPPERSTONE:USDIDR', 240, '60')
-    _loadTvCandleWidget('widget-eido',   'AMEX:EIDO',          240, '60')
+
+    _loadTvSymbolInfo('widget-eido-info', 'AMEX:EIDO')
+    _loadTvCandleWidget('widget-eido', 'AMEX:EIDO', 240, '60')
   })
 </script>
 
