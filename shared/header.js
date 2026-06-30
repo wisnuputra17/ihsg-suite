@@ -100,12 +100,14 @@ async function _doSync() {
     if (expMs === null || expMs > Date.now()) return // token lokal masih oke (atau tak bisa dicek), jangan ganggu
   }
   try {
-    // Timeout 4 detik -- Sheets API kadang lambat/quota habis, JANGAN sampai
-    // halaman terasa "gagal memuat" hanya karena nunggu sync token antar
-    // device yang sebenarnya optional (bukan blocking utama).
+    // Timeout 10 detik -- Sheets API kadang lambat (bukan mati total), jadi
+    // timeout JANGAN terlalu pendek (4 detik sempat dicoba, ternyata malah
+    // memotong request yang sebenarnya akan berhasil kalau ditunggu sedikit
+    // lebih lama -- token jadi gagal ke-sync). 10 detik tetap mencegah
+    // halaman freeze lama kalau API-nya benar2 mati/quota habis.
     const rows = await Promise.race([
       gsLoad(SHEET_TOKEN),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT_SYNC_TOKEN')), 4000))
+      new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT_SYNC_TOKEN')), 10000))
     ])
     const remoteToken = rows?.[0]?.token
     if (!remoteToken) return
@@ -237,4 +239,5 @@ export function openTokenPopover() {
   popover.classList.remove('hidden')
   if (input) input.focus()
 }
+
 
