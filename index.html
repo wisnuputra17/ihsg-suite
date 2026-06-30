@@ -238,7 +238,6 @@
     /* Widget TradingView duduk di dalam card */
     .market-card .tv-widget-wrap {
       width: 100%;
-      height: 160px;
       display: block;
     }
     .market-card .tv-widget-wrap iframe {
@@ -363,11 +362,10 @@
 
 <!-- TradingView widgets — load async setelah halaman siap -->
 <script>
-  function _loadTvWidget(containerId, symbol, height) {
+  function _loadTvMiniWidget(containerId, symbol, height) {
     const wrap = document.getElementById(containerId)
     if (!wrap) return
 
-    // Buat container div yang dibutuhkan TradingView
     const div = document.createElement('div')
     div.id = containerId + '-tv'
     wrap.style.height = height + 'px'
@@ -395,10 +393,54 @@
     wrap.appendChild(script)
   }
 
+  function _loadTvCandleWidget(containerId, symbol, height) {
+    const wrap = document.getElementById(containerId)
+    if (!wrap) return
+
+    const div = document.createElement('div')
+    div.id = containerId + '-tv'
+    div.className = 'tradingview-widget-container'
+    wrap.style.height = height + 'px'
+    wrap.appendChild(div)
+
+    const inner = document.createElement('div')
+    inner.className = 'tradingview-widget-container__widget'
+    div.appendChild(inner)
+
+    const script = document.createElement('script')
+    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js'
+    script.async = true
+    script.innerHTML = JSON.stringify({
+      symbols: [[symbol]],
+      chartOnly: false,
+      width: '100%',
+      height: height,
+      locale: 'id',
+      colorTheme: 'dark',
+      autosize: true,
+      showVolume: false,
+      hideDateRanges: false,
+      hideMarketStatus: true,
+      hideSymbolLogo: true,
+      scalePosition: 'right',
+      scaleMode: 'Normal',
+      fontFamily: 'DM Mono, monospace',
+      noTimeScale: false,
+      valuesTracking: '1',
+      changeMode: 'price-and-percent',
+      chartType: 'candlesticks',
+      backgroundColor: 'rgba(19, 18, 16, 1)',
+      lineWidth: 2,
+      lineType: 0,
+      dateRanges: ['1d|1', '1m|30', '3m|60', '12m|1D'],
+    })
+    div.appendChild(script)
+  }
+
   // Tunggu DOM siap baru inject widget
   document.addEventListener('DOMContentLoaded', () => {
-    _loadTvWidget('widget-usdidr', 'FX:USDIDР', 160)
-    _loadTvWidget('widget-eido',   'AMEX:EIDO', 160)
+    _loadTvMiniWidget('widget-usdidr', 'FX_IDC:USDIDR', 160)
+    _loadTvCandleWidget('widget-eido', 'AMEX:EIDO', 220)
   })
 </script>
 
