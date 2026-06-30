@@ -87,7 +87,6 @@
     }
     .terminal-input::placeholder { color: var(--ghost); }
 
-    /* Kursor berkedip — muncul hanya saat input kosong & tidak fokus */
     .terminal-cursor {
       width: 8px; height: 16px;
       background: var(--phosphor);
@@ -105,6 +104,14 @@
       white-space: nowrap;
     }
     .terminal-count b { color: var(--phosphor); font-weight: 500; }
+
+    /* ── MAIN BODY: 2 kolom ── */
+    .body-layout {
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      gap: 24px;
+      align-items: start;
+    }
 
     /* ── FEATURE LIST ── */
     .feature-section { padding: 28px 0; }
@@ -134,7 +141,6 @@
     .feature-row.is-soon { cursor: default; }
 
     .feature-row-status { flex-shrink: 0; }
-
     .feature-row-main { min-width: 0; }
 
     .feature-row-name {
@@ -181,6 +187,65 @@
     }
     .feature-row:hover .feature-row-arrow { color: var(--dim); transform: translate(2px,-2px); }
 
+    /* ── SIDEBAR ── */
+    .sidebar {
+      padding: 28px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .sidebar-label {
+      font-family: var(--f-mono);
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--ghost);
+      margin-bottom: 4px;
+    }
+
+    /* Card pembungkus tiap widget */
+    .market-card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: var(--panel);
+    }
+
+    .market-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .market-card-title {
+      font-family: var(--f-mono);
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--ghost);
+    }
+
+    .market-card-sub {
+      font-family: var(--f-mono);
+      font-size: 9px;
+      color: var(--ghost);
+      opacity: 0.6;
+    }
+
+    /* Widget TradingView duduk di dalam card */
+    .market-card .tv-widget-wrap {
+      width: 100%;
+      height: 160px;
+      display: block;
+    }
+    .market-card .tv-widget-wrap iframe {
+      border: none;
+      display: block;
+    }
+
     /* ── FOOTER ── */
     .app-footer {
       padding: 18px 0 28px;
@@ -194,6 +259,10 @@
     }
 
     /* ── RESPONSIVE ── */
+    @media (max-width: 860px) {
+      .body-layout { grid-template-columns: 1fr; }
+      .sidebar { padding-top: 0; }
+    }
     @media (max-width: 640px) {
       .feature-row { grid-template-columns: auto 1fr; }
       .feature-row-tag, .feature-row-arrow { display: none; }
@@ -221,7 +290,7 @@
       </div>
     </div>
 
-    <!-- TOKEN INPUT — tersembunyi default, muncul saat tombol Token diklik -->
+    <!-- TOKEN INPUT -->
     <div class="terminal hidden" id="tokenBox" style="margin-bottom:12px;">
       <span class="terminal-prompt" style="font-size:11px;">KEY</span>
       <input
@@ -250,11 +319,39 @@
     </div>
   </header>
 
-  <!-- FEATURE LIST -->
-  <main class="feature-section">
-    <div class="section-label">Fitur</div>
-    <div class="feature-list" id="featureList"></div>
-  </main>
+  <!-- BODY: 2 KOLOM -->
+  <div class="body-layout">
+
+    <!-- KIRI: FEATURE LIST -->
+    <main class="feature-section">
+      <div class="section-label">Fitur</div>
+      <div class="feature-list" id="featureList"></div>
+    </main>
+
+    <!-- KANAN: SIDEBAR MARKET -->
+    <aside class="sidebar">
+      <div class="sidebar-label">Market</div>
+
+      <!-- USD/IDR -->
+      <div class="market-card">
+        <div class="market-card-header">
+          <span class="market-card-title">USD / IDR</span>
+          <span class="market-card-sub">FX</span>
+        </div>
+        <div class="tv-widget-wrap" id="widget-usdidr"></div>
+      </div>
+
+      <!-- EIDO -->
+      <div class="market-card">
+        <div class="market-card-header">
+          <span class="market-card-title">EIDO</span>
+          <span class="market-card-sub">iShares MSCI Indonesia ETF</span>
+        </div>
+        <div class="tv-widget-wrap" id="widget-eido"></div>
+      </div>
+    </aside>
+
+  </div>
 
   <!-- FOOTER -->
   <footer class="app-footer">
@@ -263,6 +360,47 @@
   </footer>
 
 </div>
+
+<!-- TradingView widgets — load async setelah halaman siap -->
+<script>
+  function _loadTvWidget(containerId, symbol, height) {
+    const wrap = document.getElementById(containerId)
+    if (!wrap) return
+
+    // Buat container div yang dibutuhkan TradingView
+    const div = document.createElement('div')
+    div.id = containerId + '-tv'
+    wrap.style.height = height + 'px'
+    wrap.appendChild(div)
+
+    const script = document.createElement('script')
+    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js'
+    script.async = true
+    script.innerHTML = JSON.stringify({
+      symbol,
+      width:           '100%',
+      height:          height,
+      locale:          'id',
+      dateRange:       '1M',
+      colorTheme:      'dark',
+      trendLineColor:  'rgba(217, 142, 43, 0.8)',
+      underLineColor:  'rgba(217, 142, 43, 0.08)',
+      underLineBottomColor: 'rgba(10, 9, 8, 0)',
+      isTransparent:   true,
+      autosize:        true,
+      largeChartUrl:   '',
+      noTimeScale:     false,
+      chartOnly:       false,
+    })
+    wrap.appendChild(script)
+  }
+
+  // Tunggu DOM siap baru inject widget
+  document.addEventListener('DOMContentLoaded', () => {
+    _loadTvWidget('widget-usdidr', 'FX:USDIDР', 160)
+    _loadTvWidget('widget-eido',   'AMEX:EIDO', 160)
+  })
+</script>
 
 <script type="module">
   import { FEATURES }                          from './shared/features.js'
@@ -278,10 +416,6 @@
   const countEl = document.getElementById('terminalCount')
   const footEl  = document.getElementById('footerCount')
 
-  /**
-   * Highlight substring yang cocok dengan query di dalam text.
-   * Hanya highlight kalau ada match — return text asli kalau tidak ada query.
-   */
   function _highlight(text, query) {
     if (!query) return text
     const idx = text.toLowerCase().indexOf(query.toLowerCase())
@@ -291,9 +425,6 @@
       text.slice(idx + query.length)
   }
 
-  /**
-   * Cek apakah 1 fitur cocok dengan query (cari di name, desc, tags).
-   */
   function _matches(feature, query) {
     if (!query) return true
     const q = query.toLowerCase()
@@ -355,7 +486,6 @@
   searchInput.addEventListener('input', _updateCursorVisibility)
   _updateCursorVisibility()
 
-  // Fokus otomatis ke search saat ketik huruf apa saja di halaman (kecuali sudah di input lain)
   document.addEventListener('keydown', e => {
     if (document.activeElement === searchInput) return
     if (e.metaKey || e.ctrlKey || e.altKey) return
@@ -366,7 +496,7 @@
   // SEKSI 3: TOKEN
   // ============================================================
 
-  const tokenBtn   = document.getElementById('tokenBtn')
+  const tokenBtn    = document.getElementById('tokenBtn')
   const tokenBox    = document.getElementById('tokenBox')
   const tokenInput  = document.getElementById('tokenInput')
   const tokenSaveBtn= document.getElementById('tokenSave')
@@ -384,7 +514,7 @@
   tokenSaveBtn.addEventListener('click', () => {
     const v = tokenInput.value.trim()
     if (!v) return
-    saveTokenEverywhere(v) // localStorage + Sheets + event — sebelumnya cuma localStorage (bug)
+    saveTokenEverywhere(v)
     _renderTokenBtn()
     tokenBox.classList.add('hidden')
     tokenInput.value = ''
@@ -395,8 +525,6 @@
 
   _renderTokenBtn()
 
-  // Token lokal kosong/expired? Coba ambil dari Sheets (mungkin baru diisi
-  // dari device lain) — sama seperti yang sudah jalan di semua halaman fitur.
   window.addEventListener('ihsg:token-saved', () => { _renderTokenBtn(); _loadMarketStatus() })
   syncTokenFromSheetsIfNeeded()
 
@@ -424,7 +552,7 @@
   }
 
   // ============================================================
-  // SEKSI 5: DATA GLOBAL (emiten.json) — lazy load sekali
+  // SEKSI 5: DATA GLOBAL (emiten.json)
   // ============================================================
 
   async function _loadEmitenInfo() {
