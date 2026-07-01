@@ -214,7 +214,6 @@
 
     <!-- TIMEFRAME SELECTOR -->
     <div class="tf-bar" id="tf-bar">
-      <button class="tf-btn" data-tf="1m">1m</button>
       <button class="tf-btn" data-tf="5m">5m</button>
       <button class="tf-btn" data-tf="15m">15m</button>
       <button class="tf-btn" data-tf="30m">30m</button>
@@ -335,8 +334,10 @@
   // mult = minutes_multiplier untuk fetchIntraday
   // batchHours = jam data yang bisa diambil per 1 request intraday
   // batches = berapa request yang diambil (batches × batchHours = total jam data)
+  // CATATAN: mult=1 (1m) tidak disertakan karena Stockbit tidak menyediakan
+  // data 1m untuk saham reguler via endpoint chartbit/price/intraday --
+  // API akan fallback ke mult lain atau mengembalikan error. Mulai dari 5m.
   const TF_CONFIG = {
-    '1m':  { type: 'intraday', mult: 1,  batchHours: 7,   batches: 2, label: '1 Menit' },
     '5m':  { type: 'intraday', mult: 5,  batchHours: 7,   batches: 5, label: '5 Menit' },
     '15m': { type: 'intraday', mult: 15, batchHours: 7,   batches: 10, label: '15 Menit' },
     '30m': { type: 'intraday', mult: 30, batchHours: 720, batches: 1,  label: '30 Menit' },
@@ -764,14 +765,18 @@
       const candles = await _fetchForTf(sym, _activeTf)
       DB.sym = sym
 
-      // Intraday: simpan ke DB.intraday; Daily/Weekly/Monthly sudah tersimpan ke DB.daily di _fetchForTf
-      if (TF_CONFIG[_activeTf].type === 'intraday') {
-        DB.intraday = candles
+      // DB.daily selalu berisi data harian asli (untuk indikator MA, RSI, dll)
+      // DB.candles berisi data yang aktual ditampilkan chart (sesuai TF)
+      // PENTING: jangan overwrite DB.daily dengan candles resampled (weekly/monthly)
+      // karena indikator selalu dihitung dari data harian, bukan dari resampled!
+      if (TF_CONFIG[_activeTf].type !== 'intraday') {
+        // DB.daily sudah diset di _fetchForTf (selalu daily asli)
+        // candles mungkin sudah di-resample (weekly/monthly) -- simpan ke DB.candles saja
+        DB.candles = candles
       } else {
-        // DB.daily sudah diset di _fetchForTf, juga set ke candles yang dipakai chart
-        DB.daily = candles
+        DB.intraday = candles
+        DB.candles  = candles
       }
-      DB.candles = candles  // data yang aktual ditampilkan chart (sesuai TF)
       DB.lpmCache = {} // reset WAJIB -- cegah render LPM simbol SEBELUMNYA nyangkut selama cache baru belum siap
       status.textContent = ''
       document.getElementById('sym-input').value = sym
@@ -1493,5 +1498,6 @@
 
 </body>
 </html>
+
 
 
