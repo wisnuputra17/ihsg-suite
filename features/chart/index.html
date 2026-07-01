@@ -18,20 +18,10 @@
     .app-header { flex-shrink: 0; padding: 10px 0; }
 
     /* ── TIMEFRAME SELECTOR ── */
-    .tf-bar {
-      display: flex; align-items: center; gap: 2px;
-      padding: 0 4px;
-      border-right: 1px solid var(--line);
-      margin-right: 4px;
-    }
-    .tf-btn {
-      padding: 2px 7px; border-radius: 4px; border: none;
-      background: transparent; color: var(--ghost);
-      font-family: var(--f-mono); font-size: 11px; cursor: pointer;
-      transition: background 0.15s, color 0.15s;
-    }
-    .tf-btn:hover  { background: var(--raised); color: var(--paper); }
-    .tf-btn.active { background: var(--phosphor); color: var(--bg); font-weight: 700; }
+    .tf-bar { display:flex; align-items:center; gap:2px; padding:0 4px; border-right:1px solid var(--line); margin-right:4px; }
+    .tf-btn { padding:2px 7px; border-radius:4px; border:none; background:transparent; color:var(--ghost); font-family:var(--f-mono); font-size:11px; cursor:pointer; transition:background 0.15s,color 0.15s; }
+    .tf-btn:hover { background:var(--raised); color:var(--paper); }
+    .tf-btn.active { background:var(--phosphor); color:var(--bg); font-weight:700; }
 
     /* ── TOOLBAR — search saham + Indicators + LPM mode + token, semua 1 baris ── */
     .chart-toolbar {
@@ -211,8 +201,6 @@
       <input type="text" id="sym-input" placeholder="cari saham..." maxlength="10" autocomplete="off">
       <div class="sym-dropdown hidden" id="sym-dropdown"></div>
     </div>
-
-    <!-- TIMEFRAME SELECTOR -->
     <div class="tf-bar" id="tf-bar">
       <button class="tf-btn" data-tf="5m">5m</button>
       <button class="tf-btn" data-tf="15m">15m</button>
@@ -326,72 +314,40 @@
   let candleSeries = null
   let _dateToIndex = {}
 
-  // TIMEFRAME STATE
-  // TF aktif sekarang, default 1D
+  // ── TIMEFRAME STATE ──
   let _activeTf = '1D'
-
-  // Konfigurasi tiap timeframe:
-  // mult = minutes_multiplier untuk fetchIntraday
-  // batchHours = jam data yang bisa diambil per 1 request intraday
-  // batches = berapa request yang diambil (batches × batchHours = total jam data)
-  // CATATAN: mult=1 (1m) tidak disertakan karena Stockbit tidak menyediakan
-  // data 1m untuk saham reguler via endpoint chartbit/price/intraday --
-  // API akan fallback ke mult lain atau mengembalikan error. Mulai dari 5m.
   const TF_CONFIG = {
-    '5m':  { type: 'intraday', mult: 5,  batchHours: 7,   batches: 5, label: '5 Menit' },
-    '15m': { type: 'intraday', mult: 15, batchHours: 7,   batches: 10, label: '15 Menit' },
-    '30m': { type: 'intraday', mult: 30, batchHours: 720, batches: 1,  label: '30 Menit' },
-    '1h':  { type: 'intraday', mult: 60, batchHours: 720, batches: 1,  label: '1 Jam' },
-    '1D':  { type: 'daily',    label: 'Daily' },
-    '1W':  { type: 'weekly',   label: 'Weekly' },
-    '1M':  { type: 'monthly',  label: 'Monthly' },
+    '5m':  { type:'intraday', mult:5,  batchH:7,   batches:5  },
+    '15m': { type:'intraday', mult:15, batchH:7,   batches:10 },
+    '30m': { type:'intraday', mult:30, batchH:720, batches:1  },
+    '1h':  { type:'intraday', mult:60, batchH:720, batches:1  },
+    '1D':  { type:'daily'  },
+    '1W':  { type:'weekly' },
+    '1M':  { type:'monthly'},
   }
 
-  /**
-   * Fetch data intraday dengan multi-batch untuk mendapat histori lebih panjang.
-   * Stockbit intraday endpoint punya batasan per-request (batchHours), jadi perlu
-   * beberapa request berurutan untuk dapat range yang cukup.
-   */
-  async function _fetchIntradayBatched(sym, mult, batchHours, batches) {
-    const batchMs = batchHours * 3600 * 1000
-    const now = Date.now()
-    const allCandles = []
-    const seen = new Set()
-    for (let b = 0; b < batches; b++) {
-      const toTs  = Math.floor((now - b * batchMs) / 1000)
-      const fromTs = Math.floor((now - (b + 1) * batchMs) / 1000)
-      try {
-        const candles = await fetchIntraday(sym, toTs, fromTs, mult)
-        for (const c of candles) {
-          if (!seen.has(c.unix)) { seen.add(c.unix); allCandles.push(c) }
-        }
-      } catch (e) {
-        if (e.code === 'EMPTY_RESPONSE') break  // tidak ada data lebih lama, hentikan
-        throw e
-      }
-    }
-    // Sort ascending by unix timestamp
-    return allCandles.sort((a, b) => a.unix - b.unix)
-  }
-
-  /**
-   * Ambil data sesuai TF aktif. Return array candle untuk chart.
-   * Intraday: {time: unix(detik), open, high, low, close, volume, datetime}
-   * Daily/Weekly/Monthly: {time: 'YYYY-MM-DD', open, high, low, close, volume}
-   */
   async function _fetchForTf(sym, tf) {
     const cfg = TF_CONFIG[tf]
-    if (!cfg) throw new Error(`TF tidak dikenal: ${tf}`)
     if (cfg.type === 'intraday') {
-      return await _fetchIntradayBatched(sym, cfg.mult, cfg.batchHours, cfg.batches)
+      const batchMs = cfg.batchH * 3600 * 1000
+      const now = Date.now()
+      const all = []; const seen = new Set()
+      for (let b = 0; b < cfg.batches; b++) {
+        const toTs   = Math.floor((now - b*batchMs)/1000)
+        const fromTs = Math.floor((now - (b+1)*batchMs)/1000)
+        try {
+          const c = await fetchIntraday(sym, toTs, fromTs, cfg.mult)
+          c.forEach(x => { if (!seen.has(x.unix)) { seen.add(x.unix); all.push(x) } })
+        } catch(e) { if (e.code==='EMPTY_RESPONSE') break; throw e }
+      }
+      return { candles: all.sort((a,b)=>a.unix-b.unix), isIntraday: true }
     }
-    // Daily: ambil semua (warmup penuh), simpan ke DB.daily untuk indikator
     const raw = await fetchDaily(sym)
-    const daily = [...raw].sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0)
-    DB.daily = daily  // selalu simpan daily ke DB untuk indikator (MA, RSI, dll)
-    if (cfg.type === 'weekly')  return resampleWeekly(daily)
-    if (cfg.type === 'monthly') return resampleMonthly(daily)
-    return daily.map(d => ({ ...d, time: d.date }))
+    const daily = [...raw].sort((a,b) => a.date<b.date?-1:a.date>b.date?1:0)
+    DB.daily = daily   // selalu simpan harian asli untuk indikator
+    if (cfg.type==='weekly')  return { candles: resampleWeekly(daily),  isIntraday: false }
+    if (cfg.type==='monthly') return { candles: resampleMonthly(daily), isIntraday: false }
+    return { candles: daily, isIntraday: false }
   }
 
   // Registry indikator aktif (single-instance) — {key: {series:[], overlay:bool, legend:fn}}
@@ -477,13 +433,13 @@
       if (!DB.sym) { document.getElementById('sym-input').value = 'IHSG'; _loadSym() }
     })
 
-    // Bind tombol timeframe
-    document.querySelectorAll('.tf-btn').forEach(btn => {
+    // Bind timeframe buttons
+    document.querySelectorAll('#tf-bar .tf-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const tf = btn.dataset.tf
         if (tf === _activeTf) return
         _activeTf = tf
-        document.querySelectorAll('.tf-btn').forEach(b => b.classList.toggle('active', b.dataset.tf === tf))
+        document.querySelectorAll('#tf-bar .tf-btn').forEach(b => b.classList.toggle('active', b.dataset.tf === tf))
         if (DB.sym) _loadSym()
       })
     })
@@ -762,27 +718,14 @@
     status.textContent = 'Memuat...'
 
     try {
-      const candles = await _fetchForTf(sym, _activeTf)
+      const { candles, isIntraday } = await _fetchForTf(sym, _activeTf)
       DB.sym = sym
-
-      // DB.daily selalu berisi data harian asli (untuk indikator MA, RSI, dll)
-      // DB.candles berisi data yang aktual ditampilkan chart (sesuai TF)
-      // PENTING: jangan overwrite DB.daily dengan candles resampled (weekly/monthly)
-      // karena indikator selalu dihitung dari data harian, bukan dari resampled!
-      if (TF_CONFIG[_activeTf].type !== 'intraday') {
-        // DB.daily sudah diset di _fetchForTf (selalu daily asli)
-        // candles mungkin sudah di-resample (weekly/monthly) -- simpan ke DB.candles saja
-        DB.candles = candles
-      } else {
-        DB.intraday = candles
-        DB.candles  = candles
-      }
-      DB.lpmCache = {} // reset WAJIB -- cegah render LPM simbol SEBELUMNYA nyangkut selama cache baru belum siap
+      if (!isIntraday) DB.daily = candles  // hanya update DB.daily jika bukan intraday resampled
+      DB.candles = candles
+      DB.lpmCache = {}
       status.textContent = ''
       document.getElementById('sym-input').value = sym
-      _rebuildChart() // render SEGERA (candle + indikator lain) -- JANGAN tunggu LPM cache
-
-      // LPM cache di-load PARALEL di background (hanya relevan saat TF = 1D)
+      _rebuildChart()
       if (_activeTf === '1D') {
         loadLpmCacheForSym(sym).then(() => { if (DB.sym === sym) _updateLpmForVisibleRange() })
       }
@@ -800,15 +743,12 @@
   function _rebuildChart() {
     if (chart) { chart.remove(); chart = null }
     Object.keys(ACTIVE).forEach(k => delete ACTIVE[k])
-    _lastContainerH = null // baseline baru utk proporsional resize, chart lama sudah hilang
+    _lastContainerH = null
 
     const candles = DB.candles || DB.daily
     const isIntraday = TF_CONFIG[_activeTf]?.type === 'intraday'
     _dateToIndex = {}
-    candles.forEach((d, i) => {
-      // Intraday: key = unix timestamp; Daily/W/M: key = date string
-      _dateToIndex[isIntraday ? d.unix : d.date] = i
-    })
+    candles.forEach((d, i) => { _dateToIndex[isIntraday ? d.unix : d.date] = i })
 
     chart = LightweightCharts.createChart(document.getElementById('chart-main'), {
       autoSize: true,
@@ -823,26 +763,19 @@
     })
     candleSeries.setData(candles.map(d => ({
       time:  isIntraday ? d.unix : d.date,
-      open:  d.open, high: d.high, low: d.low, close: d.close
+      open: d.open, high: d.high, low: d.low, close: d.close
     })))
     ACTIVE._candle = { series: [candleSeries], overlay: true }
 
-    // Restore semua MA periode yang aktif (chart baru → series lama sudah hilang)
-    // MA hanya ditampilkan saat TF daily/weekly/monthly (pakai DB.daily)
+    // MA dan indikator lain hanya untuk Daily TF
     Object.keys(_maSeries).forEach(k => delete _maSeries[k])
     if (!isIntraday) _maPeriods.forEach(p => _createMaSeries(p))
 
-    // Restore indikator single-instance lain (hanya Daily TF yang support semua indikator)
+    // Restore indikator single-instance — hanya Daily
     ;['ema','bollinger','supertrend','volume','rsi','macd','atr'].forEach(key => {
       if (document.getElementById(`ind-${key}`).checked) _addIndicator(key)
     })
 
-    // LPM (bar & overlay) — fetch+render dipicu SETELAH loadLpmCacheForSym
-    // resolve di _loadSym() (.then()), BUKAN di sini -- DB.lpmCache baru saja
-    // di-reset kosong, kalau di-trigger di sini semua tanggal kelihatan
-    // "belum ada" & fetch ulang Stockbit sia-sia (padahal mungkin sudah ada
-    // di Sheets, cuma belum sempat di-load ke memori). Subscribe di sini cuma
-    // utk scroll/zoom SETELAH initial load, bukan trigger pertama kali.
     _lpmBarSeries = null
     _lpmOverlaySeries = null
     if (_activeTf === '1D') chart.timeScale().subscribeVisibleLogicalRangeChange(_debouncedLpmUpdate)
@@ -850,12 +783,10 @@
     chart.timeScale().fitContent()
 
     chart.subscribeCrosshairMove(param => {
-      // Saat sedang menggambar (menunggu klik ke-2) → fokus performa, HANYA
-      // update posisi garis preview. Skip update legend/OHLC (rebuild HTML
-      // tiap gerakan mouse itu yang bikin lag saat menarik garis).
       if (_pendingPoint) { _updatePreviewLine(param); return }
-
-      const key = isIntraday ? param.time : param.time
+      const candles = DB.candles || DB.daily
+      const isIntra = TF_CONFIG[_activeTf]?.type === 'intraday'
+      const key = isIntra ? param.time : param.time
       const idx = key != null ? _dateToIndex[key] : candles.length - 1
       _updateInfoAndLegend(idx !== undefined ? idx : candles.length - 1)
     })
@@ -876,6 +807,8 @@
 
     _updateInfoAndLegend((DB.candles || DB.daily).length - 1)
   }
+
+  function _isSubpaneActive(key) {
     if (key === 'lpm') return document.getElementById('ind-lpm').checked && _indSettings.lpm.mode === 'bar'
     return !!ACTIVE[key]
   }
@@ -964,7 +897,7 @@
     }
 
     _setPaneActiveHeight(key, true)
-    if (chart) _updateInfoAndLegend(DB.daily.length - 1)
+    if (chart) _updateInfoAndLegend((DB.candles || DB.daily).length - 1)
   }
 
   function _removeIndicator(key) {
@@ -1414,13 +1347,13 @@
   // ============================================================
   function _updateInfoAndLegend(idx) {
     const candles = DB.candles || DB.daily
+    const isIntraday = TF_CONFIG[_activeTf]?.type === 'intraday'
     if (!candles.length || idx === undefined || idx < 0 || idx >= candles.length) return
     const d = candles[idx]
     const prevClose = idx > 0 ? candles[idx - 1].close : d.open
     const chg = d.close - prevClose
     const chgPct = prevClose > 0 ? (chg / prevClose) * 100 : 0
     const up = chg >= 0
-    const isIntraday = TF_CONFIG[_activeTf]?.type === 'intraday'
     const timeLabel = isIntraday ? (d.datetime || '') : d.date
 
     document.getElementById('ohlc-bar').innerHTML = `
@@ -1496,7 +1429,5 @@
 
 </body>
 </html>
-
-
 
 
