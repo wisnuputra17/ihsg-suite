@@ -108,6 +108,20 @@
     .status-strip .item b { color: var(--paper); margin-left: 4px; }
     .status-strip .signal-active { color: var(--live); font-weight: 600; }
     .status-strip .signal-avoid  { color: var(--down); font-weight: 600; }
+
+    .refresh-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-family: var(--f-mono); font-size: 10px;
+      color: var(--ghost); letter-spacing: 0.05em;
+    }
+    .refresh-badge.is-market-open { color: var(--live); }
+    .refresh-badge.is-refreshing  { color: var(--phosphor); }
+    .refresh-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--ghost);
+    }
+    .refresh-badge.is-market-open .refresh-dot  { background: var(--live); animation: blink 1.5s step-end infinite; }
+    .refresh-badge.is-refreshing  .refresh-dot  { background: var(--phosphor); }
   </style>
 </head>
 <body>
@@ -132,6 +146,7 @@
       <span class="focus-indicator-name" id="focus-indicator-name"></span>
     </div>
     <div class="legend-row" id="legend-row"></div>
+    <div id="refresh-badge-wrap" style="margin-bottom:8px;"></div>
     <div id="chart-main"></div>
     <div class="status-strip" id="status-strip"></div>
   </div>
@@ -269,12 +284,100 @@
   // ============================================================
   const viewSelect = document.getElementById('view-select')
   const viewDetail = document.getElementById('view-detail')
+
+  let chart = null
+  let _activeSym = null        // simbol yang sedang dibuka di view detail
+  let _autoRefreshTimer = null // setInterval handle untuk auto-refresh
+
+  // Cek apakah sekarang jam bursa IDX (Senin-Jumat 08:45-16:00 WIB)
+  function _isMarketHours() {
+    const now = new Date()
+    const wib = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }))
+    const day = wib.getDay() // 0=Minggu, 6=Sabtu
+    if (day === 0 || day === 6) return false
+    const h = wib.getHours()
+    const m = wib.getMinutes()
+    const totalMin = h * 60 + m
+    return totalMin >= 8*60+45 && totalMin < 16*60  // 08:45–16:00
+  }
+
+  function _nextRefreshSecs() {
+    return 5 * 60  // 5 menit
+  }
+
+  let _countdown = 0
+  let _countdownTimer = null
+
+  function _updateRefreshBadge(state) {
+    const wrap = document.getElementById('refresh-badge-wrap')
+    if (!wrap) return
+    if (state === 'off') {
+      wrap.innerHTML = `<span class="refresh-badge"><span class="refresh-dot"></span>Auto-refresh nonaktif (pasar tutup)</span>`
+    } else if (state === 'countdown') {
+      wrap.innerHTML = `<span class="refresh-badge is-market-open"><span class="refresh-dot"></span>Pasar buka · refresh berikutnya dalam <b id="refresh-countdown">${_countdown}d</b></span>`
+    } else if (state === 'refreshing') {
+      wrap.innerHTML = `<span class="refresh-badge is-refreshing"><span class="refresh-dot"></span>Memperbarui data...</span>`
+    }
+  }
+
+  function _startCountdown(seconds) {
+    _countdown = seconds
+    _updateRefreshBadge('countdown')
+    if (_countdownTimer) clearInterval(_countdownTimer)
+    _countdownTimer = setInterval(() => {
+      _countdown--
+      const el = document.getElementById('refresh-countdown')
+      if (el) el.textContent = _countdown + 'd'
+      if (_countdown <= 0) clearInterval(_countdownTimer)
+    }, 1000)
+  }
+
+  function _stopAutoRefresh() {
+    if (_autoRefreshTimer) { clearInterval(_autoRefreshTimer); _autoRefreshTimer = null }
+    if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null }
+    _updateRefreshBadge('off')
+  }
+
+  async function _refreshData() {
+    if (!_activeSym || viewDetail.classList.contains('hidden')) return
+    if (!TOKEN.isSet()) return
+    _updateRefreshBadge('refreshing')
+    try {
+      const profile = EMITEN_PROFILES.find(p => p.sym === _activeSym)
+      if (!profile) return
+      const raw = await fetchDaily(_activeSym)
+      const daily = [...raw].sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0)
+      const computed = profile.compute(daily)
+      _renderChart(computed)
+      _renderStatusStrip(computed)
+    } catch (e) {
+      console.warn('[auto-refresh] gagal:', e.message)
+    } finally {
+      if (_isMarketHours()) {
+        _startCountdown(_nextRefreshSecs())
+      } else {
+        _stopAutoRefresh()
+      }
+    }
+  }
+
+  function _setupAutoRefresh() {
+    _stopAutoRefresh()
+    if (!_isMarketHours()) { _updateRefreshBadge('off'); return }
+    _startCountdown(_nextRefreshSecs())
+    _autoRefreshTimer = setInterval(() => {
+      if (!_isMarketHours()) { _stopAutoRefresh(); return }
+      _refreshData()
+    }, _nextRefreshSecs() * 1000)
+  }
+
+  // Bersihkan timer saat user kembali ke halaman pilihan
   document.getElementById('back-btn').addEventListener('click', () => {
+    _stopAutoRefresh()
+    _activeSym = null
     viewDetail.classList.add('hidden')
     viewSelect.classList.remove('hidden')
   })
-
-  let chart = null
 
   // Guard: pastikan library LightweightCharts (dari CDN) sudah ter-load
   // sebelum dipakai. CDN kadang lambat/gagal di koneksi tertentu —
@@ -302,6 +405,7 @@
     await whenTokenReady()
     if (!TOKEN.isSet()) { openTokenPopover(); return }
 
+    _activeSym = sym
     viewSelect.classList.add('hidden')
     viewDetail.classList.remove('hidden')
 
@@ -321,6 +425,7 @@
       const computed = profile.compute(daily)
       _renderChart(computed)
       _renderStatusStrip(computed)
+      _setupAutoRefresh()  // mulai auto-refresh setelah data pertama berhasil dimuat
     } catch (e) {
       document.getElementById('status-strip').innerHTML =
         `<span class="item" style="color:var(--down);">Gagal memuat: ${e.code || e.message}</span>`
@@ -426,5 +531,6 @@
 
 
 <!-- rebuild trigger 1782838361 -->
+
 
 
