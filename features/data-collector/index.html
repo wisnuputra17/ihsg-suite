@@ -203,6 +203,7 @@
     { id: 'ma100',     label: 'MA 100',          group: 'fast', default: false },
     { id: 'broker',    label: 'Broker (net buy/sell)', group: 'slow', default: false },
     { id: 'lpm',       label: 'LPM (absorption)',      group: 'slow', default: false },
+    { id: 'tradebook', label: 'Trade Book per menit (IEP/ORB analysis)', group: 'slow', default: false },
     { id: 'bbWidth',   label: 'Bollinger Width',  group: 'fast', default: false },
     { id: 'vwma20',    label: 'VWMA (20)',        group: 'fast', default: false },
     { id: 'poc',       label: 'Volume Profile POC', group: 'fast', default: false },
@@ -255,7 +256,7 @@
     '30m':   '30 Menit: max ~30 hari per request, multi-batch otomatis. Indikator yang tersedia: RSI, MACD, Volume, MA Volume.',
     '1h':    '1 Jam: max ~30 hari per request, multi-batch otomatis. Indikator yang tersedia: RSI, MACD, Volume, MA Volume.',
   }
-  const TF_SLOW_IDS = new Set(['broker', 'lpm', 'bbWidth', 'vwma20', 'poc', 'rsiDiv'])
+  const TF_SLOW_IDS = new Set(['broker', 'lpm', 'tradebook', 'bbWidth', 'vwma20', 'poc', 'rsiDiv'])
 
   document.querySelectorAll('input[name="tf"]').forEach(radio => {
     radio.addEventListener('change', () => {
@@ -338,14 +339,18 @@
     }
 
     const days = _tradingDaysBetween(dateFromEl.value, dateToEl.value)
-    const needsBroker = _selected.has('broker')
-    const needsLpm    = _selected.has('lpm')
-    const slowCount = (needsBroker ? days : 0) + (needsLpm ? days : 0)
+    const needsBroker    = _selected.has('broker')
+    const needsLpm       = _selected.has('lpm')
+    const needsTradebook = _selected.has('tradebook')
+    const slowCount = (needsBroker ? days : 0) + (needsLpm ? days : 0) + (needsTradebook ? days : 0)
 
     let html = `<b>${_currentSym}</b> · ~${days} hari bursa dalam rentang EXPORT.<br>`
     html += `OHLC: <b>1 request</b> (histori PENUH sejak listing, untuk warmup RSI/MACD/MA akurat — file hasil tetap dipotong ke rentang tanggal di atas).`
-    if (slowCount > 0) {
-      html += `<br>Broker/LPM: <b>~${slowCount} request</b> (1 per hari per indikator) — bisa makan waktu.`
+    if (needsTradebook) {
+      html += `<br>Trade Book: <b>~${days} request</b> (1 per hari) — menyimpan data per menit termasuk periode IEP (08:45-08:59) untuk analisa ORB & Surge Volume IEP.`
+    }
+    if (needsBroker || needsLpm) {
+      html += `<br>Broker/LPM: <b>~${(needsBroker?days:0)+(needsLpm?days:0)} request</b> (1 per hari per indikator).`
     }
     box.innerHTML = html
     box.classList.toggle('is-warn', slowCount > 300)
@@ -534,18 +539,21 @@
       const daily = dailyAllSorted.filter(d => d.date >= from && d.date <= to)
       logProgress(progressEl, `Dipotong ke rentang export: ${daily.length} bar (${from} – ${to})`, 'ok')
 
-      // ── 3. Broker & LPM (lambat, per hari) ──
+      // ── 3. Broker, LPM, Trade Book (lambat, per hari) ──
       const dateList = _dateRangeArray(from, to)
-      const brokerByDate = {}
-      const lpmByDate = {}
+      const brokerByDate    = {}
+      const lpmByDate       = {}
+      const tradebookByDate = {}
 
-      const needsBroker = _selected.has('broker')
-      const needsLpm    = _selected.has('lpm')
+      const needsBroker    = _selected.has('broker')
+      const needsLpm       = _selected.has('lpm')
+      const needsTradebook = _selected.has('tradebook')
 
-      if (needsBroker || needsLpm) {
+      if (needsBroker || needsLpm || needsTradebook) {
         const tasks = []
-        if (needsBroker) tasks.push(...dateList.map(date => ({ type: 'broker', date })))
-        if (needsLpm)    tasks.push(...dateList.map(date => ({ type: 'lpm', date })))
+        if (needsBroker)    tasks.push(...dateList.map(date => ({ type: 'broker',    date })))
+        if (needsLpm)       tasks.push(...dateList.map(date => ({ type: 'lpm',       date })))
+        if (needsTradebook) tasks.push(...dateList.map(date => ({ type: 'tradebook', date })))
 
         for (let i = 0; i < tasks.length; i++) {
           const t = tasks[i]
@@ -554,22 +562,72 @@
             if (t.type === 'broker') {
               const res = await fetchBroker(_currentSym, t.date, t.date)
               brokerByDate[t.date] = res
-            } else {
+            } else if (t.type === 'lpm') {
               const res = await fetchAbsorption(_currentSym, t.date)
               const totalBuy  = res.buy.reduce((s, x) => s + x.value, 0)
               const totalSell = res.sell.reduce((s, x) => s + x.value, 0)
               lpmByDate[t.date] = { buy: totalBuy, sell: totalSell, net: totalBuy - totalSell }
+            } else {
+              // TRADEBOOK: ambil semua data per menit, simpan raw + ekstrak IEP metrics
+              const res = await fetchAbsorption(_currentSym, t.date)
+
+              // Klasifikasikan candle per menit ke periode:
+              // IEP pre-opening: 08:45-08:59
+              // Regular: 09:00-16:00
+              // Simpan semua menit raw, plus ringkasan IEP untuk analisa ORB
+              const minuteData = []
+              const allMinutes = [...res.buy, ...res.sell].map(x => x.time).filter(Boolean)
+              const uniqueTimes = [...new Set(allMinutes)].sort()
+
+              // Bangun map buy/sell per menit
+              const buyMap = {}; res.buy.forEach(x => { buyMap[x.time] = x.value })
+              const sellMap = {}; res.sell.forEach(x => { sellMap[x.time] = x.value })
+
+              for (const t_min of uniqueTimes) {
+                minuteData.push({
+                  time:    t_min,
+                  buy:     buyMap[t_min]  || 0,
+                  sell:    sellMap[t_min] || 0,
+                  net:     (buyMap[t_min] || 0) - (sellMap[t_min] || 0),
+                })
+              }
+
+              // Ekstrak periode IEP (08:45-08:59)
+              const iepMinutes = minuteData.filter(m => m.time >= '08:45' && m.time <= '08:59')
+              const iepVolBuy  = iepMinutes.reduce((s, m) => s + m.buy, 0)
+              const iepVolSell = iepMinutes.reduce((s, m) => s + m.sell, 0)
+              const iepVolNet  = iepVolBuy - iepVolSell
+
+              // Opening candle setelah IEP: 09:00-09:04 (1m pertama setelah opening)
+              const openMinutes = minuteData.filter(m => m.time >= '09:00' && m.time <= '09:04')
+              const openVolBuy  = openMinutes.reduce((s, m) => s + m.buy, 0)
+              const openVolSell = openMinutes.reduce((s, m) => s + m.sell, 0)
+
+              tradebookByDate[t.date] = {
+                minutes: minuteData,       // semua data per menit (untuk analisa detail)
+                iep: {
+                  volBuy:  iepVolBuy,      // total value beli di IEP (08:45-08:59)
+                  volSell: iepVolSell,     // total value jual di IEP
+                  volNet:  iepVolNet,      // net IEP (positif = lebih banyak beli)
+                  minutes: iepMinutes,     // data per menit IEP
+                },
+                open: {
+                  volBuy:  openVolBuy,     // total value beli di menit pertama (09:00-09:04)
+                  volSell: openVolSell,
+                },
+              }
             }
           } catch (e) {
-            logProgress(progressEl, `${t.date}: ${e.code || e.message}`, e.code === 'EMPTY_RESPONSE' ? 'warn' : 'err')
+            logProgress(progressEl, `${t.date} ${t.type}: ${e.code || e.message}`, e.code === 'EMPTY_RESPONSE' ? 'warn' : 'err')
           }
         }
         logProgress(progressEl, `Selesai mengambil data per-hari (${tasks.length} request)`, 'ok')
       }
 
-      // Gabungkan broker/lpm ke daily by date
-      if (needsBroker) daily.forEach(d => d.broker = brokerByDate[d.date] || null)
-      if (needsLpm)    daily.forEach(d => d.lpm    = lpmByDate[d.date]    || null)
+      // Gabungkan ke daily by date
+      if (needsBroker)    daily.forEach(d => d.broker    = brokerByDate[d.date]    || null)
+      if (needsLpm)       daily.forEach(d => d.lpm       = lpmByDate[d.date]       || null)
+      if (needsTradebook) daily.forEach(d => d.tradebook = tradebookByDate[d.date] || null)
 
       // ── 4. Export ──
       const exportPayload = {
@@ -693,6 +751,7 @@
 
 </body>
 </html>
+
 
 
 
