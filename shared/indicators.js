@@ -506,3 +506,69 @@ export function calcConnorsRSI(closes, rsiPeriod = 3, streakPeriod = 2, rankPeri
 
 
 
+
+
+// ============================================================
+// SEKSI 13: RESAMPLE DAILY → WEEKLY / MONTHLY
+// ============================================================
+// Aggregate candle harian ke candle mingguan atau bulanan.
+// Input: array candle {date, open, high, low, close, volume}
+// Output: array candle dengan granularitas lebih besar.
+
+/**
+ * Resample candle harian ke candle mingguan (Senin = awal minggu).
+ * @param {Array} daily - array candle harian ascending {date,open,high,low,close,volume}
+ * @returns {Array} candle mingguan
+ */
+export function resampleWeekly(daily) {
+  if (!daily || !daily.length) return []
+  const groups = new Map()
+  for (const d of daily) {
+    const dt = new Date(d.date + 'T00:00:00')
+    // Cari Senin minggu ini (0=Minggu, 1=Senin, ..., 6=Sabtu)
+    const day = dt.getDay()
+    const diff = (day === 0) ? -6 : 1 - day  // jarak ke Senin
+    const mon = new Date(dt)
+    mon.setDate(dt.getDate() + diff)
+    const key = mon.toISOString().slice(0, 10)
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key).push(d)
+  }
+  return Array.from(groups.entries())
+    .sort(([a], [b]) => a < b ? -1 : 1)
+    .map(([date, candles]) => ({
+      date,
+      time: date,
+      open:   candles[0].open,
+      high:   Math.max(...candles.map(c => c.high)),
+      low:    Math.min(...candles.map(c => c.low)),
+      close:  candles[candles.length - 1].close,
+      volume: candles.reduce((s, c) => s + (c.volume || 0), 0),
+    }))
+}
+
+/**
+ * Resample candle harian ke candle bulanan (tanggal 1 = awal bulan).
+ * @param {Array} daily - array candle harian ascending {date,open,high,low,close,volume}
+ * @returns {Array} candle bulanan
+ */
+export function resampleMonthly(daily) {
+  if (!daily || !daily.length) return []
+  const groups = new Map()
+  for (const d of daily) {
+    const key = d.date.slice(0, 7) + '-01'  // YYYY-MM-01
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key).push(d)
+  }
+  return Array.from(groups.entries())
+    .sort(([a], [b]) => a < b ? -1 : 1)
+    .map(([date, candles]) => ({
+      date,
+      time: date,
+      open:   candles[0].open,
+      high:   Math.max(...candles.map(c => c.high)),
+      low:    Math.min(...candles.map(c => c.low)),
+      close:  candles[candles.length - 1].close,
+      volume: candles.reduce((s, c) => s + (c.volume || 0), 0),
+    }))
+}
