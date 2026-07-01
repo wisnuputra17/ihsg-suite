@@ -122,6 +122,19 @@
     }
     .refresh-badge.is-market-open .refresh-dot  { background: var(--live); animation: blink 1.5s step-end infinite; }
     .refresh-badge.is-refreshing  .refresh-dot  { background: var(--phosphor); }
+
+    /* ── TIMEFRAME SELECTOR ── */
+    .tf-bar {
+      display: flex; align-items: center; gap: 2px; margin-bottom: 8px;
+    }
+    .tf-btn {
+      padding: 2px 7px; border-radius: 4px; border: none;
+      background: transparent; color: var(--ghost);
+      font-family: var(--f-mono); font-size: 11px; cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .tf-btn:hover  { background: var(--raised); color: var(--paper); }
+    .tf-btn.active { background: var(--phosphor); color: var(--bg); font-weight: 700; }
   </style>
 </head>
 <body>
@@ -147,6 +160,16 @@
     </div>
     <div class="legend-row" id="legend-row"></div>
     <div id="refresh-badge-wrap" style="margin-bottom:8px;"></div>
+    <div class="tf-bar" id="tf-bar-fokus">
+      <button class="tf-btn" data-tf="1m">1m</button>
+      <button class="tf-btn" data-tf="5m">5m</button>
+      <button class="tf-btn" data-tf="15m">15m</button>
+      <button class="tf-btn" data-tf="30m">30m</button>
+      <button class="tf-btn" data-tf="1h">1h</button>
+      <button class="tf-btn active" data-tf="1D">1D</button>
+      <button class="tf-btn" data-tf="1W">1W</button>
+      <button class="tf-btn" data-tf="1M">1M</button>
+    </div>
     <div id="chart-main"></div>
     <div class="status-strip" id="status-strip"></div>
   </div>
@@ -157,9 +180,9 @@
 
 <script type="module">
   import { TOKEN } from '../../shared/store.js'
-  import { fetchDaily } from '../../shared/api.js'
+  import { fetchDaily, fetchIntraday } from '../../shared/api.js'
   import { renderHeader, openTokenPopover, whenTokenReady } from '../../shared/header.js'
-  import { calcRSI, calcMACD, calcSMA, calcConnorsRSI } from '../../shared/indicators.js'
+  import { calcRSI, calcMACD, calcSMA, calcConnorsRSI, resampleWeekly, resampleMonthly } from '../../shared/indicators.js'
 
   renderHeader(document.getElementById('app-header'), [
     { label: 'IHSG Suite', href: '../../index.html' },
@@ -287,6 +310,48 @@
 
   let chart = null
   let _activeSym = null        // simbol yang sedang dibuka di view detail
+  let _activeTf  = '1D'        // timeframe aktif untuk tampilan chart
+
+  const TF_CONFIG_FOKUS = {
+    '1m':  { type: 'intraday', mult: 1,  batchHours: 7,   batches: 2 },
+    '5m':  { type: 'intraday', mult: 5,  batchHours: 7,   batches: 5 },
+    '15m': { type: 'intraday', mult: 15, batchHours: 7,   batches: 10 },
+    '30m': { type: 'intraday', mult: 30, batchHours: 720, batches: 1 },
+    '1h':  { type: 'intraday', mult: 60, batchHours: 720, batches: 1 },
+    '1D':  { type: 'daily' },
+    '1W':  { type: 'weekly' },
+    '1M':  { type: 'monthly' },
+  }
+
+  async function _fetchForTfFokus(sym, tf) {
+    const cfg = TF_CONFIG_FOKUS[tf]
+    if (cfg.type === 'intraday') {
+      const batchMs = cfg.batchHours * 3600 * 1000
+      const now = Date.now()
+      const allCandles = []
+      const seen = new Set()
+      for (let b = 0; b < cfg.batches; b++) {
+        const toTs   = Math.floor((now - b * batchMs) / 1000)
+        const fromTs = Math.floor((now - (b + 1) * batchMs) / 1000)
+        try {
+          const candles = await fetchIntraday(sym, toTs, fromTs, cfg.mult)
+          for (const c of candles) {
+            if (!seen.has(c.unix)) { seen.add(c.unix); allCandles.push(c) }
+          }
+        } catch (e) {
+          if (e.code === 'EMPTY_RESPONSE') break
+          throw e
+        }
+      }
+      return allCandles.sort((a, b) => a.unix - b.unix)
+    }
+    // Daily — ambil semua (warmup penuh untuk Connors RSI)
+    const raw = await fetchDaily(sym)
+    const daily = [...raw].sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0)
+    if (cfg.type === 'weekly')  return { daily, candles: resampleWeekly(daily) }
+    if (cfg.type === 'monthly') return { daily, candles: resampleMonthly(daily) }
+    return { daily, candles: daily }
+  }
   let _autoRefreshTimer = null // setInterval handle untuk auto-refresh
 
   // Cek apakah sekarang jam bursa IDX (Senin-Jumat 08:45-16:00 WIB)
@@ -345,11 +410,18 @@
     try {
       const profile = EMITEN_PROFILES.find(p => p.sym === _activeSym)
       if (!profile) return
-      const raw = await fetchDaily(_activeSym)
-      const daily = [...raw].sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0)
-      const computed = profile.compute(daily)
-      _renderChart(computed)
-      _renderStatusStrip(computed)
+      const result = await _fetchForTfFokus(_activeSym, _activeTf)
+      const isIntraday = TF_CONFIG_FOKUS[_activeTf].type === 'intraday'
+      if (isIntraday) {
+        // Untuk intraday, render chart saja tanpa Connors RSI signal (signal tetap daily)
+        _renderChartRaw(result)
+      } else {
+        const { daily, candles } = result
+        const computed = profile.compute(daily)
+        // Render dengan candles TF tapi signal dari daily
+        _renderChartWithTf(computed, candles, _activeTf)
+        _renderStatusStrip(computed)
+      }
     } catch (e) {
       console.warn('[auto-refresh] gagal:', e.message)
     } finally {
@@ -418,14 +490,21 @@
     `
     document.getElementById('status-strip').innerHTML = `<span class="item">Memuat data...</span>`
 
+    // Bind tombol TF untuk view ini
+    document.querySelectorAll('#tf-bar-fokus .tf-btn').forEach(btn => {
+      btn.onclick = () => {
+        const tf = btn.dataset.tf
+        if (tf === _activeTf) return
+        _activeTf = tf
+        document.querySelectorAll('#tf-bar-fokus .tf-btn').forEach(b => b.classList.toggle('active', b.dataset.tf === tf))
+        _loadChartForTf(sym, profile)
+      }
+    })
+
     try {
       await _waitForLightweightCharts()
-      const raw = await fetchDaily(sym)
-      const daily = [...raw].sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0)
-      const computed = profile.compute(daily)
-      _renderChart(computed)
-      _renderStatusStrip(computed)
-      _setupAutoRefresh()  // mulai auto-refresh setelah data pertama berhasil dimuat
+      await _loadChartForTf(sym, profile)
+      _setupAutoRefresh()
     } catch (e) {
       document.getElementById('status-strip').innerHTML =
         `<span class="item" style="color:var(--down);">Gagal memuat: ${e.code || e.message}</span>`
@@ -433,8 +512,47 @@
     }
   }
 
+  async function _loadChartForTf(sym, profile) {
+    document.getElementById('status-strip').innerHTML = `<span class="item">Memuat data (${_activeTf})...</span>`
+    const isIntraday = TF_CONFIG_FOKUS[_activeTf].type === 'intraday'
+    const result = await _fetchForTfFokus(sym, _activeTf)
+    if (isIntraday) {
+      _renderChartRaw(result, _activeTf)
+      document.getElementById('status-strip').innerHTML = `<span class="item">Chart intraday ${_activeTf} — sinyal entry/exit hanya tersedia di timeframe Daily (1D)</span>`
+    } else {
+      const { daily, candles } = result
+      const computed = profile.compute(daily)
+      _renderChartWithTf(computed, candles, _activeTf)
+      _renderStatusStrip(computed)
+    }
+  }
+
   function _renderChart(computed) {
+    _renderChartWithTf(computed, computed, '1D')
+  }
+
+  // Render chart intraday tanpa signal entry/exit (signal hanya valid di daily)
+  function _renderChartRaw(candles, tf) {
     if (chart) { chart.remove(); chart = null }
+    chart = LightweightCharts.createChart(document.getElementById('chart-main'), {
+      autoSize: true,
+      layout:    { background: { color: '#0a0908' }, textColor: '#6b6557' },
+      grid:      { vertLines: { color: '#1a1815' }, horzLines: { color: '#1a1815' } },
+      timeScale: { timeVisible: true, rightOffset: 4 }
+    })
+    const candleSeries = chart.addSeries(LightweightCharts.CandlestickSeries, {
+      upColor: '#4ade80', downColor: '#f0635c', borderVisible: false,
+      wickUpColor: '#4ade80', wickDownColor: '#f0635c'
+    })
+    candleSeries.setData(candles.map(d => ({ time: d.unix, open: d.open, high: d.high, low: d.low, close: d.close })))
+    chart.timeScale().fitContent()
+  }
+
+  // Render chart dengan candles TF tertentu (W/M resampled atau D),
+  // tapi signal entry/exit tetap dari data daily (di computed)
+  function _renderChartWithTf(computed, candles, tf) {
+    if (chart) { chart.remove(); chart = null }
+    const isDaily = tf === '1D'
 
     chart = LightweightCharts.createChart(document.getElementById('chart-main'), {
       autoSize: true,
@@ -447,37 +565,40 @@
       upColor: '#4ade80', downColor: '#f0635c', borderVisible: false,
       wickUpColor: '#4ade80', wickDownColor: '#f0635c'
     })
-    candleSeries.setData(computed.map(d => ({ time: d.date, open: d.open, high: d.high, low: d.low, close: d.close })))
+    candleSeries.setData(candles.map(d => ({ time: d.date || d.time, open: d.open, high: d.high, low: d.low, close: d.close })))
 
-    // MA20 overlay — referensi visual untuk formula
-    const ma20Series = chart.addSeries(LightweightCharts.LineSeries, {
-      color: 'rgba(217,142,43,0.6)', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, title: 'MA20'
-    })
-    ma20Series.setData(computed.filter(d => d._ma20 != null).map(d => ({ time: d.date, value: d._ma20 })))
-
-    // Marker entry/exit — entry TERAKHIR yang belum punya exit sesudahnya
-    // (posisi masih terbuka sampai hari ini) ditandai beda supaya jelas
-    // ini bukan siklus yang sudah selesai.
-    const lastEntryIdx = computed.findLastIndex
-      ? computed.findLastIndex(d => d._signal === 'entry')
-      : (() => { for (let i = computed.length - 1; i >= 0; i--) if (computed[i]._signal === 'entry') return i; return -1 })()
-    const hasExitAfterLastEntry = lastEntryIdx >= 0 &&
-      computed.slice(lastEntryIdx + 1).some(d => d._signal === 'avoid')
-    const openEntryIdx = (lastEntryIdx >= 0 && !hasExitAfterLastEntry) ? lastEntryIdx : -1
-
-    const markers = computed
-      .filter(d => d._signal)
-      .map((d, _, arr) => {
-        const idxInComputed = computed.indexOf(d)
-        if (d._signal === 'entry') {
-          const isOpen = idxInComputed === openEntryIdx
-          return isOpen
-            ? { time: d.date, position: 'belowBar', color: '#60a5fa', shape: 'arrowUp', text: 'ENTRY (open)' }
-            : { time: d.date, position: 'belowBar', color: '#4ade80', shape: 'arrowUp', text: 'ENTRY' }
-        }
-        return { time: d.date, position: 'aboveBar', color: '#f0635c', shape: 'arrowDown', text: 'EXIT' }
+    // MA20 overlay — hanya di Daily (untuk W/M tidak relevan)
+    if (isDaily) {
+      const ma20Series = chart.addSeries(LightweightCharts.LineSeries, {
+        color: 'rgba(217,142,43,0.6)', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, title: 'MA20'
       })
-    LightweightCharts.createSeriesMarkers(candleSeries, markers)
+      ma20Series.setData(computed.filter(d => d._ma20 != null).map(d => ({ time: d.date, value: d._ma20 })))
+    }
+
+    // Marker entry/exit — hanya ditampilkan di Daily TF
+    // (di Weekly/Monthly, tanggal candle tidak cocok persis dengan tanggal signal daily)
+    if (isDaily) {
+      const lastEntryIdx = computed.findLastIndex
+        ? computed.findLastIndex(d => d._signal === 'entry')
+        : (() => { for (let i = computed.length - 1; i >= 0; i--) if (computed[i]._signal === 'entry') return i; return -1 })()
+      const hasExitAfterLastEntry = lastEntryIdx >= 0 &&
+        computed.slice(lastEntryIdx + 1).some(d => d._signal === 'avoid')
+      const openEntryIdx = (lastEntryIdx >= 0 && !hasExitAfterLastEntry) ? lastEntryIdx : -1
+
+      const markers = computed
+        .filter(d => d._signal)
+        .map((d) => {
+          const idxInComputed = computed.indexOf(d)
+          if (d._signal === 'entry') {
+            const isOpen = idxInComputed === openEntryIdx
+            return isOpen
+              ? { time: d.date, position: 'belowBar', color: '#60a5fa', shape: 'arrowUp', text: 'ENTRY (open)' }
+              : { time: d.date, position: 'belowBar', color: '#4ade80', shape: 'arrowUp', text: 'ENTRY' }
+          }
+          return { time: d.date, position: 'aboveBar', color: '#f0635c', shape: 'arrowDown', text: 'EXIT' }
+        })
+      LightweightCharts.createSeriesMarkers(candleSeries, markers)
+    }
 
     chart.timeScale().fitContent()
   }
@@ -531,6 +652,7 @@
 
 
 <!-- rebuild trigger 1782838361 -->
+
 
 
 
