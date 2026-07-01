@@ -874,10 +874,8 @@
     document.getElementById('draw-preview-line').setAttribute('visibility', 'hidden')
     _renderDrawingsForSym()
 
-    _updateInfoAndLegend(days.length - 1)
+    _updateInfoAndLegend((DB.candles || DB.daily).length - 1)
   }
-
-  function _isSubpaneActive(key) {
     if (key === 'lpm') return document.getElementById('ind-lpm').checked && _indSettings.lpm.mode === 'bar'
     return !!ACTIVE[key]
   }
@@ -966,7 +964,7 @@
     }
 
     _setPaneActiveHeight(key, true)
-    if (chart) _updateInfoAndLegend(days.length - 1)
+    if (chart) _updateInfoAndLegend(DB.daily.length - 1)
   }
 
   function _removeIndicator(key) {
@@ -1466,7 +1464,7 @@
         // Garis kumulatif — jumlahkan net dari hari PERTAMA sampai idx (hari yang dihover)
         let cum = 0
         for (let i = 0; i <= idx; i++) {
-          const v = DB.lpmCache[days[i].date]
+          const v = DB.lpmCache[DB.daily[i].date]
           if (v) cum += v.net
         }
         rows.push({ label: 'LPM Kum.', color: '#d98e2b', value: cum, fmt: 'rp' })
@@ -1498,6 +1496,7 @@
 
 </body>
 </html>
+
 
 
 
