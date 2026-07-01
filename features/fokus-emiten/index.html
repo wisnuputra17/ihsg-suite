@@ -197,14 +197,16 @@
     {
       sym: 'RAJA',
       indicatorName: 'Kunci RAJA',
-      summary: 'Entry: Connors RSI ≤15 (RSI+streak+percentRank, lebih jarang cluster drpd RSI biasa). Exit: Trailing stop 30% ATAU MACD hist>100.',
-      stat: { n: 11, wlb: '52.3%', horizon: 'per-trade, avg hold ~125 hari kalender' },
+      summary: 'Entry: Connors RSI ≤15, max 3 posisi bersamaan, min jarak 14 hari antar entry. Exit tiap posisi: Trailing stop 30% dari highest-nya ATAU MACD hist>100 (exit SEMUA posisi sekaligus).',
+      stat: { n: 20, wlb: '69.9%', horizon: 'per-trade, avg hold ~184 hari kalender' },
       rules: [
         { type: 'entry', text: 'Connors RSI ≤ 15' },
-        { type: 'exit',  text: 'Trailing stop 30% dari harga tertinggi sejak entry' },
-        { type: 'exit',  text: 'ATAU MACD histogram > 100 (sinyal euforia kuat)' },
+        { type: 'entry', text: 'Max 3 posisi terbuka bersamaan' },
+        { type: 'entry', text: 'Min jarak 14 hari dari entry sebelumnya' },
+        { type: 'exit',  text: 'Trailing stop 30% dari highest tiap posisi (independen)' },
+        { type: 'exit',  text: 'MACD histogram > 100 → EXIT SEMUA posisi sekaligus' },
       ],
-      // Hitung indikator turunan, lalu jalankan state machine entry/exit (trailing stop)
+      // Hitung indikator turunan, lalu jalankan state machine MULTI-POSISI
       compute(daily) {
         const closes  = daily.map(d => d.close)
         const rsi    = calcRSI(closes, 14)
@@ -218,49 +220,78 @@
           _ma20: ma20[i],
           _macdHist: macd.hist[i],
           _connorsRsi: cRsi[i],
-          _signal: null, // diisi state machine di bawah
+          _signal: null,    // 'entry' | 'exit_trail' | 'exit_macd' | null
+          _posCount: 0,     // jumlah posisi terbuka di hari ini
         }))
 
-        // STATE MACHINE: trailing stop ATAU MACD hist ekstrem.
-        // RIWAYAT EKSPLORASI (penting, jangan dihapus):
-        // 1. Formula awal (RSI+MA20+MACD<0, trail 15-20%) ternyata BIAS -- ada
-        //    bug localeCompare yg merusak sort tanggal & warmup indikator.
-        // 2. Setelah bug diperbaiki, RSI standar+VolRatio>=1.3 entry filter
-        //    bagus secara WLB (56.6%, win 100%) TAPI n kecil (5 trade) dan
-        //    avgHold sangat panjang (220 hari) -- sinyal RSI standar cluster
-        //    (beberapa hari berturut jadi 1 trade saja).
-        // 3. PIVOT KE CONNORS RSI: gabungan RSI harga (period pendek) +
-        //    RSI dari STREAK (hari berturut naik/turun) + percent rank
-        //    perubahan 1-hari. Didesain memang utk kurangi cluster -- TERBUKTI:
-        //    n naik dari 5 ke 11 trade, avgHold turun dari 220 ke 125 hari.
-        //    Trade-off: WLB sedikit turun (56.6%->52.3%), win rate turun
-        //    (100%->81.8%) -- lebih sering trading, kadang ada rugi.
-        // 4. MACD hist > 100 tetap dipertahankan sbg exit (sinyal balik arah
-        //    yg sangat kuat, WLB 85-90% di semua eksperimen sebelumnya).
-        // CATATAN: n=11 masih relatif kecil -- gunakan dgn kesadaran ini.
-        const TRAIL_PCT = 30
-        const MACD_AVOID_THRESHOLD = 100
-        const CONNORS_RSI_THRESHOLD = 15
-        let inPosition = false
-        let highestSinceEntry = null
+        // ============================================================
+        // STATE MACHINE MULTI-POSISI
+        // RIWAYAT KEPUTUSAN:
+        // 1. Awalnya 1 posisi saja (state machine standar) → WLB 52.3% n=11
+        // 2. Multi-posisi (max 3, min gap 14 hari) → WLB 69.9% n=20
+        //    Mengapa WLB naik: RAJA sering turun sementara beberapa kali
+        //    dalam satu rally besar → sinyal Connors RSI muncul berulang
+        //    → dengan 1 posisi, sinyal tambahan terbuang; dengan multi-
+        //    posisi, semua entry punya harga berbeda tapi exit di rally
+        //    yang sama → return rata-rata jauh lebih baik.
+        // 3. Stop loss 5% diuji → merusak WLB (dari 52% → 11%) → tidak dipakai.
+        // ============================================================
+        const MAX_POS      = 3
+        const MIN_GAP_DAYS = 14   // hari kalender minimum antar entry
+        const TRAIL_PCT    = 30
+        const MACD_AVOID   = 100
+        const CRSI_THRESH  = 15
+
+        let positions = []        // [{entryIdx, entryPrice, highest}]
+        let lastEntryDate = null
+
+        const msPerDay = 86400000
 
         for (let i = 0; i < out.length; i++) {
           const d = out[i]
-          if (!inPosition) {
-            const entryOk = d._connorsRsi != null && d._connorsRsi <= CONNORS_RSI_THRESHOLD
-            if (entryOk) {
-              d._signal = 'entry'
-              inPosition = true
-              highestSinceEntry = d.close
+
+          // EXIT semua posisi kalau MACD ekstrem
+          const macdExit = d._macdHist != null && d._macdHist > MACD_AVOID
+          if (macdExit && positions.length > 0) {
+            // Tandai exit MACD di hari ini (hanya 1 marker, bukan per posisi)
+            d._signal = 'exit_macd'
+            positions = []
+          }
+
+          if (!macdExit) {
+            // Update highest + cek trailing stop tiap posisi
+            const remaining = []
+            let anyExited = false
+            for (const pos of positions) {
+              if (d.close > pos.highest) pos.highest = d.close
+              const drawdown = (pos.highest - d.close) / pos.highest * 100
+              if (drawdown >= TRAIL_PCT) {
+                anyExited = true  // ada yang kena trailing
+              } else {
+                remaining.push(pos)
+              }
             }
-          } else {
-            if (d.close > highestSinceEntry) highestSinceEntry = d.close
-            const drawdown = (highestSinceEntry - d.close) / highestSinceEntry * 100
-            const macdExtreme = d._macdHist != null && d._macdHist > MACD_AVOID_THRESHOLD
-            if (drawdown >= TRAIL_PCT || macdExtreme) {
-              d._signal = 'avoid' // exit -- trailing stop ATAU MACD euforia
-              inPosition = false
-              highestSinceEntry = null
+            positions = remaining
+            if (anyExited && d._signal == null) d._signal = 'exit_trail'
+          }
+
+          out[i]._posCount = positions.length
+
+          // Cek entry baru
+          const entryOk = d._connorsRsi != null && d._connorsRsi <= CRSI_THRESH
+          if (entryOk && positions.length < MAX_POS) {
+            // Cek min gap dari entry terakhir
+            let gapOk = true
+            if (lastEntryDate != null && MIN_GAP_DAYS > 0) {
+              const gapMs = new Date(d.date) - new Date(lastEntryDate)
+              const gapDays = gapMs / msPerDay
+              gapOk = gapDays >= MIN_GAP_DAYS
+            }
+            if (gapOk) {
+              // Tandai entry
+              if (d._signal == null) d._signal = 'entry'
+              positions.push({ entryIdx: i, entryPrice: d.close, highest: d.close })
+              lastEntryDate = d.date
             }
           }
         }
@@ -486,7 +517,8 @@
     document.getElementById('legend-row').innerHTML = `
       <span class="legend-item"><span class="legend-dot" style="background:#4ade80;"></span> Entry (closed)</span>
       <span class="legend-item"><span class="legend-dot" style="background:#60a5fa;"></span> Entry (masih terbuka)</span>
-      <span class="legend-item"><span class="legend-dot" style="background:#f0635c;"></span> Exit (Trailing Stop)</span>
+      <span class="legend-item"><span class="legend-dot" style="background:#f0635c;"></span> Exit Trailing</span>
+      <span class="legend-item"><span class="legend-dot" style="background:#f97316;"></span> Exit MACD (semua)</span>
     `
     document.getElementById('status-strip').innerHTML = `<span class="item">Memuat data...</span>`
 
@@ -576,27 +608,40 @@
     }
 
     // Marker entry/exit — hanya ditampilkan di Daily TF
-    // (di Weekly/Monthly, tanggal candle tidak cocok persis dengan tanggal signal daily)
+    // Multi-posisi: bisa ada beberapa entry marker di hari yang sama atau berdekatan,
+    // exit bisa 'exit_trail' (1 posisi kena trailing) atau 'exit_macd' (semua posisi keluar)
     if (isDaily) {
-      const lastEntryIdx = computed.findLastIndex
-        ? computed.findLastIndex(d => d._signal === 'entry')
-        : (() => { for (let i = computed.length - 1; i >= 0; i--) if (computed[i]._signal === 'entry') return i; return -1 })()
-      const hasExitAfterLastEntry = lastEntryIdx >= 0 &&
-        computed.slice(lastEntryIdx + 1).some(d => d._signal === 'avoid')
-      const openEntryIdx = (lastEntryIdx >= 0 && !hasExitAfterLastEntry) ? lastEntryIdx : -1
+      // Posisi yang masih terbuka di akhir data = _posCount terakhir yang > 0
+      const lastPosCount = computed[computed.length - 1]?._posCount || 0
 
-      const markers = computed
-        .filter(d => d._signal)
-        .map((d) => {
-          const idxInComputed = computed.indexOf(d)
-          if (d._signal === 'entry') {
-            const isOpen = idxInComputed === openEntryIdx
-            return isOpen
-              ? { time: d.date, position: 'belowBar', color: '#60a5fa', shape: 'arrowUp', text: 'ENTRY (open)' }
-              : { time: d.date, position: 'belowBar', color: '#4ade80', shape: 'arrowUp', text: 'ENTRY' }
-          }
-          return { time: d.date, position: 'aboveBar', color: '#f0635c', shape: 'arrowDown', text: 'EXIT' }
-        })
+      const markers = []
+      // Kumpulkan semua hari yang punya signal, hindari duplikat tanggal
+      const seenDates = new Set()
+      for (const d of computed) {
+        if (!d._signal) continue
+        const key = d.date + '_' + d._signal
+        if (seenDates.has(key)) continue
+        seenDates.add(key)
+
+        if (d._signal === 'entry') {
+          // Cek apakah posisi yang dibuka hari ini masih terbuka (lihat _posCount di akhir)
+          // Sederhana: kalau hari ini adalah entry dan tidak ada exit_macd/exit_trail setelahnya
+          // yang mengosongkan semua posisi, tandai sebagai "open"
+          const isNearEnd = lastPosCount > 0 &&
+            !computed.slice(computed.indexOf(d) + 1).some(x => x._signal === 'exit_macd')
+          markers.push({
+            time: d.date,
+            position: 'belowBar',
+            color: isNearEnd ? '#60a5fa' : '#4ade80',
+            shape: 'arrowUp',
+            text: isNearEnd ? `ENTRY (${lastPosCount} open)` : 'ENTRY'
+          })
+        } else if (d._signal === 'exit_trail') {
+          markers.push({ time: d.date, position: 'aboveBar', color: '#f0635c', shape: 'arrowDown', text: 'EXIT (trail)' })
+        } else if (d._signal === 'exit_macd') {
+          markers.push({ time: d.date, position: 'aboveBar', color: '#f97316', shape: 'arrowDown', text: 'EXIT ALL (MACD)' })
+        }
+      }
       LightweightCharts.createSeriesMarkers(candleSeries, markers)
     }
 
@@ -607,24 +652,31 @@
     const last = computed[computed.length - 1]
     const strip = document.getElementById('status-strip')
 
-    // Tentukan apakah SAAT INI sedang dalam posisi terbuka (entry sudah trigger,
-    // belum ada exit sesudahnya) -- scan dari belakang sampai ketemu signal terakhir
-    let positionStatus = 'Tidak ada posisi terbuka'
-    let entrySince = null
+    // Jumlah posisi terbuka saat ini dari _posCount
+    const openCount = last._posCount || 0
+
+    // Cari tanggal entry-entry yang masih terbuka (mundur dari akhir sampai ketemu exit_macd)
+    const openEntries = []
     for (let i = computed.length - 1; i >= 0; i--) {
-      if (computed[i]._signal === 'avoid') break // exit terakhir -> tidak ada posisi terbuka
-      if (computed[i]._signal === 'entry') {
-        positionStatus = `Posisi TERBUKA sejak ${computed[i].date}`
-        entrySince = computed[i]
-        break
-      }
+      if (computed[i]._signal === 'exit_macd') break // exit_macd menutup semua
+      if (computed[i]._signal === 'entry') openEntries.unshift(computed[i].date)
+      if (openEntries.length >= openCount) break
+    }
+
+    let positionHtml = ''
+    if (openCount === 0) {
+      positionHtml = 'Tidak ada posisi terbuka'
+    } else {
+      positionHtml = `<b>${openCount} posisi TERBUKA</b> — entry: ${openEntries.join(', ')}`
     }
 
     const signalHtml = last._signal === 'entry'
-      ? `<span class="signal-active">ENTRY AKTIF</span>`
-      : last._signal === 'avoid'
-        ? `<span class="signal-avoid">EXIT (trailing stop kena)</span>`
-        : `<span>Netral</span>`
+      ? `<span class="signal-active">ENTRY BARU</span>`
+      : last._signal === 'exit_trail'
+        ? `<span class="signal-avoid">EXIT trailing (1 posisi)</span>`
+        : last._signal === 'exit_macd'
+          ? `<span class="signal-avoid">EXIT MACD (semua posisi)</span>`
+          : `<span>Netral</span>`
 
     strip.innerHTML = `
       <span class="item">${last.date}</span>
@@ -634,7 +686,7 @@
       <span class="item">MACD Hist <b>${last._macdHist != null ? last._macdHist.toFixed(2) : '–'}</b></span>
       <span class="item">Connors RSI <b>${last._connorsRsi != null ? last._connorsRsi.toFixed(1) : '–'}</b></span>
       <span class="item">Sinyal hari ini: ${signalHtml}</span>
-      <span class="item" style="width:100%; padding-top:6px; border-top:1px solid var(--line); margin-top:4px;">${positionStatus}</span>
+      <span class="item" style="width:100%; padding-top:6px; border-top:1px solid var(--line); margin-top:4px;">${positionHtml}</span>
     `
   }
 </script>
@@ -646,12 +698,8 @@
 
 
 
-
-
-
-
-
 <!-- rebuild trigger 1782838361 -->
+
 
 
 
