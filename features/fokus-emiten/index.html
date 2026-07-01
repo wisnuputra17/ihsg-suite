@@ -297,6 +297,91 @@
 
         return out
       }
+    },
+
+    // ============================================================
+    // KUNCI RAJA INTRADAY
+    // ============================================================
+    {
+      sym: 'RAJA',
+      indicatorName: 'Kunci RAJA Intraday',
+      mode: 'intraday',  // mode flag untuk membedakan dari kartu swing
+      summary: 'Entry: Open pasar 09:00. Konfirmasi: ORB breakout UP (09:05-09:30). Exit: jam 12:00. AVOID: kalau tidak ada ORB breakout sebelum 09:30 (WLB avoid 85.5%).',
+      stat: { n: 163, wlb: '61.2%', horizon: 'intraday, entry Open 09:00, exit jam 12:00, avg +1.79%' },
+      rules: [
+        { type: 'entry', text: 'Entry di Open pasar jam 09:00 (setelah IEP final terbentuk)' },
+        { type: 'entry', text: 'Konfirmasi: ada candle close > ORB High (09:05-09:30)' },
+        { type: 'exit',  text: 'Exit jam 12:00 (apapun kondisinya)' },
+        { type: 'avoid', text: 'AVOID: tidak ada ORB breakout sebelum 09:30 (WLB avoid 85.5%)' },
+      ],
+      // compute() untuk intraday berbeda — fetch data 1m hari ini,
+      // hitung ORB high/low dari 09:00-09:04, deteksi breakout
+      async computeIntraday(sym, fetchIntradayFn) {
+        const now = new Date()
+        const wib = new Date(now.getTime() + 7*3600*1000)
+        const dateStr = wib.toISOString().slice(0, 10)
+
+        // Fetch intraday 5m hari ini (untuk chart) + 1m untuk ORB presisi
+        const toTs   = Math.floor(now.getTime() / 1000)
+        const fromTs = Math.floor(new Date(dateStr + 'T01:00:00Z').getTime() / 1000)  // 08:00 WIB
+
+        const raw1m = await fetchIntradayFn(sym, toTs, fromTs, 1)
+        const raw5m = await fetchIntradayFn(sym, toTs, fromTs, 5)
+
+        if (!raw1m || raw1m.length === 0) return null
+
+        const sort1m = [...raw1m].sort((a,b) => a.unix - b.unix)
+        const sort5m = [...raw5m].sort((a,b) => a.unix - b.unix)
+
+        // IEP candle (08:45-08:59)
+        const iepCandles = sort1m.filter(c => {
+          const t = (c.datetime||'').slice(11,16)
+          return t >= '08:45' && t <= '08:59'
+        })
+        const iepClose = iepCandles.length ? iepCandles[iepCandles.length-1].close : null
+        const iepVol   = iepCandles.reduce((s,c) => s + (c.volume||0), 0)
+
+        // ORB range (09:00-09:04)
+        const orbCandles = sort1m.filter(c => {
+          const t = (c.datetime||'').slice(11,16)
+          return t >= '09:00' && t <= '09:04'
+        })
+        const orbHigh = orbCandles.length ? Math.max(...orbCandles.map(c=>c.high)) : null
+        const orbLow  = orbCandles.length ? Math.min(...orbCandles.map(c=>c.low))  : null
+
+        // Status breakout
+        const postOrb = sort1m.filter(c => {
+          const t = (c.datetime||'').slice(11,16)
+          return t >= '09:05'
+        })
+        const brokenUp   = orbHigh && postOrb.some(c => c.close > orbHigh)
+        const brokenDown = orbLow  && postOrb.some(c => c.close < orbLow)
+
+        // Waktu sekarang WIB
+        const timeNow = wib.toISOString().slice(11,16)
+        let orbStatus
+        if (timeNow < '08:45')      orbStatus = 'pre_iep'
+        else if (timeNow < '09:00') orbStatus = 'iep_forming'
+        else if (timeNow < '09:05') orbStatus = 'orb_forming'
+        else if (brokenUp)          orbStatus = 'broken_up'
+        else if (timeNow >= '09:30') orbStatus = 'no_signal'
+        else                         orbStatus = 'waiting'
+
+        // Tandai candle 5m dengan signal
+        const out = sort5m.map(c => {
+          const t = (c.datetime||'').slice(11,16)
+          let _signal = null
+          // Marker entry: candle 09:00 (open pasar setelah IEP final)
+          if (t === '09:00') _signal = 'entry'
+          // Marker exit: candle jam 12:00
+          if (t === '12:00') _signal = 'exit'
+          return { ...c, time: c.unix, _signal, _orbHigh: orbHigh, _orbLow: orbLow }
+        })
+
+        return { candles5m: out, orbHigh, orbLow, orbStatus, iepClose, iepVol, brokenUp, brokenDown, dateStr }
+      },
+      // compute() reguler (dummy untuk kompatibilitas -- tidak dipakai di mode intraday)
+      compute(daily) { return daily.map(d => ({ ...d, _signal: null })) }
     }
   ]
 
@@ -306,20 +391,26 @@
   const gridEl = document.getElementById('emiten-grid')
 
   function _renderCards() {
-    const cards = EMITEN_PROFILES.map(p => `
-      <div class="emiten-card" data-sym="${p.sym}">
-        <div class="emiten-card-sym">${p.sym}</div>
-        <div class="emiten-card-indicator">${p.indicatorName}</div>
-        <div class="emiten-card-formula">
-          ${p.rules.map(r => `<div class="rule-${r.type}">${r.text}</div>`).join('')}
+    const cards = EMITEN_PROFILES.map((p, idx) => {
+      const isIntraday = p.mode === 'intraday'
+      const badge = isIntraday
+        ? `<span style="background:var(--phosphor);color:var(--bg);font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px;font-family:var(--f-mono);">INTRADAY</span>`
+        : ''
+      return `
+        <div class="emiten-card" data-idx="${idx}">
+          <div class="emiten-card-sym">${p.sym}${badge}</div>
+          <div class="emiten-card-indicator">${p.indicatorName}</div>
+          <div class="emiten-card-formula">
+            ${p.rules.map(r => `<div class="rule-${r.type}">${r.text}</div>`).join('')}
+          </div>
+          <div class="emiten-card-stat">
+            <span>n=<b>${p.stat.n}</b></span>
+            <span>WLB <b>${p.stat.wlb}</b></span>
+            <span>${p.stat.horizon}</span>
+          </div>
         </div>
-        <div class="emiten-card-stat">
-          <span>n=<b>${p.stat.n}</b></span>
-          <span>WLB <b>${p.stat.wlb}</b></span>
-          <span>${p.stat.horizon}</span>
-        </div>
-      </div>
-    `).join('')
+      `
+    }).join('')
 
     const emptySlots = Array.from({ length: Math.max(0, 3 - EMITEN_PROFILES.length) })
       .map(() => `<div class="empty-slot">Belum ada formula<br>untuk emiten lain</div>`).join('')
@@ -327,7 +418,15 @@
     gridEl.innerHTML = cards + emptySlots
 
     gridEl.querySelectorAll('.emiten-card').forEach(el => {
-      el.addEventListener('click', () => _openDetail(el.dataset.sym))
+      el.addEventListener('click', () => {
+        const idx = parseInt(el.dataset.idx)
+        const profile = EMITEN_PROFILES[idx]
+        if (profile.mode === 'intraday') {
+          _openDetailIntraday(profile)
+        } else {
+          _openDetail(profile.sym, profile)
+        }
+      })
     })
   }
   _renderCards()
@@ -472,14 +571,6 @@
     }, _nextRefreshSecs() * 1000)
   }
 
-  // Bersihkan timer saat user kembali ke halaman pilihan
-  document.getElementById('back-btn').addEventListener('click', () => {
-    _stopAutoRefresh()
-    _activeSym = null
-    viewDetail.classList.add('hidden')
-    viewSelect.classList.remove('hidden')
-  })
-
   // Guard: pastikan library LightweightCharts (dari CDN) sudah ter-load
   // sebelum dipakai. CDN kadang lambat/gagal di koneksi tertentu —
   // tunggu sebentar (retry) sebelum benar2 menyerah.
@@ -499,8 +590,8 @@
     })
   }
 
-  async function _openDetail(sym) {
-    const profile = EMITEN_PROFILES.find(p => p.sym === sym)
+  async function _openDetail(sym, profile) {
+    if (!profile) profile = EMITEN_PROFILES.find(p => p.sym === sym && p.mode !== 'intraday')
     if (!profile) return
 
     await whenTokenReady()
@@ -687,6 +778,149 @@
       <span class="item" style="width:100%; padding-top:6px; border-top:1px solid var(--line); margin-top:4px;">${positionHtml}</span>
     `
   }
+
+  // ============================================================
+  // INTRADAY MODE: _openDetailIntraday + _renderChartIntraday
+  // ============================================================
+  // Formula FINAL (tervalidasi):
+  // - Entry: Open pasar 09:00 (IEP sudah final, slippage median 0%, avg +0.1%)
+  // - Konfirmasi: ORB breakout UP sebelum 09:30
+  // - Exit: jam 12:00
+  // - WLB LONG: 61.2% (n=163), avg +1.79%, konsisten EARLY/LATE
+  // - WLB AVOID: 85.5% (n=76), avg -3.56% kalau tidak ada ORB breakout
+  //
+  // Kenapa Open 09:00, bukan IEP price (08:58)?
+  // - IEP belum final saat 08:58, tidak bisa dieksekusi
+  // - Selisih IEP vs Open rata-rata hanya +0.097% — tidak material
+  // - WLB hanya turun tipis: 64.4% → 61.2%
+
+  let _orbAutoRefreshTimer = null
+
+  async function _openDetailIntraday(profile) {
+    await whenTokenReady()
+    if (!TOKEN.isSet()) { openTokenPopover(); return }
+
+    _activeSym = profile.sym
+    viewSelect.classList.add('hidden')
+    viewDetail.classList.remove('hidden')
+
+    document.getElementById('focus-sym').textContent = profile.sym
+    document.getElementById('focus-indicator-name').textContent = profile.indicatorName
+    document.getElementById('legend-row').innerHTML = `
+      <span class="legend-item"><span class="legend-dot" style="background:#4ade80;"></span> Entry (Open 09:00)</span>
+      <span class="legend-item"><span class="legend-dot" style="background:#f0635c;"></span> Exit (12:00)</span>
+      <span class="legend-item"><span class="legend-dot" style="background:#60a5fa;"></span> ORB High</span>
+      <span class="legend-item"><span class="legend-dot" style="background:#fca5a5;"></span> ORB Low</span>
+    `
+    document.getElementById('status-strip').innerHTML = `<span class="item">Memuat data intraday...</span>`
+
+    // Hide TF bar — intraday selalu 5m
+    document.getElementById('tf-bar-fokus').style.display = 'none'
+
+    // Setup auto-refresh
+    if (_orbAutoRefreshTimer) clearInterval(_orbAutoRefreshTimer)
+    if (_autoRefreshTimer) clearInterval(_autoRefreshTimer)
+
+    try {
+      await _waitForLightweightCharts()
+      await _loadIntraday(profile)
+
+      // Auto-refresh 1 menit saat jam bursa
+      if (_isMarketHours()) {
+        _orbAutoRefreshTimer = setInterval(async () => {
+          if (!_isMarketHours()) { clearInterval(_orbAutoRefreshTimer); return }
+          if (_activeSym === profile.sym) await _loadIntraday(profile)
+        }, 60 * 1000)
+      }
+    } catch(e) {
+      document.getElementById('status-strip').innerHTML =
+        `<span class="item" style="color:var(--down);">Gagal: ${e.code || e.message}</span>`
+      if (e.code === 'TOKEN_EXPIRED') openTokenPopover()
+    }
+  }
+
+  async function _loadIntraday(profile) {
+    document.getElementById('status-strip').innerHTML = `<span class="item">Mengambil data intraday 5m...</span>`
+    const result = await profile.computeIntraday(profile.sym, fetchIntraday)
+    if (!result) {
+      document.getElementById('status-strip').innerHTML = `<span class="item" style="color:var(--ghost);">Belum ada data intraday hari ini</span>`
+      return
+    }
+    _renderChartIntraday(result)
+    _renderStatusStripIntraday(result)
+  }
+
+  function _renderChartIntraday(result) {
+    const { candles5m, orbHigh, orbLow } = result
+    if (chart) { chart.remove(); chart = null }
+
+    chart = LightweightCharts.createChart(document.getElementById('chart-main'), {
+      autoSize: true,
+      layout:    { background: { color: '#0a0908' }, textColor: '#6b6557' },
+      grid:      { vertLines: { color: '#1a1815' }, horzLines: { color: '#1a1815' } },
+      timeScale: { timeVisible: true, rightOffset: 4 }
+    })
+
+    const candleSeries = chart.addSeries(LightweightCharts.CandlestickSeries, {
+      upColor: '#4ade80', downColor: '#f0635c', borderVisible: false,
+      wickUpColor: '#4ade80', wickDownColor: '#f0635c'
+    })
+    candleSeries.setData(candles5m.map(d => ({
+      time: d.unix, open: d.open, high: d.high, low: d.low, close: d.close
+    })))
+
+    // Garis ORB High dan Low
+    if (orbHigh) candleSeries.createPriceLine({ price: orbHigh, color: '#60a5fa', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: `ORB H ${orbHigh}` })
+    if (orbLow)  candleSeries.createPriceLine({ price: orbLow,  color: '#fca5a5', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: `ORB L ${orbLow}` })
+
+    // Marker entry/exit
+    const markers = candles5m
+      .filter(d => d._signal)
+      .map(d => d._signal === 'entry'
+        ? { time: d.unix, position: 'belowBar', color: '#4ade80', shape: 'arrowUp', text: `ENTRY Open ${d.open?.toLocaleString('id-ID')}` }
+        : { time: d.unix, position: 'aboveBar', color: '#f0635c', shape: 'arrowDown', text: 'EXIT 12:00' }
+      )
+    if (markers.length) LightweightCharts.createSeriesMarkers(candleSeries, markers)
+
+    chart.timeScale().fitContent()
+  }
+
+  function _renderStatusStripIntraday(result) {
+    const { orbHigh, orbLow, orbStatus, iepClose, iepVol, brokenUp } = result
+    const strip = document.getElementById('status-strip')
+
+    const fmtVol = v => v ? (v/1000).toFixed(0) + 'rb lot' : '–'
+    const fmtPrc = v => v ? v.toLocaleString('id-ID') : '–'
+
+    const statusMap = {
+      'pre_iep':    `<span style="color:var(--ghost)">Sebelum IEP</span>`,
+      'iep_forming':`<span style="color:#fbbf24">🔔 IEP berlangsung (08:45-08:59)</span>`,
+      'orb_forming':`<span style="color:#fbbf24">⏳ ORB forming (09:00-09:04)</span>`,
+      'broken_up':  `<span style="color:#4ade80">✓ ORB BROKEN UP — SINYAL ENTRY</span> <span style="color:var(--ghost);font-size:10px">(WLB 64.4%, exit jam 12:00)</span>`,
+      'waiting':    `<span style="color:#fbbf24">⏳ Menunggu ORB breakout (09:05-09:30)</span>`,
+      'no_signal':  `<span style="color:#f0635c">✗ TIDAK ADA ORB BREAKOUT — AVOID</span> <span style="color:var(--ghost);font-size:10px">(WLB avoid 90.9%)</span>`,
+    }
+
+    strip.innerHTML = `
+      <span class="item">IEP Price <b>${fmtPrc(iepClose)}</b></span>
+      <span class="item">IEP Volume <b>${fmtVol(iepVol)}</b></span>
+      <span class="item">ORB High <b>${fmtPrc(orbHigh)}</b></span>
+      <span class="item">ORB Low <b>${fmtPrc(orbLow)}</b></span>
+      <span class="item" style="width:100%; padding-top:6px; border-top:1px solid var(--line); margin-top:4px;">
+        ${statusMap[orbStatus] || '–'}
+      </span>
+    `
+  }
+
+  // Override back button untuk intraday mode
+  document.getElementById('back-btn').addEventListener('click', () => {
+    _stopAutoRefresh()
+    if (_orbAutoRefreshTimer) { clearInterval(_orbAutoRefreshTimer); _orbAutoRefreshTimer = null }
+    _activeSym = null
+    document.getElementById('tf-bar-fokus').style.display = ''  // restore TF bar
+    viewDetail.classList.add('hidden')
+    viewSelect.classList.remove('hidden')
+  }, { once: false })
 </script>
 
 </body>
@@ -697,6 +931,7 @@
 
 
 <!-- rebuild trigger 1782838361 -->
+
 
 
 
