@@ -161,7 +161,6 @@
     <div class="legend-row" id="legend-row"></div>
     <div id="refresh-badge-wrap" style="margin-bottom:8px;"></div>
     <div class="tf-bar" id="tf-bar-fokus">
-      <button class="tf-btn" data-tf="1m">1m</button>
       <button class="tf-btn" data-tf="5m">5m</button>
       <button class="tf-btn" data-tf="15m">15m</button>
       <button class="tf-btn" data-tf="30m">30m</button>
@@ -344,7 +343,6 @@
   let _activeTf  = '1D'        // timeframe aktif untuk tampilan chart
 
   const TF_CONFIG_FOKUS = {
-    '1m':  { type: 'intraday', mult: 1,  batchHours: 7,   batches: 2 },
     '5m':  { type: 'intraday', mult: 5,  batchHours: 7,   batches: 5 },
     '15m': { type: 'intraday', mult: 15, batchHours: 7,   batches: 10 },
     '30m': { type: 'intraday', mult: 30, batchHours: 720, batches: 1 },
@@ -699,6 +697,7 @@
 
 
 <!-- rebuild trigger 1782838361 -->
+
 
 
 
