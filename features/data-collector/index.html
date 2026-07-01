@@ -119,6 +119,24 @@
       </div>
 
       <div class="panel">
+        <div class="panel-title">Timeframe</div>
+        <div class="field-row" style="gap:6px; flex-wrap:wrap;">
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
+            <input type="radio" name="tf" value="daily" checked> Daily
+          </label>
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
+            <input type="radio" name="tf" value="30m"> 30 Menit
+          </label>
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
+            <input type="radio" name="tf" value="1h"> 1 Jam
+          </label>
+        </div>
+        <div id="tf-note" style="font-size:11px;color:var(--ghost);margin-top:6px;">
+          Daily: histori penuh sejak listing, semua indikator tersedia.
+        </div>
+      </div>
+
+      <div class="panel">
         <div class="panel-title">Rentang Tanggal</div>
         <div class="field-row">
           <span class="field-label">Dari</span>
@@ -156,7 +174,7 @@
 
 <script type="module">
   import { TOKEN, setEmitenInfo, has } from '../../shared/store.js'
-  import { fetchDaily, fetchBroker, fetchAbsorption, fetchEmitenJson } from '../../shared/api.js'
+  import { fetchDaily, fetchBroker, fetchAbsorption, fetchEmitenJson, fetchIntraday } from '../../shared/api.js'
   import { renderHeader, openTokenPopover, whenTokenReady } from '../../shared/header.js'
   import { bindSymSearch } from '../../shared/symsearch.js'
   import { calcRSI, calcMACD, calcSMA, calcBollinger, calcVWMA, calcVolumeProfilePOC, calcRSIDivergence } from '../../shared/indicators.js'
@@ -230,6 +248,39 @@
   dateFromEl.addEventListener('change', _updateEstimate)
   dateToEl.addEventListener('change', _updateEstimate)
 
+  // Timeframe state
+  let _activeTf = 'daily'
+  const TF_NOTES = {
+    'daily': 'Daily: histori penuh sejak listing, semua indikator tersedia.',
+    '30m':   '30 Menit: max ~30 hari per request, multi-batch otomatis. Indikator yang tersedia: RSI, MACD, Volume, MA Volume.',
+    '1h':    '1 Jam: max ~30 hari per request, multi-batch otomatis. Indikator yang tersedia: RSI, MACD, Volume, MA Volume.',
+  }
+  const TF_SLOW_IDS = new Set(['broker', 'lpm', 'bbWidth', 'vwma20', 'poc', 'rsiDiv'])
+
+  document.querySelectorAll('input[name="tf"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      _activeTf = radio.value
+      document.getElementById('tf-note').textContent = TF_NOTES[_activeTf] || ''
+      // Disable indikator yang tidak tersedia di intraday
+      document.querySelectorAll('#indicator-grid .check-item').forEach(el => {
+        const id = el.dataset.id
+        if (_activeTf !== 'daily' && TF_SLOW_IDS.has(id)) {
+          el.classList.add('is-disabled')
+          el.style.opacity = '0.35'
+          el.style.pointerEvents = 'none'
+          _selected.delete(id)
+          el.classList.remove('is-checked')
+          el.querySelector('input').checked = false
+        } else {
+          el.classList.remove('is-disabled')
+          el.style.opacity = ''
+          el.style.pointerEvents = ''
+        }
+      })
+      _updateEstimate()
+    })
+  })
+
   // ============================================================
   // SEKSI 3: CHECKBOX INDIKATOR
   // ============================================================
@@ -270,6 +321,22 @@
       box.textContent = 'Pilih emiten terlebih dulu.'
       return
     }
+
+    if (_activeTf !== 'daily') {
+      // Intraday: hitung berapa batch yang dibutuhkan
+      const fromD = new Date(dateFromEl.value)
+      const toD   = new Date(dateToEl.value)
+      const totalDays = Math.max(1, Math.round((toD - fromD) / 86400000))
+      const batchDays = 30  // 30m dan 1h sama-sama 30 hari per batch
+      const batches = Math.ceil(totalDays / batchDays)
+      let html = `<b>${_currentSym}</b> · ${_activeTf} · ~${totalDays} hari kalender dalam rentang.<br>`
+      html += `OHLC Intraday: <b>~${batches} request</b> (batch ${batchDays} hari, max ~${batches * batchDays * (24 / (_activeTf === '30m' ? 0.5 : 1) * 7)} candle).<br>`
+      html += `Indikator dihitung lokal dari data yang ter-fetch.`
+      box.innerHTML = html
+      box.classList.toggle('is-warn', batches > 10)
+      return
+    }
+
     const days = _tradingDaysBetween(dateFromEl.value, dateToEl.value)
     const needsBroker = _selected.has('broker')
     const needsLpm    = _selected.has('lpm')
@@ -315,6 +382,91 @@
 
     collectBtn.disabled = true
     showProgress(progressEl)
+
+    // ── INTRADAY: cabang terpisah, tidak perlu warmup daily ──
+    if (_activeTf !== 'daily') {
+      try {
+        const mult = _activeTf === '30m' ? 30 : 60
+        const batchMs = 30 * 24 * 3600 * 1000   // 30 hari per batch
+        const fromTs = Math.floor(new Date(from).getTime() / 1000)
+        const toTs   = Math.floor(new Date(to + 'T23:59:59').getTime() / 1000)
+
+        // Hitung berapa batch
+        const totalMs = (toTs - fromTs) * 1000
+        const numBatches = Math.ceil(totalMs / batchMs)
+        logProgress(progressEl, `${_currentSym}: fetch intraday ${_activeTf} (${numBatches} batch)...`, 'info')
+
+        const allCandles = []
+        const seen = new Set()
+        for (let b = 0; b < numBatches; b++) {
+          const batchTo   = toTs - b * batchMs / 1000
+          const batchFrom = Math.max(fromTs, toTs - (b + 1) * batchMs / 1000)
+          setProgress(progressEl, b, numBatches, `Batch ${b+1}/${numBatches}`)
+          try {
+            const candles = await fetchIntraday(_currentSym, batchTo, batchFrom, mult)
+            for (const c of candles) {
+              if (!seen.has(c.unix)) { seen.add(c.unix); allCandles.push(c) }
+            }
+          } catch (e) {
+            if (e.code === 'EMPTY_RESPONSE') break
+            throw e
+          }
+        }
+
+        // Sort ascending
+        allCandles.sort((a, b) => a.unix - b.unix)
+        logProgress(progressEl, `${allCandles.length} candle intraday diterima.`, 'ok')
+
+        // Hitung indikator sederhana dari intraday
+        const closes  = allCandles.map(c => c.close)
+        const volumes = allCandles.map(c => c.volume)
+
+        if (_selected.has('rsi')) {
+          const rsi = calcRSI(closes, 14)
+          allCandles.forEach((c, i) => c.rsi = rsi[i])
+        }
+        if (_selected.has('macd')) {
+          const macd = calcMACD(closes)
+          allCandles.forEach((c, i) => { c.macdHist = macd.hist[i]; c.macdSignal = macd.signal[i] })
+        }
+        if (_selected.has('maVolume')) {
+          const maVol = calcSMA(volumes, 20)
+          allCandles.forEach((c, i) => c.maVolume20 = maVol[i])
+        }
+        if (_selected.has('ma20')) {
+          const ma = calcSMA(closes, 20)
+          allCandles.forEach((c, i) => c.ma20 = ma[i])
+        }
+        if (_selected.has('ma50')) {
+          const ma = calcSMA(closes, 50)
+          allCandles.forEach((c, i) => c.ma50 = ma[i])
+        }
+
+        const exportPayload = {
+          symbol: _currentSym,
+          timeframe: _activeTf,
+          from, to,
+          indicators: ['ohlcv', ...(
+            [_selected.has('rsi') && 'rsi', _selected.has('macd') && 'macd',
+             _selected.has('maVolume') && 'maVolume20', _selected.has('ma20') && 'ma20',
+             _selected.has('ma50') && 'ma50'].filter(Boolean)
+          )],
+          exportedAt: new Date().toISOString(),
+          candles: allCandles
+        }
+
+        _renderPreviewIntraday(allCandles, exportPayload)
+        _downloadJson(exportPayload)
+        logProgress(progressEl, 'Export intraday selesai.', 'ok')
+      } catch (e) {
+        logProgress(progressEl, `Gagal: ${e.code || e.message}`, 'err')
+        if (e.code === 'TOKEN_EXPIRED') openTokenPopover()
+      } finally {
+        collectBtn.disabled = false
+        setTimeout(() => hideProgress(progressEl), 1500)
+      }
+      return  // stop, jangan lanjut ke logic daily
+    }
 
     try {
       // ── 1. OHLC: fetch SEMUA histori yang tersedia (warmup penuh), bukan
@@ -458,6 +610,37 @@
   // ============================================================
   // SEKSI 6: PREVIEW TABLE
   // ============================================================
+  function _renderPreviewIntraday(candles, payload) {
+    const area = document.getElementById('preview-area')
+    if (!candles.length) {
+      area.innerHTML = `<div class="empty-hint">Tidak ada data intraday pada rentang ini.</div>`
+      return
+    }
+    const cols = ['datetime', 'close', 'volume']
+    if (payload.indicators.includes('rsi'))       cols.push('rsi')
+    if (payload.indicators.includes('macdHist'))  cols.push('macdHist')
+    if (payload.indicators.includes('maVolume20')) cols.push('maVolume20')
+    if (payload.indicators.includes('ma20'))      cols.push('ma20')
+
+    const fmt = (v) => {
+      if (v === null || v === undefined) return '–'
+      if (typeof v === 'number') return v.toLocaleString('id-ID', { maximumFractionDigits: 2 })
+      return v
+    }
+    const rows = candles.slice(-100)
+    area.innerHTML = `
+      <div style="font-family:var(--f-mono); font-size:11px; color:var(--ghost); margin-bottom:10px;">
+        ${payload.symbol} · ${payload.timeframe} · ${payload.from} – ${payload.to} · ${candles.length} candle (preview 100 terakhir)
+      </div>
+      <div class="preview-table-wrap">
+        <table class="data-table">
+          <thead><tr>${cols.map(c => `<th>${c}</th>`).join('')}</tr></thead>
+          <tbody>${rows.map(r => `<tr>${cols.map(c => `<td>${fmt(r[c])}</td>`).join('')}</tr>`).join('')}</tbody>
+        </table>
+      </div>
+    `
+  }
+
   function _renderPreview(daily, payload) {
     const area = document.getElementById('preview-area')
     if (!daily.length) {
@@ -510,6 +693,7 @@
 
 </body>
 </html>
+
 
 
 
