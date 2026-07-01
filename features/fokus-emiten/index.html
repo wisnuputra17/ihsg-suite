@@ -306,13 +306,13 @@
       sym: 'RAJA',
       indicatorName: 'Kunci RAJA Intraday',
       mode: 'intraday',  // mode flag untuk membedakan dari kartu swing
-      summary: 'Entry: Open pasar 09:00. Konfirmasi: ORB breakout UP (09:05-09:30). Exit: jam 12:00. AVOID: kalau tidak ada ORB breakout sebelum 09:30 (WLB avoid 85.5%).',
-      stat: { n: 163, wlb: '61.2%', horizon: 'intraday, entry Open 09:00, exit jam 12:00, avg +1.79%' },
+      summary: 'Entry: Open pasar 09:00. Monitor ORB breakout 09:05-09:30. JIKA breakout UP: hold exit 12:00 (WLB 61.2%). JIKA tidak ada breakout di 09:30: EXIT SEGERA (avg loss -1.76% vs -3.56% kalau stay).',
+      stat: { n: 163, wlb: '61.2%', horizon: 'intraday, entry Open 09:00, exit jam 12:00 (atau 09:30 saat AVOID)' },
       rules: [
         { type: 'entry', text: 'Entry di Open pasar jam 09:00 (setelah IEP final terbentuk)' },
-        { type: 'entry', text: 'Konfirmasi: ada candle close > ORB High (09:05-09:30)' },
-        { type: 'exit',  text: 'Exit jam 12:00 (apapun kondisinya)' },
-        { type: 'avoid', text: 'AVOID: tidak ada ORB breakout sebelum 09:30 (WLB avoid 85.5%)' },
+        { type: 'entry', text: 'Monitor ORB breakout UP jam 09:05–09:30' },
+        { type: 'exit',  text: 'EXIT jam 12:00 jika ORB breakout UP terkonfirmasi (WLB 61.2%)' },
+        { type: 'avoid', text: 'EXIT di 09:30 jika tidak ada ORB breakout (cut loss dini, avg -1.76% vs -3.56%)' },
       ],
       // compute() untuk intraday berbeda — fetch data 1m hari ini,
       // hitung ORB high/low dari 09:00-09:04, deteksi breakout
@@ -360,21 +360,23 @@
         // Waktu sekarang WIB
         const timeNow = wib.toISOString().slice(11,16)
         let orbStatus
-        if (timeNow < '08:45')      orbStatus = 'pre_iep'
-        else if (timeNow < '09:00') orbStatus = 'iep_forming'
-        else if (timeNow < '09:05') orbStatus = 'orb_forming'
-        else if (brokenUp)          orbStatus = 'broken_up'
-        else if (timeNow >= '09:30') orbStatus = 'no_signal'
-        else                         orbStatus = 'waiting'
+        if (timeNow < '08:45')       orbStatus = 'pre_iep'
+        else if (timeNow < '09:00')  orbStatus = 'iep_forming'
+        else if (timeNow < '09:05')  orbStatus = 'orb_forming'
+        else if (brokenUp)           orbStatus = 'broken_up'
+        else if (timeNow < '09:30')  orbStatus = 'waiting'
+        else                         orbStatus = 'no_signal'   // 09:30 lewat, tidak ada breakout → EXIT
 
         // Tandai candle 5m dengan signal
         const out = sort5m.map(c => {
           const t = (c.datetime||'').slice(11,16)
           let _signal = null
-          // Marker entry: candle 09:00 (open pasar setelah IEP final)
+          // Entry: candle 09:00 (Open pasar setelah IEP final)
           if (t === '09:00') _signal = 'entry'
-          // Marker exit: candle jam 12:00
-          if (t === '12:00') _signal = 'exit'
+          // Exit normal: jam 12:00 (jika ORB breakout terkonfirmasi)
+          if (brokenUp && t === '12:00') _signal = 'exit'
+          // Exit AVOID: jam 09:30 (jika tidak ada ORB breakout)
+          if (!brokenUp && t === '09:30') _signal = 'exit_avoid'
           return { ...c, time: c.unix, _signal, _orbHigh: orbHigh, _orbLow: orbLow }
         })
 
@@ -808,7 +810,8 @@
     document.getElementById('focus-indicator-name').textContent = profile.indicatorName
     document.getElementById('legend-row').innerHTML = `
       <span class="legend-item"><span class="legend-dot" style="background:#4ade80;"></span> Entry (Open 09:00)</span>
-      <span class="legend-item"><span class="legend-dot" style="background:#f0635c;"></span> Exit (12:00)</span>
+      <span class="legend-item"><span class="legend-dot" style="background:#f0635c;"></span> Exit (12:00, ORB UP)</span>
+      <span class="legend-item"><span class="legend-dot" style="background:#f97316;"></span> Exit AVOID (09:30, no ORB)</span>
       <span class="legend-item"><span class="legend-dot" style="background:#60a5fa;"></span> ORB High</span>
       <span class="legend-item"><span class="legend-dot" style="background:#fca5a5;"></span> ORB Low</span>
     `
@@ -876,10 +879,16 @@
     // Marker entry/exit
     const markers = candles5m
       .filter(d => d._signal)
-      .map(d => d._signal === 'entry'
-        ? { time: d.unix, position: 'belowBar', color: '#4ade80', shape: 'arrowUp', text: `ENTRY Open ${d.open?.toLocaleString('id-ID')}` }
-        : { time: d.unix, position: 'aboveBar', color: '#f0635c', shape: 'arrowDown', text: 'EXIT 12:00' }
-      )
+      .map(d => {
+        if (d._signal === 'entry')
+          return { time: d.unix, position: 'belowBar', color: '#4ade80', shape: 'arrowUp',   text: `ENTRY Open ${d.open?.toLocaleString('id-ID')}` }
+        if (d._signal === 'exit')
+          return { time: d.unix, position: 'aboveBar', color: '#f0635c', shape: 'arrowDown', text: 'EXIT 12:00' }
+        if (d._signal === 'exit_avoid')
+          return { time: d.unix, position: 'aboveBar', color: '#f97316', shape: 'arrowDown', text: 'EXIT AVOID 09:30' }
+        return null
+      })
+      .filter(Boolean)
     if (markers.length) LightweightCharts.createSeriesMarkers(candleSeries, markers)
 
     chart.timeScale().fitContent()
@@ -893,12 +902,12 @@
     const fmtPrc = v => v ? v.toLocaleString('id-ID') : '–'
 
     const statusMap = {
-      'pre_iep':    `<span style="color:var(--ghost)">Sebelum IEP</span>`,
-      'iep_forming':`<span style="color:#fbbf24">🔔 IEP berlangsung (08:45-08:59)</span>`,
-      'orb_forming':`<span style="color:#fbbf24">⏳ ORB forming (09:00-09:04)</span>`,
-      'broken_up':  `<span style="color:#4ade80">✓ ORB BROKEN UP — SINYAL ENTRY</span> <span style="color:var(--ghost);font-size:10px">(WLB 64.4%, exit jam 12:00)</span>`,
-      'waiting':    `<span style="color:#fbbf24">⏳ Menunggu ORB breakout (09:05-09:30)</span>`,
-      'no_signal':  `<span style="color:#f0635c">✗ TIDAK ADA ORB BREAKOUT — AVOID</span> <span style="color:var(--ghost);font-size:10px">(WLB avoid 90.9%)</span>`,
+      'pre_iep':    `<span style="color:var(--ghost)">Sebelum IEP (pasar belum pre-opening)</span>`,
+      'iep_forming':`<span style="color:#fbbf24">🔔 IEP berlangsung (08:45–08:59) — siapkan order di Open 09:00</span>`,
+      'orb_forming':`<span style="color:#fbbf24">⏳ Opening Range sedang terbentuk (09:00–09:04) — tunggu konfirmasi</span>`,
+      'broken_up':  `<span style="color:#4ade80">✓ ORB BROKEN UP — HOLD, exit jam 12:00</span> <span style="color:var(--ghost);font-size:10px">WLB 61.2%, avg +1.79%</span>`,
+      'waiting':    `<span style="color:#fbbf24">⏳ Belum ada ORB breakout — monitor sampai 09:30</span> <span style="color:var(--ghost);font-size:10px">Jika 09:30 belum breakout → EXIT</span>`,
+      'no_signal':  `<span style="color:#f97316">⚠ TIDAK ADA ORB BREAKOUT — EXIT SEKARANG (09:30)</span> <span style="color:var(--ghost);font-size:10px">Avg loss exit 09:30: -1.76% vs stay 12:00: -3.56%</span>`,
     }
 
     strip.innerHTML = `
@@ -931,6 +940,7 @@
 
 
 <!-- rebuild trigger 1782838361 -->
+
 
 
 
