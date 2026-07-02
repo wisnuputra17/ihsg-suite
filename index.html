@@ -153,6 +153,17 @@
     .checklist-step.active .checklist-icon { color: #fbbf24; }
     .checklist-step.pending .checklist-title { color: var(--ghost); }
     .checklist-step.pending .checklist-icon { color: var(--ghost); }
+    .signal-box { margin: 8px 10px 4px; padding: 8px 10px; border-radius: 5px;
+      font-family: var(--f-mono); font-size: 11px; line-height: 1.5;
+      display: none; }
+    .signal-box.orb-confirmed { background: rgba(74,222,128,0.08);
+      border: 1px solid var(--live); border-left: 3px solid var(--live); }
+    .signal-box.avoid-signal  { background: rgba(240,99,92,0.08);
+      border: 1px solid var(--down); border-left: 3px solid var(--down); }
+    .signal-box.waiting-signal { background: rgba(251,191,36,0.08);
+      border: 1px solid #fbbf24; border-left: 3px solid #fbbf24; }
+    .signal-box-title { font-weight: 900; font-size: 12px; margin-bottom: 3px; display: block; }
+    .signal-box-sub   { color: var(--ghost); font-size: 10px; }
 
     /* ── FEATURE LIST ── */
     .feature-section { padding: 28px 0; }
@@ -437,6 +448,12 @@
             <span class="monitor-key">Deadline</span>
             <span class="monitor-val warn">09:15</span>
           </div>
+        </div>
+
+        <!-- Signal Box: muncul setelah ORB status diketahui -->
+        <div class="signal-box" id="signal-box">
+          <span class="signal-box-title" id="signal-box-title">–</span>
+          <span class="signal-box-sub"  id="signal-box-sub">–</span>
         </div>
 
         <div class="checklist-divider"></div>
@@ -736,6 +753,18 @@
       if (ic) ic.textContent = icon
     }
 
+    function setSignalBox(type, title, sub) {
+      const box = document.getElementById('signal-box')
+      const tEl = document.getElementById('signal-box-title')
+      const sEl = document.getElementById('signal-box-sub')
+      if (!box) return
+      if (!type) { box.style.display = 'none'; return }
+      box.style.display = ''
+      box.className = 'signal-box ' + type
+      if (tEl) tEl.textContent = title
+      if (sEl) sEl.textContent = sub
+    }
+
     if (!d) {
       setStep('iep', 'pending', '○')
       setStep('entry', 'pending', '○')
@@ -782,6 +811,7 @@
       if (exitTitle) exitTitle.textContent = 'SKIP — IEP Stabil'
       if (exitMsg)   exitMsg.innerHTML = '<span style="color:var(--ghost)">WLB 50.8% — tidak trading hari ini</span>'
       if (enterBtn)  enterBtn.classList.add('hidden')
+      setSignalBox(null)
 
     } else if (s === 'pre_iep') {
       setStep('iep', 'pending', '○'); setStep('entry', 'pending', '○')
@@ -789,6 +819,7 @@
       if (exitTitle) exitTitle.textContent = 'Exit'
       if (exitMsg)   exitMsg.textContent = '–'
       if (enterBtn)  enterBtn.classList.add('hidden')
+      setSignalBox(null)
 
     } else if (s === 'iep_forming') {
       setStep('iep', 'active', '🔔'); setStep('entry', 'pending', '○')
@@ -796,6 +827,7 @@
       if (exitTitle) exitTitle.textContent = 'Exit'
       if (exitMsg)   exitMsg.textContent = 'Siapkan order Open 09:00'
       if (enterBtn)  enterBtn.classList.add('hidden')
+      setSignalBox(null)
 
     } else if (s === 'orb_forming') {
       setStep('iep', 'done', '✓'); setStep('entry', 'active', '⏰')
@@ -803,6 +835,7 @@
       if (exitTitle) exitTitle.textContent = 'Exit'
       if (exitMsg)   exitMsg.textContent = 'ORB 09:00–09:04 terbentuk...'
       if (enterBtn)  enterBtn.classList.add('hidden')
+      setSignalBox(null)
 
     } else if (s === 'waiting') {
       setStep('iep', 'done', '✓'); setStep('entry', 'done', '✓')
@@ -810,6 +843,7 @@
       if (exitTitle) exitTitle.textContent = 'Exit — menunggu ORB'
       if (exitMsg)   exitMsg.textContent = 'Deadline 09:15 · belum ada breakout'
       if (enterBtn)  enterBtn.classList.add('hidden')
+      setSignalBox('waiting-signal', '⏳ MENUNGGU KONFIRMASI ORB', 'Monitor hingga 09:15 — belum ada breakout di atas ORB High')
 
     } else if (s === 'broken_up') {
       setStep('iep', 'done', '✓'); setStep('entry', 'done', '✓')
@@ -821,6 +855,11 @@
       if (exitTitle) exitTitle.textContent = `EXIT ${extStr} — ORB UP ✓`
       if (exitMsg)   exitMsg.innerHTML = `<span style="color:var(--live)">${wlbStr} · ${avgStr}</span>`
       if (enterBtn)  enterBtn.classList.remove('hidden')
+      const extLbl = d.gapCat === 'DOWN' ? '09:15' : '10:00'
+      const wlbLbl = d.gapCat === 'DOWN' ? 'WLB 81.6% · avg +2.80% · win 100%' : 'WLB 71.6% · avg +2.83% · R/R 4.36x'
+      setSignalBox('orb-confirmed',
+        '✓ ORB UP CONFIRMED — ' + (d.gapCat==='DOWN'?'GAP DOWN':'GAP UP'),
+        'HOLD posisi · Exit jam ' + extLbl + ' · ' + wlbLbl)
 
     } else if (s === 'no_signal') {
       setStep('iep', 'done', '✓'); setStep('entry', 'done', '✓')
@@ -828,6 +867,7 @@
       if (exitTitle) exitTitle.textContent = 'EXIT AVOID 09:15'
       if (exitMsg)   exitMsg.innerHTML = '<span style="color:var(--down)">Tidak ada ORB · avg -0.81%</span>'
       if (enterBtn)  enterBtn.classList.add('hidden')
+      setSignalBox('avoid-signal', '✗ AVOID — Tidak ada ORB Breakout', 'EXIT sekarang di 09:15 · avg loss hanya -0.81% (vs stay -3.56%)')
 
     } else if (s === 'done_orb' || s === 'done_avoid') {
       // Trade sudah selesai hari ini — tampilkan hasil
@@ -1063,6 +1103,7 @@
 
 </body>
 </html>
+
 
 
 
