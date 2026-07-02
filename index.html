@@ -480,7 +480,7 @@
 
         <div class="monitor-refresh" id="m-refresh-time"></div>
         <button class="monitor-enter-btn hidden" id="m-enter-btn"
-                onclick="window.location='features/fokus-emiten/'">
+                onclick="window.location='features/fokus-emiten/?gap=' + (window._rajaGapCat||'UP')">
           → Buka Fokus Emiten
         </button>
       </div>
@@ -715,6 +715,7 @@
       _rajaData = { iepPrice, iepVol, openPrice, prevClose, gapCat, gapPct,
                     orbHigh, orbLow, orbStatus, brokenUp,
                     exitOrbTime, exitPrice, tradeReturn, timeNow }
+      window._rajaGapCat = gapCat  // expose untuk tombol "Buka Fokus Emiten"
       _renderMonitor(_rajaData)
     } catch(e) {
       console.warn('[raja-monitor]', e.message)
@@ -1062,6 +1063,7 @@
 
 </body>
 </html>
+
 
 
 
