@@ -180,6 +180,14 @@
 <script type="module">
   import { TOKEN } from '../../shared/store.js'
   import { fetchDaily, fetchIntraday } from '../../shared/api.js'
+
+  // Baca gap category dari URL parameter (dikirim dari dashboard panel kiri)
+  // ?gap=UP → exit ORB 10:00 | ?gap=DOWN → exit ORB 09:15 | tidak ada → default UP
+  {
+    const urlGap = new URLSearchParams(window.location.search).get('gap')
+    if (urlGap === 'UP' || urlGap === 'DOWN') window._rajaGapCat = urlGap
+    else if (!window._rajaGapCat) window._rajaGapCat = 'UP'
+  }
   import { renderHeader, openTokenPopover, whenTokenReady } from '../../shared/header.js'
   import { calcRSI, calcMACD, calcSMA, calcConnorsRSI, resampleWeekly, resampleMonthly } from '../../shared/indicators.js'
 
@@ -814,6 +822,10 @@
   let _orbAutoRefreshTimer = null
 
   async function _openDetailIntraday(profile) {
+    // Re-read URL param setiap kali dibuka (bisa berubah kalau user navigasi balik)
+    const urlGap = new URLSearchParams(window.location.search).get('gap')
+    if (urlGap === 'UP' || urlGap === 'DOWN') window._rajaGapCat = urlGap
+    if (!window._rajaGapCat) window._rajaGapCat = 'UP'
     await whenTokenReady()
     if (!TOKEN.isSet()) { openTokenPopover(); return }
 
@@ -918,7 +930,7 @@
 
     const statusMap = {
       'pre_iep':    `<span style="color:var(--ghost)">Sebelum IEP (pasar belum pre-opening)</span>`,
-      'iep_forming':`<span style="color:#fbbf24">🔔 IEP berlangsung (08:45–08:59) — siapkan order di Open 09:00</span>`,
+      'iep_forming':`<span style="color:#fbbf24">🔔 IEP berlangsung (08:45–08:59) — siapkan order di Open 09:00</span> <span style="color:var(--ghost);font-size:10px">Gap: ${window._rajaGapCat||'–'}</span>`,
       'orb_forming':`<span style="color:#fbbf24">⏳ Opening Range sedang terbentuk (09:00–09:04) — tunggu konfirmasi</span>`,
       'broken_up':  `<span style="color:#4ade80">✓ ORB BROKEN UP — HOLD, exit ${window._rajaGapCat==='DOWN'?'09:15 (GAP DOWN)':'10:00 (GAP UP)'}</span> <span style="color:var(--ghost);font-size:10px">${window._rajaGapCat==='DOWN'?'WLB 81.6%, avg +2.80%':'WLB 71.6%, avg +2.83%'}</span>`,
       'waiting':    `<span style="color:#fbbf24">⏳ Belum ada ORB breakout — monitor sampai 09:15</span> <span style="color:var(--ghost);font-size:10px">Jika 09:15 belum breakout → EXIT</span>`,
@@ -955,6 +967,7 @@
 
 
 <!-- rebuild trigger 1782838361 -->
+
 
 
 
