@@ -656,8 +656,7 @@
       const postOrb = sort.filter(c=>{const t=(c.datetime||'').slice(11,16); return t>='09:05'&&t<'09:15'})
       const brokenUp = orbHigh && postOrb.some(c=>c.close>orbHigh)
 
-      // Prev close: cari candle terakhir sebelum 08:45 (hari ini sebelum IEP)
-      // atau ambil dari daily kemarin via fetchDaily
+      // Prev close dari daily kemarin
       let prevClose = null
       try {
         const yesterday = new Date(wib.getTime() - 24*3600*1000).toISOString().slice(0,10)
@@ -665,18 +664,39 @@
         if (daily && daily.length) prevClose = daily[daily.length-1].close
       } catch(e2) { /* tidak kritis */ }
 
+      // Klasifikasi IEP gap
+      let gapCat = 'STABIL'
+      let gapPct = null
+      if (iepPrice && prevClose) {
+        gapPct = (iepPrice - prevClose) / prevClose * 100
+        if (gapPct > 0.5)       gapCat = 'UP'
+        else if (gapPct < -0.5) gapCat = 'DOWN'
+        else                    gapCat = 'STABIL'
+      }
+
+      // Exit time berbeda per kondisi gap (formula tervalidasi dari backtest)
+      // GAP UP  → exit ORB 10:00 (WLB 71.6%, avg +2.83%, R/R 4.36x)
+      // GAP DOWN → exit ORB 09:15 (WLB 81.6%, avg +2.80%, win 100%, n=17)
+      // STABIL  → SKIP, tidak trading
+      const exitOrbTime   = gapCat === 'DOWN' ? '09:15' : '10:00'
+      const exitAvoidTime = '09:15'
+
       const timeNow = _wibTime()
       let orbStatus
       let exitPrice = null
       let tradeReturn = null
 
-      if (timeNow < '08:45')       orbStatus = 'pre_iep'
-      else if (timeNow < '09:00')  orbStatus = 'iep_forming'
-      else if (timeNow < '09:05')  orbStatus = 'orb_forming'
-      else if (brokenUp) {
-        if (timeNow >= '09:30') {
-          // ORB UP + sudah lewat jam exit → hitung hasil aktual
-          const exitC = sort.filter(c => (c.datetime||'').slice(11,16) <= '09:30')
+      if (gapCat === 'STABIL') {
+        orbStatus = 'skip'
+      } else if (timeNow < '08:45') {
+        orbStatus = 'pre_iep'
+      } else if (timeNow < '09:00') {
+        orbStatus = 'iep_forming'
+      } else if (timeNow < '09:05') {
+        orbStatus = 'orb_forming'
+      } else if (brokenUp) {
+        if (timeNow >= exitOrbTime) {
+          const exitC = sort.filter(c => (c.datetime||'').slice(11,16) <= exitOrbTime)
           exitPrice = exitC.length ? exitC[exitC.length-1].close : null
           if (openPrice && exitPrice) tradeReturn = (exitPrice - openPrice) / openPrice * 100
           orbStatus = 'done_orb'
@@ -686,19 +706,15 @@
       } else if (timeNow < '09:15') {
         orbStatus = 'waiting'
       } else {
-        // Tidak ada ORB, deadline lewat
-        if (timeNow >= '09:15') {
-          const exitC = sort.filter(c => (c.datetime||'').slice(11,16) <= '09:15')
-          exitPrice = exitC.length ? exitC[exitC.length-1].close : null
-          if (openPrice && exitPrice) tradeReturn = (exitPrice - openPrice) / openPrice * 100
-          orbStatus = 'done_avoid'
-        } else {
-          orbStatus = 'no_signal'
-        }
+        const exitC = sort.filter(c => (c.datetime||'').slice(11,16) <= exitAvoidTime)
+        exitPrice = exitC.length ? exitC[exitC.length-1].close : null
+        if (openPrice && exitPrice) tradeReturn = (exitPrice - openPrice) / openPrice * 100
+        orbStatus = timeNow >= exitAvoidTime ? 'done_avoid' : 'no_signal'
       }
 
-      _rajaData = { iepPrice, iepVol, openPrice, prevClose, orbHigh, orbLow,
-                    orbStatus, brokenUp, exitPrice, tradeReturn, timeNow }
+      _rajaData = { iepPrice, iepVol, openPrice, prevClose, gapCat, gapPct,
+                    orbHigh, orbLow, orbStatus, brokenUp,
+                    exitOrbTime, exitPrice, tradeReturn, timeNow }
       _renderMonitor(_rajaData)
     } catch(e) {
       console.warn('[raja-monitor]', e.message)
@@ -742,17 +758,31 @@
     if (openEl) openEl.textContent = fmt(d.openPrice)
     if (orbHEl) orbHEl.textContent = fmt(d.orbHigh)
     if (orbLEl) orbLEl.textContent = fmt(d.orbLow)
-    if (gapEl && d.iepPrice && d.prevClose) {
-      const gap = (d.iepPrice - d.prevClose) / d.prevClose * 100
-      gapEl.textContent = (gap >= 0 ? '+' : '') + gap.toFixed(2) + '%'
-      gapEl.className = 'monitor-val ' + (gap > 0 ? 'up' : gap < 0 ? 'down' : '')
+    if (gapEl && d.gapPct != null) {
+      const gap = d.gapPct
+      const sign = gap >= 0 ? '+' : ''
+      let label = sign + gap.toFixed(2) + '%'
+      if (d.gapCat === 'UP')     label += ' 🟢 GAP UP'
+      else if (d.gapCat === 'DOWN') label += ' 🔵 GAP DOWN'
+      else                         label += ' 🟡 STABIL'
+      gapEl.textContent = label
+      gapEl.className = 'monitor-val ' + (d.gapCat==='UP' ? 'up' : d.gapCat==='DOWN' ? 'warn' : '')
     }
 
     const exitTitle = document.getElementById('exit-title')
     const exitMsg   = document.getElementById('m-exit-msg')
     const s = d.orbStatus
 
-    if (s === 'pre_iep') {
+    if (s === 'skip') {
+      setStep('iep', 'avoid', '⚪')
+      setStep('entry', 'pending', '○')
+      setStep('orb', 'pending', '○')
+      setStep('exit', 'pending', '○')
+      if (exitTitle) exitTitle.textContent = 'SKIP — IEP Stabil'
+      if (exitMsg)   exitMsg.innerHTML = '<span style="color:var(--ghost)">WLB 50.8% — tidak trading hari ini</span>'
+      if (enterBtn)  enterBtn.classList.add('hidden')
+
+    } else if (s === 'pre_iep') {
       setStep('iep', 'pending', '○'); setStep('entry', 'pending', '○')
       setStep('orb', 'pending', '○'); setStep('exit', 'pending', '○')
       if (exitTitle) exitTitle.textContent = 'Exit'
@@ -783,8 +813,12 @@
     } else if (s === 'broken_up') {
       setStep('iep', 'done', '✓'); setStep('entry', 'done', '✓')
       setStep('orb', 'done', '✓'); setStep('exit', 'active', '🎯')
-      if (exitTitle) exitTitle.textContent = 'EXIT 09:30 — ORB UP ✓'
-      if (exitMsg)   exitMsg.innerHTML = '<span style="color:var(--live)">WLB 81.7% · avg +2.37%</span>'
+      const isDown = d.gapCat === 'DOWN'
+      const extStr = isDown ? '09:15' : '10:00'
+      const wlbStr = isDown ? 'WLB 81.6%' : 'WLB 71.6%'
+      const avgStr = isDown ? 'avg +2.80%' : 'avg +2.83%'
+      if (exitTitle) exitTitle.textContent = `EXIT ${extStr} — ORB UP ✓`
+      if (exitMsg)   exitMsg.innerHTML = `<span style="color:var(--live)">${wlbStr} · ${avgStr}</span>`
       if (enterBtn)  enterBtn.classList.remove('hidden')
 
     } else if (s === 'no_signal') {
@@ -1028,6 +1062,7 @@
 
 </body>
 </html>
+
 
 
 
