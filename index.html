@@ -452,6 +452,32 @@
           </div>
         </div>
 
+        <div class="checklist-divider" id="step-result-divider" style="display:none"></div>
+
+        <!-- Step 5: Hasil Trade -->
+        <div class="checklist-step" id="step-result" style="display:none">
+          <div class="checklist-step-header">
+            <span class="checklist-icon" id="icon-result">📋</span>
+            <span class="checklist-title" id="result-title">Hasil Trade</span>
+          </div>
+          <div class="checklist-detail">
+            <span class="monitor-key">Entry</span>
+            <span class="monitor-val" id="m-result-entry">–</span>
+          </div>
+          <div class="checklist-detail">
+            <span class="monitor-key">Exit</span>
+            <span class="monitor-val" id="m-result-exit">–</span>
+          </div>
+          <div class="checklist-detail">
+            <span class="monitor-key">Return</span>
+            <span class="monitor-val" id="m-result-ret" style="font-size:13px;font-weight:900">–</span>
+          </div>
+          <div class="checklist-detail">
+            <span class="monitor-key">Tipe</span>
+            <span class="monitor-val" id="m-result-type">–</span>
+          </div>
+        </div>
+
         <div class="monitor-refresh" id="m-refresh-time"></div>
         <button class="monitor-enter-btn hidden" id="m-enter-btn"
                 onclick="window.location='features/fokus-emiten/'">
@@ -641,14 +667,38 @@
 
       const timeNow = _wibTime()
       let orbStatus
+      let exitPrice = null
+      let tradeReturn = null
+
       if (timeNow < '08:45')       orbStatus = 'pre_iep'
       else if (timeNow < '09:00')  orbStatus = 'iep_forming'
       else if (timeNow < '09:05')  orbStatus = 'orb_forming'
-      else if (brokenUp)           orbStatus = 'broken_up'
-      else if (timeNow < '09:15')  orbStatus = 'waiting'
-      else                         orbStatus = 'no_signal'
+      else if (brokenUp) {
+        if (timeNow >= '09:30') {
+          // ORB UP + sudah lewat jam exit → hitung hasil aktual
+          const exitC = sort.filter(c => (c.datetime||'').slice(11,16) <= '09:30')
+          exitPrice = exitC.length ? exitC[exitC.length-1].close : null
+          if (openPrice && exitPrice) tradeReturn = (exitPrice - openPrice) / openPrice * 100
+          orbStatus = 'done_orb'
+        } else {
+          orbStatus = 'broken_up'
+        }
+      } else if (timeNow < '09:15') {
+        orbStatus = 'waiting'
+      } else {
+        // Tidak ada ORB, deadline lewat
+        if (timeNow >= '09:15') {
+          const exitC = sort.filter(c => (c.datetime||'').slice(11,16) <= '09:15')
+          exitPrice = exitC.length ? exitC[exitC.length-1].close : null
+          if (openPrice && exitPrice) tradeReturn = (exitPrice - openPrice) / openPrice * 100
+          orbStatus = 'done_avoid'
+        } else {
+          orbStatus = 'no_signal'
+        }
+      }
 
-      _rajaData = { iepPrice, iepVol, openPrice, prevClose, orbHigh, orbLow, orbStatus, brokenUp, timeNow }
+      _rajaData = { iepPrice, iepVol, openPrice, prevClose, orbHigh, orbLow,
+                    orbStatus, brokenUp, exitPrice, tradeReturn, timeNow }
       _renderMonitor(_rajaData)
     } catch(e) {
       console.warn('[raja-monitor]', e.message)
@@ -743,6 +793,36 @@
       if (exitTitle) exitTitle.textContent = 'EXIT AVOID 09:15'
       if (exitMsg)   exitMsg.innerHTML = '<span style="color:var(--down)">Tidak ada ORB · avg -0.81%</span>'
       if (enterBtn)  enterBtn.classList.add('hidden')
+
+    } else if (s === 'done_orb' || s === 'done_avoid') {
+      // Trade sudah selesai hari ini — tampilkan hasil
+      const isOrb = s === 'done_orb'
+      setStep('iep', 'done', '✓'); setStep('entry', 'done', '✓')
+      setStep('orb', isOrb ? 'done' : 'avoid', isOrb ? '✓' : '✗')
+      setStep('exit', isOrb ? 'done' : 'avoid', isOrb ? '✓' : '⚠')
+      if (exitTitle) exitTitle.textContent = isOrb ? 'SELESAI — Exit 09:30' : 'SELESAI — Avoid 09:15'
+      if (exitMsg)   exitMsg.textContent = isOrb ? 'ORB UP terkonfirmasi' : 'Tidak ada ORB breakout'
+
+      // Tampilkan step hasil
+      const stepResult = document.getElementById('step-result')
+      const divResult  = document.getElementById('step-result-divider')
+      if (stepResult) stepResult.style.display = ''
+      if (divResult)  divResult.style.display = ''
+
+      const retRaw = d.tradeReturn
+      if (retRaw != null) {
+        const sign = retRaw >= 0 ? '+' : ''
+        const col  = retRaw >= 0 ? 'var(--live)' : 'var(--down)'
+        const icon = retRaw >= 0 ? '📈' : '📉'
+        if (document.getElementById('icon-result'))    document.getElementById('icon-result').textContent = icon
+        if (document.getElementById('result-title'))   document.getElementById('result-title').textContent = 'Hasil Trade Hari Ini'
+        if (document.getElementById('m-result-entry')) document.getElementById('m-result-entry').textContent = d.openPrice ? d.openPrice.toLocaleString('id-ID') : '–'
+        if (document.getElementById('m-result-exit'))  document.getElementById('m-result-exit').textContent = d.exitPrice ? d.exitPrice.toLocaleString('id-ID') : '–'
+        const retEl = document.getElementById('m-result-ret')
+        if (retEl) { retEl.textContent = sign + retRaw.toFixed(2) + '%'; retEl.style.color = col }
+        if (document.getElementById('m-result-type'))  document.getElementById('m-result-type').textContent = isOrb ? 'ORB UP → exit 09:30' : 'AVOID → exit 09:15'
+      }
+      if (enterBtn) enterBtn.classList.add('hidden')
     }
   }
 
@@ -948,5 +1028,6 @@
 
 </body>
 </html>
+
 
 
