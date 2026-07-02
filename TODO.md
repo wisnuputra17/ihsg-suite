@@ -70,3 +70,38 @@ Kalau ada yang baru muncul pas testing, kasih tau Claude di sesi manapun — "ta
   - Kalau token sudah expired pas jam cron jalan: WAJIB gagal graceful (log/notifikasi jelas "token expired", BUKAN diam-diam gagal tanpa jejak)
   - Status: baru ide/rencana, BELUM ada desain teknis detail apa pun, apalagi kode
 
+- [ ] **Autotrade — Eksplorasi & Implementasi (2 Jul 2026)**
+  - Tujuan: eksekusi order RAJA intraday secara otomatis berdasarkan sinyal Kunci RAJA Intraday (ORB deadline 09:15, entry Open 09:00, exit 10:00 / AVOID exit 09:15)
+  - **Formula yang akan di-autotrade** (sudah tervalidasi, WLB 79.5%, n=83):
+    - Entry: Open pasar 09:00 (market order)
+    - Konfirmasi: ORB breakout UP sebelum 09:15
+    - Exit ORB UP: jam 10:00 (market order)
+    - Exit AVOID: jam 09:15 kalau tidak ada ORB breakout
+  - **Opsi teknis yang sudah dieksplorasi (urut rekomendasi):**
+    1. **GitHub Actions + Mirae Asset OpenAPI** ← REKOMENDASI UTAMA
+       - GitHub Actions cron tiap menit jam 08:45–10:15 WIB (gratis, tidak perlu server)
+       - Mirae Asset OpenAPI: `openapi.miraeasset.co.id` — REST API resmi, tersedia untuk retail
+       - Endpoint utama: `POST /order/place`, `DELETE /order/{id}`, `GET /portfolio`, `GET /price/realtime`
+       - Butuh: buka akun Mirae Asset + daftar akses OpenAPI (proses 1-3 hari kerja)
+       - Token Stockbit (untuk data IEP/ORB): tetap kirim manual tiap hari via GitHub Secret
+       - Token Mirae: bisa di-refresh otomatis via OAuth (lebih stabil dari Stockbit)
+    2. **Stockbit API langsung** — tidak resmi, grey area ToS, risiko akun diblokir, TIDAK direkomendasikan
+    3. **RPA (Pyautogui/Selenium)** — simulasi klik di aplikasi broker, rapuh, butuh komputer menyala
+  - **Arsitektur GitHub Actions:**
+    ```
+    08:45 → fetch IEP dari Stockbit (via Secret token)
+    09:00 → place BUY order via Mirae API
+    09:05–09:14 → poll harga tiap menit, cek ORB breakout
+    09:15 → kalau tidak ada ORB: place SELL order (AVOID)
+    10:00 → kalau ORB confirmed: place SELL order (exit normal)
+    ```
+  - **Prasyarat sebelum Claude bisa bangun kodenya:**
+    1. Wisnu buka akun Mirae Asset (kalau belum ada) dan daftar akses OpenAPI
+    2. Konfirmasi dokumentasi Mirae API masih aktif di `openapi.miraeasset.co.id`
+    3. Tentukan sizing: berapa lot per signal? Fixed (mis. 1 lot) atau % saldo?
+    4. Tentukan safeguard: max loss harian berapa sebelum auto-stop?
+  - **Yang bisa dikerjakan Claude sekarang (tanpa akun Mirae):**
+    - Bangun GitHub Actions workflow skeleton (scheduling, fetch Stockbit, evaluasi sinyal, logging)
+    - Bangun modul order management (abstraksi broker, bisa swap Mirae ↔ broker lain)
+    - Dry-run mode: log "WOULD BUY/SELL" tanpa eksekusi nyata dulu — untuk verifikasi sebelum go-live
+  - Status: EKSPLORASI SELESAI, menunggu keputusan Wisnu dan prasyarat di atas
