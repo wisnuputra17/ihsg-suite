@@ -108,10 +108,34 @@
     /* ── MAIN BODY: 2 kolom ── */
     .body-layout {
       display: grid;
-      grid-template-columns: 1fr 280px;
+      grid-template-columns: 260px 1fr 280px;
       gap: 24px;
       align-items: start;
     }
+
+    /* ── MONITOR KIRI — RAJA IEP/ORB real-time ── */
+    .monitor-panel { padding: 28px 0; display: flex; flex-direction: column; gap: 10px; }
+    .monitor-label { font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--ghost); margin-bottom: 4px; }
+    .monitor-card { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); overflow: hidden; }
+    .monitor-card-header { display: flex; align-items: center; justify-content: space-between; padding: 7px 10px; border-bottom: 1px solid var(--line); background: var(--raised); }
+    .monitor-sym { font-family: var(--f-mono); font-size: 11px; font-weight: 700; color: var(--dim); letter-spacing: 0.05em; }
+    .monitor-badge { font-family: var(--f-mono); font-size: 9px; padding: 1px 5px; border-radius: 3px; background: var(--phosphor); color: var(--bg); font-weight: 700; }
+    .monitor-body { padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+    .monitor-row { display: flex; justify-content: space-between; align-items: center; font-family: var(--f-mono); font-size: 11px; }
+    .monitor-key { color: var(--ghost); }
+    .monitor-val { color: var(--dim); font-weight: 600; }
+    .monitor-val.up { color: var(--live); }
+    .monitor-val.down { color: var(--down); }
+    .monitor-val.warn { color: #fbbf24; }
+    .monitor-status { margin-top: 4px; padding: 6px 8px; border-radius: 4px; font-family: var(--f-mono); font-size: 10px; line-height: 1.5; background: var(--raised); }
+    .monitor-status.orb-up    { border-left: 2px solid var(--live); }
+    .monitor-status.orb-wait  { border-left: 2px solid #fbbf24; }
+    .monitor-status.orb-avoid { border-left: 2px solid var(--down); }
+    .monitor-status.orb-none  { border-left: 2px solid var(--ghost); }
+    .monitor-refresh { font-family: var(--f-mono); font-size: 9px; color: var(--ghost); text-align: right; padding: 4px 10px 6px; }
+    .monitor-enter-btn { display: block; width: calc(100% - 20px); margin: 0 10px 10px; padding: 6px; background: var(--phosphor); color: var(--bg); border: none; border-radius: 4px; font-family: var(--f-mono); font-size: 11px; font-weight: 700; cursor: pointer; transition: opacity 0.15s; }
+    .monitor-enter-btn:hover { opacity: 0.85; }
+    .monitor-enter-btn:disabled { opacity: 0.35; cursor: default; }
 
     /* ── FEATURE LIST ── */
     .feature-section { padding: 28px 0; }
@@ -269,6 +293,7 @@
     /* ── RESPONSIVE ── */
     @media (max-width: 860px) {
       .body-layout { grid-template-columns: 1fr; }
+      .monitor-panel { display: none; }
       .sidebar { padding-top: 0; }
     }
     @media (max-width: 640px) {
@@ -327,8 +352,52 @@
     </div>
   </header>
 
-  <!-- BODY: 2 KOLOM -->
+  <!-- BODY: 3 KOLOM -->
   <div class="body-layout">
+
+    <!-- KIRI: MONITOR RAJA IEP/ORB -->
+    <aside class="monitor-panel">
+      <div class="monitor-label">Monitor</div>
+
+      <!-- RAJA Card -->
+      <div class="market-card monitor-card" id="raja-monitor-card">
+        <div class="monitor-card-header">
+          <span class="monitor-sym">RAJA</span>
+          <span class="monitor-badge">INTRADAY</span>
+        </div>
+        <div class="monitor-body" id="raja-monitor-body">
+          <div class="monitor-row">
+            <span class="monitor-key">Status</span>
+            <span class="monitor-val warn" id="m-status">–––</span>
+          </div>
+          <div class="monitor-row">
+            <span class="monitor-key">IEP Price</span>
+            <span class="monitor-val" id="m-iep-price">–</span>
+          </div>
+          <div class="monitor-row">
+            <span class="monitor-key">IEP Vol</span>
+            <span class="monitor-val" id="m-iep-vol">–</span>
+          </div>
+          <div class="monitor-row">
+            <span class="monitor-key">ORB High</span>
+            <span class="monitor-val" id="m-orb-high">–</span>
+          </div>
+          <div class="monitor-row">
+            <span class="monitor-key">ORB Low</span>
+            <span class="monitor-val" id="m-orb-low">–</span>
+          </div>
+          <div class="monitor-status orb-none" id="m-signal">
+            Menunggu data IEP...
+          </div>
+        </div>
+        <div class="monitor-refresh" id="m-refresh-time"></div>
+        <button class="monitor-enter-btn hidden" id="m-enter-btn"
+                onclick="window.location='features/fokus-emiten/'">
+          → Buka Fokus Emiten
+        </button>
+      </div>
+
+    </aside>
 
     <!-- KIRI: FEATURE LIST -->
     <main class="feature-section">
@@ -441,8 +510,138 @@
 <script type="module">
   import { FEATURES }                          from './shared/features.js'
   import { TOKEN, has, setEmitenInfo }          from './shared/store.js'
-  import { fetchMarketStatus, fetchEmitenJson } from './shared/api.js'
+  import { fetchMarketStatus, fetchEmitenJson, fetchIntraday } from './shared/api.js'
   import { saveTokenEverywhere, syncTokenFromSheetsIfNeeded } from './shared/header.js'
+
+  // ============================================================
+  // RAJA INTRADAY MONITOR
+  // Formula: ORB deadline 09:15, exit 10:00
+  // Win rate 79.5%, WLB 69.6%, avg +2.36% (n=83, tervalidasi)
+  // ============================================================
+
+  function _isMarketHours() {
+    const now = new Date()
+    const wib = new Date(now.getTime() + 7*3600*1000)
+    const day = wib.getUTCDay()
+    if (day === 0 || day === 6) return false
+    const h = wib.getUTCHours(), m = wib.getUTCMinutes()
+    const tot = h*60+m
+    return tot >= 8*60+45 && tot < 16*60
+  }
+
+  function _wibTime() {
+    const wib = new Date(Date.now() + 7*3600*1000)
+    return wib.toISOString().slice(11,16)
+  }
+
+  let _rajaMonitorTimer = null
+  let _rajaData = null   // cache hasil fetch terakhir
+
+  async function _fetchRajaMonitor() {
+    if (!TOKEN.isSet()) return
+    try {
+      const now = Date.now()
+      const wib = new Date(now + 7*3600*1000)
+      const dateStr = wib.toISOString().slice(0,10)
+      const toTs   = Math.floor(now/1000)
+      const fromTs = Math.floor(new Date(dateStr+'T01:00:00Z').getTime()/1000)
+
+      const raw = await fetchIntraday('RAJA', toTs, fromTs, 1)
+      if (!raw || raw.length === 0) { _renderMonitor(null); return }
+      const sort = [...raw].sort((a,b)=>a.unix-b.unix)
+
+      // IEP (08:45-08:59)
+      const iepC = sort.filter(c=>{const t=(c.datetime||'').slice(11,16); return t>='08:45'&&t<='08:59'})
+      const iepPrice = iepC.length ? iepC[iepC.length-1].close : null
+      const iepVol   = iepC.reduce((s,c)=>s+(c.volume||0),0)
+
+      // ORB (09:00-09:04)
+      const orbC = sort.filter(c=>{const t=(c.datetime||'').slice(11,16); return t>='09:00'&&t<='09:04'})
+      const orbHigh = orbC.length ? Math.max(...orbC.map(c=>c.high)) : null
+      const orbLow  = orbC.length ? Math.min(...orbC.map(c=>c.low))  : null
+
+      // ORB breakout check (09:05-09:14, deadline 09:15)
+      const postOrb = sort.filter(c=>{const t=(c.datetime||'').slice(11,16); return t>='09:05'&&t<'09:15'})
+      const brokenUp = orbHigh && postOrb.some(c=>c.close>orbHigh)
+
+      const timeNow = _wibTime()
+      let orbStatus
+      if (timeNow < '08:45')       orbStatus = 'pre_iep'
+      else if (timeNow < '09:00')  orbStatus = 'iep_forming'
+      else if (timeNow < '09:05')  orbStatus = 'orb_forming'
+      else if (brokenUp)           orbStatus = 'broken_up'
+      else if (timeNow < '09:15')  orbStatus = 'waiting'
+      else                         orbStatus = 'no_signal'
+
+      _rajaData = { iepPrice, iepVol, orbHigh, orbLow, orbStatus, brokenUp, timeNow }
+      _renderMonitor(_rajaData)
+    } catch(e) {
+      console.warn('[raja-monitor]', e.message)
+    }
+  }
+
+  function _renderMonitor(d) {
+    const fmt = v => v ? v.toLocaleString('id-ID') : '–'
+    const fmtVol = v => v ? (v/1000).toFixed(0)+'rb' : '–'
+
+    const statusEl  = document.getElementById('m-status')
+    const iepPEl    = document.getElementById('m-iep-price')
+    const iepVEl    = document.getElementById('m-iep-vol')
+    const orbHEl    = document.getElementById('m-orb-high')
+    const orbLEl    = document.getElementById('m-orb-low')
+    const sigEl     = document.getElementById('m-signal')
+    const refreshEl = document.getElementById('m-refresh-time')
+    const enterBtn  = document.getElementById('m-enter-btn')
+
+    if (!d) {
+      statusEl.textContent = 'Belum ada data'
+      statusEl.className = 'monitor-val warn'
+      return
+    }
+
+    iepPEl.textContent = fmt(d.iepPrice)
+    iepVEl.textContent = fmtVol(d.iepVol)
+    orbHEl.textContent = fmt(d.orbHigh)
+    orbLEl.textContent = fmt(d.orbLow)
+    refreshEl.textContent = 'Update: ' + d.timeNow + ' WIB'
+
+    const statusMap = {
+      'pre_iep':    ['–––',                       'warn',  'orb-none',  'Sebelum IEP (08:45)',                                       false],
+      'iep_forming':['IEP AKTIF',                 'warn',  'orb-wait',  '🔔 Lelang berjalan — pantau volume IEP',                    false],
+      'orb_forming':['ORB FORMING',               'warn',  'orb-wait',  '⏳ Opening range 09:00–09:04 terbentuk',                    false],
+      'broken_up':  ['ENTRY ✓',                   'up',    'orb-up',    '✓ ORB BROKEN UP\nEntry Open 09:00 → exit jam 10:00\nWLB 79.5%, avg +2.36%', true],
+      'waiting':    ['MENUNGGU',                  'warn',  'orb-wait',  '⏳ Belum ada ORB breakout (09:05–09:14)\nDeadline: 09:15',   false],
+      'no_signal':  ['AVOID ✗',                   'down',  'orb-avoid', '✗ TIDAK ADA ORB — EXIT 09:15\nAvg loss -0.81% (vs stay -3.56%)', false],
+    }
+
+    const [stTxt, stCls, sigCls, sigTxt, showBtn] = statusMap[d.orbStatus] || ['–', 'warn', 'orb-none', '–', false]
+    statusEl.textContent = stTxt
+    statusEl.className = 'monitor-val ' + stCls
+    sigEl.className = 'monitor-status ' + sigCls
+    sigEl.innerHTML = sigTxt.replace(/\n/g, '<br>')
+
+    if (showBtn) enterBtn.classList.remove('hidden')
+    else enterBtn.classList.add('hidden')
+  }
+
+  function _startRajaMonitor() {
+    if (_rajaMonitorTimer) clearInterval(_rajaMonitorTimer)
+    if (!_isMarketHours()) {
+      document.getElementById('m-status').textContent = 'Pasar tutup'
+      document.getElementById('m-refresh-time').textContent = 'Auto-refresh aktif saat jam bursa'
+      return
+    }
+    _fetchRajaMonitor()
+    // refresh tiap 1 menit saat jam bursa
+    _rajaMonitorTimer = setInterval(() => {
+      if (!_isMarketHours()) { clearInterval(_rajaMonitorTimer); return }
+      _fetchRajaMonitor()
+    }, 60*1000)
+  }
+
+  // Mulai monitor saat token tersedia
+  window.addEventListener('ihsg:token-saved', _startRajaMonitor)
+  if (TOKEN.isSet()) _startRajaMonitor()
 
   // ============================================================
   // SEKSI 1: RENDER FEATURE LIST
@@ -626,3 +825,4 @@
 
 </body>
 </html>
+
