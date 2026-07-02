@@ -875,7 +875,7 @@
       setStep('iep', 'done', '✓'); setStep('entry', 'done', '✓')
       setStep('orb', isOrb ? 'done' : 'avoid', isOrb ? '✓' : '✗')
       setStep('exit', isOrb ? 'done' : 'avoid', isOrb ? '✓' : '⚠')
-      if (exitTitle) exitTitle.textContent = isOrb ? 'SELESAI — Exit 09:30' : 'SELESAI — Avoid 09:15'
+      if (exitTitle) exitTitle.textContent = isOrb ? `SELESAI — Exit ${d.exitOrbTime || '?'}` : 'SELESAI — Avoid 09:15'
       if (exitMsg)   exitMsg.textContent = isOrb ? 'ORB UP terkonfirmasi' : 'Tidak ada ORB breakout'
 
       // Tampilkan step hasil
@@ -895,7 +895,7 @@
         if (document.getElementById('m-result-exit'))  document.getElementById('m-result-exit').textContent = d.exitPrice ? d.exitPrice.toLocaleString('id-ID') : '–'
         const retEl = document.getElementById('m-result-ret')
         if (retEl) { retEl.textContent = sign + retRaw.toFixed(2) + '%'; retEl.style.color = col }
-        if (document.getElementById('m-result-type'))  document.getElementById('m-result-type').textContent = isOrb ? 'ORB UP → exit 09:30' : 'AVOID → exit 09:15'
+        if (document.getElementById('m-result-type'))  document.getElementById('m-result-type').textContent = isOrb ? `ORB UP → exit ${d.exitOrbTime || '?'}` : 'AVOID → exit 09:15'
       }
       if (enterBtn) enterBtn.classList.add('hidden')
     }
@@ -1103,6 +1103,7 @@
 
 </body>
 </html>
+
 
 
 
