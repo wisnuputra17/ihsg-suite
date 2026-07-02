@@ -502,6 +502,111 @@
         </button>
       </div>
 
+      <!-- MBMA Card -->
+      <div class="market-card monitor-card" id="mbma-monitor-card">
+        <div class="monitor-card-header">
+          <span class="monitor-sym">MBMA</span>
+          <span class="monitor-badge" id="mb-badge">INTRADAY</span>
+        </div>
+
+        <div class="checklist-step" id="mb-step-iep">
+          <div class="checklist-step-header">
+            <span class="checklist-icon" id="mb-icon-iep">○</span>
+            <span class="checklist-title">08:45 IEP Forming</span>
+          </div>
+          <div class="checklist-detail">
+            <span class="monitor-key">Harga IEP</span>
+            <span class="monitor-val" id="mb-iep-price">–</span>
+          </div>
+          <div class="checklist-detail">
+            <span class="monitor-key">vs kemarin</span>
+            <span class="monitor-val" id="mb-iep-gap">–</span>
+          </div>
+          <div class="checklist-detail">
+            <span class="monitor-key">Vol IEP</span>
+            <span class="monitor-val" id="mb-iep-vol">–</span>
+          </div>
+        </div>
+
+        <div class="checklist-divider"></div>
+
+        <div class="checklist-step" id="mb-step-entry">
+          <div class="checklist-step-header">
+            <span class="checklist-icon" id="mb-icon-entry">○</span>
+            <span class="checklist-title">09:00 ENTRY Open</span>
+          </div>
+          <div class="checklist-detail">
+            <span class="monitor-key">Open price</span>
+            <span class="monitor-val" id="mb-open-price">–</span>
+          </div>
+        </div>
+
+        <div class="checklist-divider"></div>
+
+        <div class="checklist-step" id="mb-step-orb">
+          <div class="checklist-step-header">
+            <span class="checklist-icon" id="mb-icon-orb">○</span>
+            <span class="checklist-title">09:05 Monitor ORB</span>
+          </div>
+          <div class="checklist-detail">
+            <span class="monitor-key">ORB High</span>
+            <span class="monitor-val" id="mb-orb-high">–</span>
+          </div>
+          <div class="checklist-detail">
+            <span class="monitor-key">ORB Low</span>
+            <span class="monitor-val" id="mb-orb-low">–</span>
+          </div>
+          <div class="checklist-detail">
+            <span class="monitor-key">Deadline</span>
+            <span class="monitor-val warn">09:31</span>
+          </div>
+        </div>
+
+        <!-- Signal Box MBMA -->
+        <div class="signal-box" id="mb-signal-box">
+          <span class="signal-box-title" id="mb-signal-box-title">–</span>
+          <span class="signal-box-sub"   id="mb-signal-box-sub">–</span>
+        </div>
+
+        <div class="checklist-divider"></div>
+
+        <div class="checklist-step" id="mb-step-exit">
+          <div class="checklist-step-header">
+            <span class="checklist-icon" id="mb-icon-exit">○</span>
+            <span class="checklist-title" id="mb-exit-title">Exit</span>
+          </div>
+          <div class="checklist-detail" id="mb-detail-exit">
+            <span class="monitor-val" id="mb-exit-msg">–</span>
+          </div>
+        </div>
+
+        <div class="checklist-divider" id="mb-step-result-divider" style="display:none"></div>
+        <div class="checklist-step" id="mb-step-result" style="display:none">
+          <div class="checklist-step-header">
+            <span class="checklist-icon" id="mb-icon-result">📋</span>
+            <span class="checklist-title" id="mb-result-title">Hasil Trade</span>
+          </div>
+          <div class="checklist-detail">
+            <span class="monitor-key">Entry</span>
+            <span class="monitor-val" id="mb-result-entry">–</span>
+          </div>
+          <div class="checklist-detail">
+            <span class="monitor-key">Exit</span>
+            <span class="monitor-val" id="mb-result-exit">–</span>
+          </div>
+          <div class="checklist-detail">
+            <span class="monitor-key">Return</span>
+            <span class="monitor-val" id="mb-result-ret" style="font-size:13px;font-weight:900">–</span>
+          </div>
+          <div class="checklist-detail">
+            <span class="monitor-key">Tipe</span>
+            <span class="monitor-val" id="mb-result-type">–</span>
+          </div>
+        </div>
+
+        <div class="monitor-refresh" id="mb-refresh-time"></div>
+      </div>
+
     </aside>
 
     <!-- KIRI: FEATURE LIST -->
@@ -732,7 +837,17 @@
       _rajaData = { iepPrice, iepVol, openPrice, prevClose, gapCat, gapPct,
                     orbHigh, orbLow, orbStatus, brokenUp,
                     exitOrbTime, exitPrice, tradeReturn, timeNow }
-      window._rajaGapCat = gapCat  // expose untuk tombol "Buka Fokus Emiten"
+      window._rajaGapCat = gapCat
+
+      // ── TRIGGER ALERT RAJA ──
+      const alertKey = dateStr + '_' + orbStatus
+      if (!_rajaAlertedState[alertKey]) {
+        _rajaAlertedState[alertKey] = true
+        if (orbStatus === 'iep_forming') _playAlert('iep_forming')
+        if (orbStatus === 'broken_up')   _playAlert('orb_up')
+        if (orbStatus === 'done_avoid')  _playAlert('avoid')
+      }
+
       _renderMonitor(_rajaData)
     } catch(e) {
       console.warn('[raja-monitor]', e.message)
@@ -918,8 +1033,291 @@
   }
 
   // Mulai monitor saat token tersedia
-  window.addEventListener('ihsg:token-saved', _startRajaMonitor)
-  if (TOKEN.isSet()) _startRajaMonitor()
+  // ============================================================
+  // ALERT SUARA — Web Audio API
+  // Frekuensi & pola berbeda untuk tiap jenis sinyal
+  // ============================================================
+  function _playAlert(type) {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)()
+      const patterns = {
+        // IEP forming: 2 nada pendek lembut (siap-siap)
+        iep_forming: [{f:520,d:0.12,t:0},{f:650,d:0.12,t:0.15}],
+        // ORB UP: 3 nada naik tegas (masuk!)
+        orb_up:  [{f:440,d:0.15,t:0},{f:550,d:0.15,t:0.17},{f:660,d:0.25,t:0.35}],
+        // AVOID: 2 nada turun peringatan
+        avoid:   [{f:440,d:0.20,t:0},{f:330,d:0.30,t:0.22}],
+      }
+      const notes = patterns[type] || patterns.iep_forming
+      notes.forEach(({f,d,t}) => {
+        const osc = ctx.createOscillator()
+        const gain = ctx.createGain()
+        osc.connect(gain); gain.connect(ctx.destination)
+        osc.frequency.value = f
+        osc.type = type === 'avoid' ? 'sawtooth' : 'sine'
+        gain.gain.setValueAtTime(0, ctx.currentTime + t)
+        gain.gain.linearRampToValueAtTime(0.18, ctx.currentTime + t + 0.01)
+        gain.gain.linearRampToValueAtTime(0, ctx.currentTime + t + d)
+        osc.start(ctx.currentTime + t)
+        osc.stop(ctx.currentTime + t + d + 0.05)
+      })
+    } catch(e) { /* Audio tidak tersedia */ }
+  }
+
+  // ============================================================
+  // MBMA INTRADAY MONITOR
+  // Formula tervalidasi dari backtest 475 hari:
+  // - Gap threshold: ±1.5% (lebih tinggi dari RAJA karena volatilitas)
+  // - ORB deadline: 09:31
+  // - Exit ORB: 09:30 (baik UP maupun DOWN)
+  // - Skip STABIL: WLB ORB hanya 56-64% vs UP/DOWN 68-76%
+  // ============================================================
+  let _mbmaData = null
+  let _mbmaMonitorTimer = null
+  let _mbmaAlertedState = {}  // track state untuk avoid double alert
+
+  async function _fetchMbmaMonitor() {
+    if (!TOKEN.isSet()) return
+    try {
+      const now = Date.now()
+      const wib = new Date(now + 7*3600*1000)
+      const dateStr = wib.toISOString().slice(0,10)
+      const toTs = Math.floor(now/1000)
+      const fromTs = Math.floor(new Date(dateStr+'T01:00:00Z').getTime()/1000)
+
+      const raw = await fetchIntraday('MBMA', toTs, fromTs, 1)
+      if (!raw || raw.length === 0) { _renderMbmaMonitor(null); return }
+      const sort = [...raw].sort((a,b) => a.unix - b.unix)
+
+      // IEP (08:45-08:59)
+      const iepC = sort.filter(c => { const t=(c.datetime||'').slice(11,16); return t>='08:45'&&t<='08:59' })
+      const iepPrice = iepC.length ? iepC[iepC.length-1].close : null
+      const iepVol   = iepC.reduce((s,c) => s+(c.volume||0), 0)
+
+      // Open price (candle 09:00)
+      const open9 = sort.filter(c => (c.datetime||'').slice(11,16) === '09:00')
+      const openPrice = open9.length ? open9[0].open : null
+
+      // ORB (09:00-09:04)
+      const orbC = sort.filter(c => { const t=(c.datetime||'').slice(11,16); return t>='09:00'&&t<='09:04' })
+      const orbHigh = orbC.length ? Math.max(...orbC.map(c=>c.high)) : null
+      const orbLow  = orbC.length ? Math.min(...orbC.map(c=>c.low))  : null
+
+      // ORB breakout (09:05-09:30, deadline 09:31)
+      const postOrb = sort.filter(c => { const t=(c.datetime||'').slice(11,16); return t>='09:05'&&t<'09:31' })
+      const brokenUp = orbHigh && postOrb.some(c => c.close > orbHigh)
+
+      // Prev close dari daily kemarin
+      let prevClose = null
+      try {
+        const yesterday = new Date(wib.getTime() - 24*3600*1000).toISOString().slice(0,10)
+        const daily = await fetchDaily('MBMA', yesterday, yesterday)
+        if (daily && daily.length) prevClose = daily[daily.length-1].close
+      } catch(e2) {}
+
+      // Gap classification — threshold ±1.5% (berbeda dari RAJA ±0.5%)
+      let gapCat = 'STABIL', gapPct = null
+      if (iepPrice && prevClose) {
+        gapPct = (iepPrice - prevClose) / prevClose * 100
+        if (gapPct > 1.5)       gapCat = 'UP'
+        else if (gapPct < -1.5) gapCat = 'DOWN'
+        else                    gapCat = 'STABIL'
+      }
+
+      // Exit ORB: 09:30 untuk kedua kondisi UP dan DOWN
+      const exitOrbTime = '09:30'
+      const timeNow = _wibTime()
+      let orbStatus
+      let exitPrice = null, tradeReturn = null
+
+      if (gapCat === 'STABIL') {
+        orbStatus = 'skip'
+      } else if (timeNow < '08:45') {
+        orbStatus = 'pre_iep'
+      } else if (timeNow < '09:00') {
+        orbStatus = 'iep_forming'
+      } else if (timeNow < '09:05') {
+        orbStatus = 'orb_forming'
+      } else if (brokenUp) {
+        if (timeNow >= exitOrbTime) {
+          const exitC = sort.filter(c => (c.datetime||'').slice(11,16) <= exitOrbTime)
+          exitPrice = exitC.length ? exitC[exitC.length-1].close : null
+          if (openPrice && exitPrice) tradeReturn = (exitPrice - openPrice) / openPrice * 100
+          orbStatus = 'done_orb'
+        } else {
+          orbStatus = 'broken_up'
+        }
+      } else if (timeNow < '09:31') {
+        orbStatus = 'waiting'
+      } else {
+        const exitC = sort.filter(c => (c.datetime||'').slice(11,16) <= '09:15')
+        exitPrice = exitC.length ? exitC[exitC.length-1].close : null
+        if (openPrice && exitPrice) tradeReturn = (exitPrice - openPrice) / openPrice * 100
+        orbStatus = 'done_avoid'
+      }
+
+      _mbmaData = { iepPrice, iepVol, openPrice, prevClose, gapCat, gapPct,
+                    orbHigh, orbLow, orbStatus, brokenUp, exitOrbTime,
+                    exitPrice, tradeReturn, timeNow }
+
+      // ── TRIGGER ALERT ──
+      const alertKey = dateStr + '_' + orbStatus
+      if (!_mbmaAlertedState[alertKey]) {
+        _mbmaAlertedState[alertKey] = true
+        if (orbStatus === 'iep_forming') _playAlert('iep_forming')
+        if (orbStatus === 'broken_up')   _playAlert('orb_up')
+        if (orbStatus === 'done_avoid')  _playAlert('avoid')
+      }
+
+      _renderMbmaMonitor(_mbmaData)
+    } catch(e) { console.warn('[mbma-monitor]', e.message) }
+  }
+
+  function _renderMbmaMonitor(d) {
+    const fmt    = v => v ? v.toLocaleString('id-ID') : '–'
+    const fmtVol = v => v ? (v>=1000000?(v/1000000).toFixed(1)+'jt':(v/1000).toFixed(0)+'rb') : '–'
+    const ref = document.getElementById('mb-refresh-time')
+    const prefix = 'mb-'
+
+    function setStep(id, state, icon) {
+      const el = document.getElementById(prefix+'step-'+id)
+      if (el) el.className = 'checklist-step '+state
+      const ic = document.getElementById(prefix+'icon-'+id)
+      if (ic) ic.textContent = icon
+    }
+    function setSignalBox(type, title, sub) {
+      const box=document.getElementById('mb-signal-box')
+      const tEl=document.getElementById('mb-signal-box-title')
+      const sEl=document.getElementById('mb-signal-box-sub')
+      if (!box) return
+      if (!type) { box.style.display='none'; return }
+      box.style.display=''; box.className='signal-box '+type
+      if (tEl) tEl.textContent=title
+      if (sEl) sEl.textContent=sub
+    }
+    function el(id) { return document.getElementById(prefix+id) }
+
+    if (!d) {
+      ['iep','entry','orb','exit'].forEach(s=>setStep(s,'pending','○'))
+      setSignalBox(null)
+      if (ref) ref.textContent='Menunggu token...'
+      return
+    }
+
+    if (ref) ref.textContent = 'Update: '+d.timeNow+' WIB'
+
+    // Isi data
+    if (el('iep-price')) el('iep-price').textContent = fmt(d.iepPrice)
+    if (el('iep-vol'))   el('iep-vol').textContent   = fmtVol(d.iepVol)
+    if (el('open-price'))el('open-price').textContent= fmt(d.openPrice)
+    if (el('orb-high'))  el('orb-high').textContent  = fmt(d.orbHigh)
+    if (el('orb-low'))   el('orb-low').textContent   = fmt(d.orbLow)
+    const gapEl = el('iep-gap')
+    if (gapEl && d.gapPct != null) {
+      const g=d.gapPct, sign=g>=0?'+':''
+      let label=sign+g.toFixed(2)+'%'
+      if (d.gapCat==='UP')     label+=' 🟢 GAP UP'
+      else if (d.gapCat==='DOWN') label+=' 🔵 GAP DOWN'
+      else                         label+=' 🟡 STABIL'
+      gapEl.textContent=label
+      gapEl.className='monitor-val '+(d.gapCat==='UP'?'up':d.gapCat==='DOWN'?'warn':'')
+    }
+
+    const exitTitle=el('exit-title'), exitMsg=el('exit-msg')
+    const s=d.orbStatus
+
+    if (s==='skip') {
+      setStep('iep','avoid','⚪'); setStep('entry','pending','○')
+      setStep('orb','pending','○'); setStep('exit','pending','○')
+      if (exitTitle) exitTitle.textContent='SKIP — IEP Stabil'
+      if (exitMsg)   exitMsg.innerHTML='<span style="color:var(--ghost)">Gap ±1.5% — tidak trading hari ini</span>'
+      setSignalBox(null)
+    } else if (s==='pre_iep') {
+      setStep('iep','pending','○'); setStep('entry','pending','○')
+      setStep('orb','pending','○'); setStep('exit','pending','○')
+      if (exitTitle) exitTitle.textContent='Exit'
+      if (exitMsg)   exitMsg.textContent='–'
+      setSignalBox(null)
+    } else if (s==='iep_forming') {
+      setStep('iep','active','🔔'); setStep('entry','pending','○')
+      setStep('orb','pending','○'); setStep('exit','pending','○')
+      if (exitTitle) exitTitle.textContent='Exit'
+      if (exitMsg)   exitMsg.textContent='Siapkan order Open 09:00'
+      setSignalBox(null)
+    } else if (s==='orb_forming') {
+      setStep('iep','done','✓'); setStep('entry','active','⏰')
+      setStep('orb','pending','○'); setStep('exit','pending','○')
+      if (exitTitle) exitTitle.textContent='Exit'
+      if (exitMsg)   exitMsg.textContent='ORB 09:00–09:04 terbentuk...'
+      setSignalBox(null)
+    } else if (s==='waiting') {
+      setStep('iep','done','✓'); setStep('entry','done','✓')
+      setStep('orb','active','👁'); setStep('exit','pending','○')
+      if (exitTitle) exitTitle.textContent='Exit — menunggu ORB'
+      if (exitMsg)   exitMsg.textContent='Deadline 09:31 · belum ada breakout'
+      setSignalBox('waiting-signal','⏳ MENUNGGU KONFIRMASI ORB','Monitor hingga 09:31 — belum ada breakout di atas ORB High')
+    } else if (s==='broken_up') {
+      setStep('iep','done','✓'); setStep('entry','done','✓')
+      setStep('orb','done','✓'); setStep('exit','active','🎯')
+      if (exitTitle) exitTitle.textContent='EXIT 09:30 — ORB UP ✓'
+      if (exitMsg)   exitMsg.innerHTML='<span style="color:var(--live)">WLB 76.9% · avg +2.50% · win 90%</span>'
+      setSignalBox('orb-confirmed','✓ ORB UP CONFIRMED — '+(d.gapCat==='DOWN'?'GAP DOWN':'GAP UP'),
+        'HOLD posisi · Exit jam 09:30 · WLB 76.9% · avg +2.50%')
+    } else if (s==='done_avoid') {
+      setStep('iep','done','✓'); setStep('entry','done','✓')
+      setStep('orb','avoid','✗'); setStep('exit','avoid','⚠')
+      if (exitTitle) exitTitle.textContent='EXIT AVOID 09:15'
+      if (exitMsg)   exitMsg.innerHTML='<span style="color:var(--down)">Tidak ada ORB · avg -0.83%</span>'
+      setSignalBox('avoid-signal','✗ AVOID — Tidak ada ORB Breakout','EXIT di 09:15 · avg loss -0.83% (WLB avoid 76.3%)')
+    } else if (s==='done_orb' || s==='done_avoid') {
+      const isOrb = s==='done_orb'
+      setStep('iep','done','✓'); setStep('entry','done','✓')
+      setStep('orb',isOrb?'done':'avoid',isOrb?'✓':'✗')
+      setStep('exit',isOrb?'done':'avoid',isOrb?'✓':'⚠')
+      if (exitTitle) exitTitle.textContent=isOrb?'SELESAI — Exit 09:30':'SELESAI — Avoid 09:15'
+      if (exitMsg)   exitMsg.textContent=isOrb?'ORB UP terkonfirmasi':'Tidak ada ORB breakout'
+      setSignalBox(null)
+      // Tampilkan hasil trade
+      const sr=document.getElementById('mb-step-result')
+      const dr=document.getElementById('mb-step-result-divider')
+      if (sr) sr.style.display=''
+      if (dr) dr.style.display=''
+      if (d.tradeReturn != null) {
+        const sign=d.tradeReturn>=0?'+':'', col=d.tradeReturn>=0?'var(--live)':'var(--down)'
+        const icon=d.tradeReturn>=0?'📈':'📉'
+        if (el('icon-result')) el('icon-result').textContent=icon
+        if (el('result-title')) el('result-title').textContent='Hasil Trade Hari Ini'
+        if (el('result-entry')) el('result-entry').textContent=fmt(d.openPrice)
+        if (el('result-exit'))  el('result-exit').textContent=fmt(d.exitPrice)
+        const retEl=el('result-ret')
+        if (retEl) { retEl.textContent=sign+d.tradeReturn.toFixed(2)+'%'; retEl.style.color=col }
+        if (el('result-type')) el('result-type').textContent=isOrb?'ORB UP → exit 09:30':'AVOID → exit 09:15'
+      }
+    }
+  }
+
+  function _startMbmaMonitor() {
+    if (_mbmaMonitorTimer) clearInterval(_mbmaMonitorTimer)
+    if (!_isMarketHours()) {
+      _renderMbmaMonitor(null)
+      const ref=document.getElementById('mb-refresh-time')
+      if (ref) ref.textContent='Pasar tutup — aktif 08:45–16:00 WIB'
+      return
+    }
+    _fetchMbmaMonitor()
+    _mbmaMonitorTimer = setInterval(() => {
+      if (!_isMarketHours()) { clearInterval(_mbmaMonitorTimer); return }
+      _fetchMbmaMonitor()
+    }, 60*1000)
+  }
+
+  // ── Patch alert ke RAJA juga (tambahkan alert yang sudah ada) ──
+  let _rajaAlertedState = {}
+  const _origFetchRaja = _fetchRajaMonitor
+  // Alert RAJA sudah di-handle via _rajaData.orbStatus change detection di bawah
+
+  window.addEventListener('ihsg:token-saved', _startMbmaMonitor)
+  if (TOKEN.isSet()) _startMbmaMonitor()
 
   // ============================================================
   // SEKSI 1: RENDER FEATURE LIST
@@ -1103,6 +1501,7 @@
 
 </body>
 </html>
+
 
 
 
