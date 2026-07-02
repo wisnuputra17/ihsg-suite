@@ -383,12 +383,14 @@
         // Waktu sekarang WIB
         const timeNow = wib.toISOString().slice(11,16)
         let orbStatus
-        if (timeNow < '08:45')       orbStatus = 'pre_iep'
-        else if (timeNow < '09:00')  orbStatus = 'iep_forming'
-        else if (timeNow < '09:05')  orbStatus = 'orb_forming'
-        else if (brokenUp)           orbStatus = 'broken_up'
-        else if (timeNow < '09:15')  orbStatus = 'waiting'
-        else                         orbStatus = 'no_signal'
+        if (timeNow < '08:45')                          orbStatus = 'pre_iep'
+        else if (timeNow < '09:00')                     orbStatus = 'iep_forming'
+        else if (timeNow < '09:05')                     orbStatus = 'orb_forming'
+        else if (brokenUp && timeNow < exitOrbTime)     orbStatus = 'broken_up'
+        else if (brokenUp && timeNow >= exitOrbTime)    orbStatus = 'done_orb'
+        else if (!brokenUp && timeNow < '09:15')        orbStatus = 'waiting'
+        else if (!brokenUp && timeNow >= '09:15')       orbStatus = 'done_avoid'
+        else                                            orbStatus = 'no_signal'
 
         // Tandai candle 5m dengan signal
         const out = sort5m.map(c => {
@@ -398,8 +400,8 @@
           if (t === '09:00') _signal = 'entry'
           // Exit normal: jam sesuai gap kategori (10:00 untuk GAP UP, 09:15 untuk GAP DOWN)
           if (brokenUp && t === exitOrbTime) _signal = 'exit'
-          // Exit AVOID: jam 09:30 (jika tidak ada ORB breakout)
-          if (!brokenUp && t === '09:15') _signal = 'exit_avoid'  // AVOID selalu 09:15
+          // Exit AVOID: jam 09:15 (deadline ORB tidak terpenuhi)
+          if (!brokenUp && t === '09:15') _signal = 'exit_avoid'
           return { ...c, time: c.unix, _signal, _orbHigh: orbHigh, _orbLow: orbLow }
         })
 
@@ -809,7 +811,7 @@
   // ============================================================
   // Formula FINAL (tervalidasi):
   // - Entry: Open pasar 09:00 (IEP sudah final, slippage median 0%, avg +0.1%)
-  // - Konfirmasi: ORB breakout UP sebelum 09:30
+  // - Konfirmasi: ORB breakout UP sebelum 09:15 (deadline)
   // - Exit: jam 12:00
   // - WLB LONG: 61.2% (n=163), avg +1.79%, konsisten EARLY/LATE
   // - WLB AVOID: 85.5% (n=76), avg -3.56% kalau tidak ada ORB breakout
@@ -838,7 +840,7 @@
     document.getElementById('legend-row').innerHTML = `
       <span class="legend-item"><span class="legend-dot" style="background:#4ade80;"></span> Entry (Open 09:00)</span>
       <span class="legend-item"><span class="legend-dot" style="background:#f0635c;"></span> Exit (12:00, ORB UP)</span>
-      <span class="legend-item"><span class="legend-dot" style="background:#f97316;"></span> Exit AVOID (09:30, no ORB)</span>
+      <span class="legend-item"><span class="legend-dot" style="background:#f97316;"></span> Exit AVOID (09:15, no ORB)</span>
       <span class="legend-item"><span class="legend-dot" style="background:#60a5fa;"></span> ORB High</span>
       <span class="legend-item"><span class="legend-dot" style="background:#fca5a5;"></span> ORB Low</span>
     `
@@ -935,6 +937,8 @@
       'broken_up':  `<span style="color:#4ade80">✓ ORB BROKEN UP — HOLD, exit ${window._rajaGapCat==='DOWN'?'09:15 (GAP DOWN)':'10:00 (GAP UP)'}</span> <span style="color:var(--ghost);font-size:10px">${window._rajaGapCat==='DOWN'?'WLB 81.6%, avg +2.80%':'WLB 71.6%, avg +2.83%'}</span>`,
       'waiting':    `<span style="color:#fbbf24">⏳ Belum ada ORB breakout — monitor sampai 09:15</span> <span style="color:var(--ghost);font-size:10px">Jika 09:15 belum breakout → EXIT</span>`,
       'no_signal':  `<span style="color:#f97316">⚠ TIDAK ADA ORB BREAKOUT — EXIT SEKARANG (09:15)</span> <span style="color:var(--ghost);font-size:10px">Avg loss -0.81% | WLB 79.5% saat ORB UP</span>`,
+      'done_orb':   `<span style="color:#4ade80">✓ SELESAI — ORB UP, exit ${window._rajaGapCat==='DOWN'?'09:15':'10:00'}</span> <span style="color:var(--ghost);font-size:10px">Trade hari ini sudah selesai</span>`,
+      'done_avoid': `<span style="color:#f0635c">✗ SELESAI — AVOID, exit 09:15</span> <span style="color:var(--ghost);font-size:10px">Trade hari ini sudah selesai</span>`,
     }
 
     strip.innerHTML = `
