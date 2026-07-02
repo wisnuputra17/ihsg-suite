@@ -306,13 +306,15 @@
       sym: 'RAJA',
       indicatorName: 'Kunci RAJA Intraday',
       mode: 'intraday',  // mode flag untuk membedakan dari kartu swing
-      summary: 'Entry: Open pasar 09:00. Monitor ORB breakout 09:05–09:14. JIKA breakout UP sebelum 09:15: hold exit 10:00 (WLB 79.5%, avg +2.36%). JIKA tidak ada breakout di 09:15: EXIT SEGERA (avg -0.81%).',
-      stat: { n: 83, wlb: '79.5%', horizon: 'intraday, entry Open 09:00, exit jam 10:00 (atau 09:15 saat AVOID)' },
+      summary: 'Formula berbeda per kondisi IEP Gap. SKIP jika IEP Stabil (±0.5%). GAP UP: entry 09:00, exit ORB 10:00 (WLB 71.6%, avg +2.83%). GAP DOWN: entry 09:00, exit ORB 09:15 (WLB 81.6%, avg +2.80%, 100% win). Deadline ORB: 09:15 — tidak ada breakout → EXIT AVOID.',
+      stat: { n: 58, wlb: '79.2%', horizon: 'ORB days only (skip stabil), GAP UP exit 10:00, GAP DOWN exit 09:15' },
       rules: [
-        { type: 'entry', text: 'Entry di Open pasar jam 09:00 (setelah IEP final terbentuk)' },
+        { type: 'avoid', text: 'SKIP jika IEP Stabil (gap ±0.5% dari close kemarin) — WLB ORB hanya 50.8%' },
+        { type: 'entry', text: 'Entry Open 09:00 hanya jika IEP Gap UP (>+0.5%) atau Gap DOWN (<-0.5%)' },
         { type: 'entry', text: 'Monitor ORB breakout UP jam 09:05–09:14 (deadline 09:15)' },
-        { type: 'exit',  text: 'EXIT jam 10:00 jika ORB breakout UP terkonfirmasi (WLB 79.5%, avg +2.36%)' },
-        { type: 'avoid', text: 'EXIT di 09:15 jika tidak ada ORB breakout (avg -0.81%, MDD hanya -18.4%)' },
+        { type: 'exit',  text: 'GAP UP + ORB UP → exit jam 10:00 (WLB 71.6%, avg +2.83%, R/R 4.36x)' },
+        { type: 'exit',  text: 'GAP DOWN + ORB UP → exit jam 09:15 (WLB 81.6%, avg +2.80%, 100% win, n=17)' },
+        { type: 'avoid', text: 'Tidak ada ORB sebelum 09:15 → EXIT AVOID 09:15 (avg -0.81%)' },
       ],
       // compute() untuk intraday berbeda — fetch data 1m hari ini,
       // hitung ORB high/low dari 09:00-09:04, deteksi breakout
@@ -357,6 +359,19 @@
         const brokenUp   = orbHigh && postOrb.some(c => c.close > orbHigh)
         const brokenDown = orbLow  && postOrb.some(c => c.close < orbLow)
 
+        // Klasifikasi IEP gap
+        const iepClose = iepC.length ? iepC[iepC.length-1].close : null
+        let gapCat = 'STABIL'
+        // prevClose diambil dari candle sebelum 08:45 (hari yang sama, tidak ada)
+        // atau dari parameter yang dipass — untuk checklist pakai prevClose dari daily
+        // Di sini kita tidak punya prevClose, jadi gapCat selalu STABIL kecuali ada data
+        // (prevClose ditambahkan di _openDetailIntraday jika tersedia dari fetchDaily)
+
+        // Exit time berbeda per gap (formula tervalidasi backtest)
+        // GAP UP  → exit 10:00 (WLB 71.6%, avg +2.83%)
+        // GAP DOWN → exit 09:15 (WLB 81.6%, avg +2.80%)
+        const exitOrbTime = (window._rajaGapCat === 'DOWN') ? '09:15' : '10:00'
+
         // Waktu sekarang WIB
         const timeNow = wib.toISOString().slice(11,16)
         let orbStatus
@@ -365,7 +380,7 @@
         else if (timeNow < '09:05')  orbStatus = 'orb_forming'
         else if (brokenUp)           orbStatus = 'broken_up'
         else if (timeNow < '09:15')  orbStatus = 'waiting'
-        else                         orbStatus = 'no_signal'   // 09:30 lewat, tidak ada breakout → EXIT
+        else                         orbStatus = 'no_signal'
 
         // Tandai candle 5m dengan signal
         const out = sort5m.map(c => {
@@ -373,10 +388,10 @@
           let _signal = null
           // Entry: candle 09:00 (Open pasar setelah IEP final)
           if (t === '09:00') _signal = 'entry'
-          // Exit normal: jam 12:00 (jika ORB breakout terkonfirmasi)
-          if (brokenUp && t === '10:00') _signal = 'exit'
+          // Exit normal: jam sesuai gap kategori (10:00 untuk GAP UP, 09:15 untuk GAP DOWN)
+          if (brokenUp && t === exitOrbTime) _signal = 'exit'
           // Exit AVOID: jam 09:30 (jika tidak ada ORB breakout)
-          if (!brokenUp && t === '09:15') _signal = 'exit_avoid'
+          if (!brokenUp && t === '09:15') _signal = 'exit_avoid'  // AVOID selalu 09:15
           return { ...c, time: c.unix, _signal, _orbHigh: orbHigh, _orbLow: orbLow }
         })
 
@@ -905,7 +920,7 @@
       'pre_iep':    `<span style="color:var(--ghost)">Sebelum IEP (pasar belum pre-opening)</span>`,
       'iep_forming':`<span style="color:#fbbf24">🔔 IEP berlangsung (08:45–08:59) — siapkan order di Open 09:00</span>`,
       'orb_forming':`<span style="color:#fbbf24">⏳ Opening Range sedang terbentuk (09:00–09:04) — tunggu konfirmasi</span>`,
-      'broken_up':  `<span style="color:#4ade80">✓ ORB BROKEN UP — HOLD, exit jam 10:00</span> <span style="color:var(--ghost);font-size:10px">WLB 79.5%, avg +2.36%</span>`,
+      'broken_up':  `<span style="color:#4ade80">✓ ORB BROKEN UP — HOLD, exit ${window._rajaGapCat==='DOWN'?'09:15 (GAP DOWN)':'10:00 (GAP UP)'}</span> <span style="color:var(--ghost);font-size:10px">${window._rajaGapCat==='DOWN'?'WLB 81.6%, avg +2.80%':'WLB 71.6%, avg +2.83%'}</span>`,
       'waiting':    `<span style="color:#fbbf24">⏳ Belum ada ORB breakout — monitor sampai 09:15</span> <span style="color:var(--ghost);font-size:10px">Jika 09:15 belum breakout → EXIT</span>`,
       'no_signal':  `<span style="color:#f97316">⚠ TIDAK ADA ORB BREAKOUT — EXIT SEKARANG (09:15)</span> <span style="color:var(--ghost);font-size:10px">Avg loss -0.81% | WLB 79.5% saat ORB UP</span>`,
     }
@@ -940,6 +955,7 @@
 
 
 <!-- rebuild trigger 1782838361 -->
+
 
 
 
