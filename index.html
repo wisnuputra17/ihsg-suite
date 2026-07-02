@@ -160,6 +160,8 @@
       border: 1px solid var(--live); border-left: 3px solid var(--live); }
     .signal-box.avoid-signal  { background: rgba(240,99,92,0.08);
       border: 1px solid var(--down); border-left: 3px solid var(--down); }
+    .signal-box.orb-wait { background: rgba(74,222,128,0.06);
+      border: 1px solid #86efac; border-left: 3px solid #86efac; }
     .signal-box.waiting-signal { background: rgba(251,191,36,0.08);
       border: 1px solid #fbbf24; border-left: 3px solid #fbbf24; }
     .signal-box-title { font-weight: 900; font-size: 12px; margin-bottom: 3px; display: block; }
@@ -398,7 +400,7 @@
         <div class="checklist-step" id="step-iep">
           <div class="checklist-step-header">
             <span class="checklist-icon" id="icon-iep">⏳</span>
-            <span class="checklist-title">08:45 IEP Forming</span>
+            <span class="checklist-title">08:58 IEP Final</span>
           </div>
           <div class="checklist-detail" id="detail-iep">
             <span class="monitor-key">Harga IEP</span>
@@ -512,7 +514,7 @@
         <div class="checklist-step" id="mb-step-iep">
           <div class="checklist-step-header">
             <span class="checklist-icon" id="mb-icon-iep">○</span>
-            <span class="checklist-title">08:45 IEP Forming</span>
+            <span class="checklist-title">08:58 IEP Final</span>
           </div>
           <div class="checklist-detail">
             <span class="monitor-key">Harga IEP</span>
@@ -810,10 +812,11 @@
 
       if (gapCat === 'STABIL') {
         orbStatus = 'skip'
-      } else if (timeNow < '08:45') {
+      } else if (timeNow < '08:58') {
         orbStatus = 'pre_iep'
       } else if (timeNow < '09:00') {
-        orbStatus = 'iep_forming'
+        // 08:58-08:59: IEP sudah hampir final, beri sinyal entry/skip
+        orbStatus = 'iep_confirmed'
       } else if (timeNow < '09:05') {
         orbStatus = 'orb_forming'
       } else if (brokenUp) {
@@ -843,7 +846,7 @@
       const alertKey = dateStr + '_' + orbStatus
       if (!_rajaAlertedState[alertKey]) {
         _rajaAlertedState[alertKey] = true
-        if (orbStatus === 'iep_forming') _playAlert('iep_forming')
+        if (orbStatus === 'iep_confirmed' && gapCat !== 'STABIL') _playAlert('iep_forming')
         if (orbStatus === 'broken_up')   _playAlert('orb_up')
         if (orbStatus === 'done_avoid')  _playAlert('avoid')
       }
@@ -936,13 +939,19 @@
       if (enterBtn)  enterBtn.classList.add('hidden')
       setSignalBox(null)
 
-    } else if (s === 'iep_forming') {
+    } else if (s === 'iep_confirmed') {
       setStep('iep', 'active', '🔔'); setStep('entry', 'pending', '○')
       setStep('orb', 'pending', '○'); setStep('exit', 'pending', '○')
-      if (exitTitle) exitTitle.textContent = 'Exit'
-      if (exitMsg)   exitMsg.textContent = 'Siapkan order Open 09:00'
+      const isEntry = d.gapCat !== 'STABIL'
+      const gapLabel = d.gapCat === 'UP' ? '🟢 GAP UP' : d.gapCat === 'DOWN' ? '🔵 GAP DOWN' : '🟡 STABIL'
+      if (exitTitle) exitTitle.textContent = isEntry ? 'Siapkan ENTRY 09:00' : 'SKIP hari ini'
+      if (exitMsg)   exitMsg.innerHTML = isEntry
+        ? `<span style="color:var(--live)">IEP final — ${gapLabel} → ENTRY di Open 09:00</span>`
+        : `<span style="color:var(--ghost)">Gap ±0.5% — tidak ada sinyal hari ini</span>`
       if (enterBtn)  enterBtn.classList.add('hidden')
-      setSignalBox(null)
+      setSignalBox(isEntry ? 'orb-wait' : null,
+        isEntry ? `🔔 IEP FINAL — ${gapLabel}` : null,
+        isEntry ? `Gap ${d.gapPct!=null?(d.gapPct>=0?'+':'')+d.gapPct.toFixed(2)+'%':''} → ENTRY di Open 09:00, monitor ORB 09:05–09:15` : null)
 
     } else if (s === 'orb_forming') {
       setStep('iep', 'done', '✓'); setStep('entry', 'active', '⏰')
@@ -1132,10 +1141,11 @@
 
       if (gapCat === 'STABIL') {
         orbStatus = 'skip'
-      } else if (timeNow < '08:45') {
+      } else if (timeNow < '08:58') {
         orbStatus = 'pre_iep'
       } else if (timeNow < '09:00') {
-        orbStatus = 'iep_forming'
+        // 08:58-08:59: IEP sudah hampir final, beri sinyal entry/skip
+        orbStatus = 'iep_confirmed'
       } else if (timeNow < '09:05') {
         orbStatus = 'orb_forming'
       } else if (brokenUp) {
@@ -1164,7 +1174,7 @@
       const alertKey = dateStr + '_' + orbStatus
       if (!_mbmaAlertedState[alertKey]) {
         _mbmaAlertedState[alertKey] = true
-        if (orbStatus === 'iep_forming') _playAlert('iep_forming')
+        if (orbStatus === 'iep_confirmed' && gapCat !== 'STABIL') _playAlert('iep_forming')
         if (orbStatus === 'broken_up')   _playAlert('orb_up')
         if (orbStatus === 'done_avoid')  _playAlert('avoid')
       }
@@ -1238,12 +1248,18 @@
       if (exitTitle) exitTitle.textContent='Exit'
       if (exitMsg)   exitMsg.textContent='–'
       setSignalBox(null)
-    } else if (s==='iep_forming') {
+    } else if (s==='iep_confirmed') {
       setStep('iep','active','🔔'); setStep('entry','pending','○')
       setStep('orb','pending','○'); setStep('exit','pending','○')
-      if (exitTitle) exitTitle.textContent='Exit'
-      if (exitMsg)   exitMsg.textContent='Siapkan order Open 09:00'
-      setSignalBox(null)
+      const isEntry = d.gapCat !== 'STABIL'
+      const gapLabel = d.gapCat==='UP'?'🟢 GAP UP':d.gapCat==='DOWN'?'🔵 GAP DOWN':'🟡 STABIL'
+      if (exitTitle) exitTitle.textContent = isEntry ? 'Siapkan ENTRY 09:00' : 'SKIP hari ini'
+      if (exitMsg)   exitMsg.innerHTML = isEntry
+        ? `<span style="color:var(--live)">IEP final — ${gapLabel} → ENTRY di Open 09:00</span>`
+        : `<span style="color:var(--ghost)">Gap ±1.5% — tidak ada sinyal hari ini</span>`
+      setSignalBox(isEntry ? 'orb-wait' : null,
+        isEntry ? `🔔 IEP FINAL — ${gapLabel}` : null,
+        isEntry ? `Gap ${d.gapPct!=null?(d.gapPct>=0?'+':'')+d.gapPct.toFixed(2)+'%':''} → ENTRY di Open 09:00, monitor ORB 09:05–09:31` : null)
     } else if (s==='orb_forming') {
       setStep('iep','done','✓'); setStep('entry','active','⏰')
       setStep('orb','pending','○'); setStep('exit','pending','○')
@@ -1501,6 +1517,7 @@
 
 </body>
 </html>
+
 
 
 
