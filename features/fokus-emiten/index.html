@@ -306,13 +306,13 @@
       sym: 'RAJA',
       indicatorName: 'Kunci RAJA Intraday',
       mode: 'intraday',  // mode flag untuk membedakan dari kartu swing
-      summary: 'Entry: Open pasar 09:00. Monitor ORB breakout 09:05-09:30. JIKA breakout UP: hold exit 12:00 (WLB 61.2%). JIKA tidak ada breakout di 09:30: EXIT SEGERA (avg loss -1.76% vs -3.56% kalau stay).',
-      stat: { n: 163, wlb: '61.2%', horizon: 'intraday, entry Open 09:00, exit jam 12:00 (atau 09:30 saat AVOID)' },
+      summary: 'Entry: Open pasar 09:00. Monitor ORB breakout 09:05–09:14. JIKA breakout UP sebelum 09:15: hold exit 10:00 (WLB 79.5%, avg +2.36%). JIKA tidak ada breakout di 09:15: EXIT SEGERA (avg -0.81%).',
+      stat: { n: 83, wlb: '79.5%', horizon: 'intraday, entry Open 09:00, exit jam 10:00 (atau 09:15 saat AVOID)' },
       rules: [
         { type: 'entry', text: 'Entry di Open pasar jam 09:00 (setelah IEP final terbentuk)' },
-        { type: 'entry', text: 'Monitor ORB breakout UP jam 09:05–09:30' },
-        { type: 'exit',  text: 'EXIT jam 12:00 jika ORB breakout UP terkonfirmasi (WLB 61.2%)' },
-        { type: 'avoid', text: 'EXIT di 09:30 jika tidak ada ORB breakout (cut loss dini, avg -1.76% vs -3.56%)' },
+        { type: 'entry', text: 'Monitor ORB breakout UP jam 09:05–09:14 (deadline 09:15)' },
+        { type: 'exit',  text: 'EXIT jam 10:00 jika ORB breakout UP terkonfirmasi (WLB 79.5%, avg +2.36%)' },
+        { type: 'avoid', text: 'EXIT di 09:15 jika tidak ada ORB breakout (avg -0.81%, MDD hanya -18.4%)' },
       ],
       // compute() untuk intraday berbeda — fetch data 1m hari ini,
       // hitung ORB high/low dari 09:00-09:04, deteksi breakout
@@ -352,7 +352,7 @@
         // Status breakout
         const postOrb = sort1m.filter(c => {
           const t = (c.datetime||'').slice(11,16)
-          return t >= '09:05'
+          return t >= '09:05' && t < '09:15'
         })
         const brokenUp   = orbHigh && postOrb.some(c => c.close > orbHigh)
         const brokenDown = orbLow  && postOrb.some(c => c.close < orbLow)
@@ -364,7 +364,7 @@
         else if (timeNow < '09:00')  orbStatus = 'iep_forming'
         else if (timeNow < '09:05')  orbStatus = 'orb_forming'
         else if (brokenUp)           orbStatus = 'broken_up'
-        else if (timeNow < '09:30')  orbStatus = 'waiting'
+        else if (timeNow < '09:15')  orbStatus = 'waiting'
         else                         orbStatus = 'no_signal'   // 09:30 lewat, tidak ada breakout → EXIT
 
         // Tandai candle 5m dengan signal
@@ -374,9 +374,9 @@
           // Entry: candle 09:00 (Open pasar setelah IEP final)
           if (t === '09:00') _signal = 'entry'
           // Exit normal: jam 12:00 (jika ORB breakout terkonfirmasi)
-          if (brokenUp && t === '12:00') _signal = 'exit'
+          if (brokenUp && t === '10:00') _signal = 'exit'
           // Exit AVOID: jam 09:30 (jika tidak ada ORB breakout)
-          if (!brokenUp && t === '09:30') _signal = 'exit_avoid'
+          if (!brokenUp && t === '09:15') _signal = 'exit_avoid'
           return { ...c, time: c.unix, _signal, _orbHigh: orbHigh, _orbLow: orbLow }
         })
 
@@ -883,9 +883,9 @@
         if (d._signal === 'entry')
           return { time: d.unix, position: 'belowBar', color: '#4ade80', shape: 'arrowUp',   text: `ENTRY Open ${d.open?.toLocaleString('id-ID')}` }
         if (d._signal === 'exit')
-          return { time: d.unix, position: 'aboveBar', color: '#f0635c', shape: 'arrowDown', text: 'EXIT 12:00' }
+          return { time: d.unix, position: 'aboveBar', color: '#f0635c', shape: 'arrowDown', text: 'EXIT 10:00' }
         if (d._signal === 'exit_avoid')
-          return { time: d.unix, position: 'aboveBar', color: '#f97316', shape: 'arrowDown', text: 'EXIT AVOID 09:30' }
+          return { time: d.unix, position: 'aboveBar', color: '#f97316', shape: 'arrowDown', text: 'EXIT AVOID 09:15' }
         return null
       })
       .filter(Boolean)
@@ -905,9 +905,9 @@
       'pre_iep':    `<span style="color:var(--ghost)">Sebelum IEP (pasar belum pre-opening)</span>`,
       'iep_forming':`<span style="color:#fbbf24">🔔 IEP berlangsung (08:45–08:59) — siapkan order di Open 09:00</span>`,
       'orb_forming':`<span style="color:#fbbf24">⏳ Opening Range sedang terbentuk (09:00–09:04) — tunggu konfirmasi</span>`,
-      'broken_up':  `<span style="color:#4ade80">✓ ORB BROKEN UP — HOLD, exit jam 12:00</span> <span style="color:var(--ghost);font-size:10px">WLB 61.2%, avg +1.79%</span>`,
-      'waiting':    `<span style="color:#fbbf24">⏳ Belum ada ORB breakout — monitor sampai 09:30</span> <span style="color:var(--ghost);font-size:10px">Jika 09:30 belum breakout → EXIT</span>`,
-      'no_signal':  `<span style="color:#f97316">⚠ TIDAK ADA ORB BREAKOUT — EXIT SEKARANG (09:30)</span> <span style="color:var(--ghost);font-size:10px">Avg loss exit 09:30: -1.76% vs stay 12:00: -3.56%</span>`,
+      'broken_up':  `<span style="color:#4ade80">✓ ORB BROKEN UP — HOLD, exit jam 10:00</span> <span style="color:var(--ghost);font-size:10px">WLB 79.5%, avg +2.36%</span>`,
+      'waiting':    `<span style="color:#fbbf24">⏳ Belum ada ORB breakout — monitor sampai 09:15</span> <span style="color:var(--ghost);font-size:10px">Jika 09:15 belum breakout → EXIT</span>`,
+      'no_signal':  `<span style="color:#f97316">⚠ TIDAK ADA ORB BREAKOUT — EXIT SEKARANG (09:15)</span> <span style="color:var(--ghost);font-size:10px">Avg loss -0.81% | WLB 79.5% saat ORB UP</span>`,
     }
 
     strip.innerHTML = `
@@ -940,6 +940,7 @@
 
 
 <!-- rebuild trigger 1782838361 -->
+
 
 
 
