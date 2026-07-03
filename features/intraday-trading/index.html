@@ -122,9 +122,38 @@
       <button class="alert-toggle on" id="alert-toggle" onclick="_toggleAlert()">🔔 Alert ON</button>
     </div>
 
-    <!-- CARDS GRID -->
-    <div class="cards-grid" id="cards-grid">
-      <!-- Cards di-generate oleh JS -->
+    <!-- MODE TOGGLE -->
+    <div class="mode-toggle" style="display:flex;gap:8px;margin-bottom:16px;">
+      <button class="mode-btn active" data-mode="intraday" onclick="_setMode('intraday')"
+        style="font-family:var(--f-mono);font-size:11px;font-weight:700;padding:5px 14px;
+               border-radius:4px;border:1px solid var(--live);background:rgba(74,222,128,0.12);
+               color:var(--live);cursor:pointer;">
+        📈 Intraday
+      </button>
+      <button class="mode-btn" data-mode="bsjp" onclick="_setMode('bsjp')"
+        style="font-family:var(--f-mono);font-size:11px;font-weight:700;padding:5px 14px;
+               border-radius:4px;border:1px solid var(--line);background:transparent;
+               color:var(--ghost);cursor:pointer;">
+        🌙 BSJP
+      </button>
+      <style>
+        .mode-btn.active { border-color:var(--phosphor)!important;
+          background:rgba(74,222,128,0.12)!important; color:var(--paper)!important; }
+      </style>
+    </div>
+
+    <!-- INTRADAY SECTION -->
+    <div id="intraday-section">
+      <div class="cards-grid" id="cards-grid">
+        <!-- Cards di-generate oleh JS -->
+      </div>
+    </div>
+
+    <!-- BSJP SECTION -->
+    <div id="bsjp-section" style="display:none">
+      <div class="cards-grid" id="bsjp-cards-grid">
+        <!-- BSJP card di-generate oleh JS -->
+      </div>
     </div>
   </div>
 </div>
@@ -139,15 +168,28 @@ renderHeader(document.getElementById('app-header'), { back: true, title: 'Intrad
 // ============================================================
 // KONFIGURASI PER EMITEN — parameter tervalidasi dari backtest
 // ============================================================
+// ============================================================
+// MODE: 'intraday' atau 'bsjp'
+// ============================================================
+let _currentMode = 'intraday'
+window._setMode = function(mode) {
+  _currentMode = mode
+  document.querySelectorAll('.mode-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.mode === mode)
+  })
+  document.getElementById('intraday-section').style.display = mode==='intraday' ? '' : 'none'
+  document.getElementById('bsjp-section').style.display    = mode==='bsjp'     ? '' : 'none'
+}
+
 const EMITEN_CONFIG = [
   {
     sym: 'RAJA',
     name: 'Rukun Raharja',
-    gap_threshold: 0.5,     // ±0.5%
-    orb_deadline: '09:15',  // deadline ORB breakout
-    exit_up: '10:00',       // GAP UP → exit 10:00 (WLB 71.6%, avg +2.83%)
-    exit_down: '09:15',     // GAP DOWN → exit 09:15 (WLB 81.6%, win 100%)
-    exit_avoid: '09:15',    // tidak ada ORB → exit avoid
+    gap_threshold: 0.5,
+    orb_deadline: '09:15',
+    exit_up: '10:00',
+    exit_down: '09:15',
+    exit_avoid: '09:15',
     stats: {
       up:   { wlb: '71.6%', avg: '+2.83%', win: '85.4%', exit: '10:00' },
       down: { wlb: '81.6%', avg: '+2.80%', win: '100%',  exit: '09:15' },
@@ -156,10 +198,10 @@ const EMITEN_CONFIG = [
   {
     sym: 'MBMA',
     name: 'Merdeka Battery Materials',
-    gap_threshold: 1.5,     // ±1.5% (lebih volatile)
-    orb_deadline: '09:31',  // deadline 09:31 (1 menit lebih lama dari RAJA)
-    exit_up: '09:30',       // GAP UP → exit 09:30 (WLB 68.5%, avg +2.59%)
-    exit_down: '09:30',     // GAP DOWN → exit 09:30 (WLB 75.7%, win 100%)
+    gap_threshold: 1.5,
+    orb_deadline: '09:31',
+    exit_up: '09:30',
+    exit_down: '09:30',
     exit_avoid: '09:15',
     stats: {
       up:   { wlb: '68.5%', avg: '+2.59%', win: '85.7%', exit: '09:30' },
@@ -167,6 +209,16 @@ const EMITEN_CONFIG = [
     }
   }
 ]
+
+// BSJP config — hanya RAJA (tervalidasi dari backtest 238 hari)
+// Entry: 16:00 (lelang penutupan) | Exit: dinamis berdasarkan foreign flow
+const BSJP_P75_MAG = 0.156  // perlu dikalibrasi tiap 6 bulan
+const BSJP_EXIT_MAP = {
+  buy_strong:  '09:05',  // fb>fs + mag≥P75: WLB 67.9%★, avg +2.05%
+  buy_weak:    '10:00',  // fb>fs + mag<P75:  WLB 49.7%, avg +1.15%
+  sell_strong: '09:30',  // fs>fb + mag≥P75:  WLB 48.8%, avg +1.40%
+  sell_weak:   '09:00',  // fs>fb + mag<P75:  WLB 61.1%, avg +0.50%
+}
 
 // ============================================================
 // ALERT SUARA
@@ -590,7 +642,296 @@ function _start() {
 
 window.addEventListener('ihsg:token-saved', _start)
 if (TOKEN.isSet()) _start()
+
+// ============================================================
+// BSJP MONITOR — Beli Sore Jual Pagi (hanya RAJA)
+// Entry: 16:00 (lelang penutupan)
+// Exit: dinamis berdasarkan foreign flow malam hari
+// ============================================================
+function _buildBsjpCards() {
+  const grid = document.getElementById('bsjp-cards-grid')
+  if (!grid) return
+  grid.innerHTML = `
+    <div class="it-card" id="bsjp-raja-card">
+      <div class="card-header">
+        <span class="card-sym">RAJA</span>
+        <span class="card-badge">BSJP</span>
+        <span class="card-gap-label" id="bsjp-foreign-label" style="margin-left:auto;font-family:var(--f-mono);font-size:10px;font-weight:700">–</span>
+      </div>
+
+      <!-- Status bar -->
+      <div class="signal-banner" id="bsjp-banner"></div>
+
+      <!-- Step 1: Entry -->
+      <div class="step-row" id="bsjp-step-entry">
+        <span class="step-icon" id="bsjp-icon-entry">○</span>
+        <div class="step-body">
+          <div class="step-label">16:00 ENTRY Lelang Penutupan</div>
+          <div class="step-details">
+            <div class="step-kv"><span class="step-key">Harga entry</span><span class="step-val" id="bsjp-entry-price">–</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: Cek Foreign -->
+      <div class="step-row pending" id="bsjp-step-foreign">
+        <span class="step-icon" id="bsjp-icon-foreign">○</span>
+        <div class="step-body">
+          <div class="step-label">~16:30 Cek Foreign Flow</div>
+          <div class="step-details">
+            <div class="step-kv"><span class="step-key">Net Foreign</span><span class="step-val" id="bsjp-net-foreign">–</span></div>
+            <div class="step-kv"><span class="step-key">Magnitude</span><span class="step-val" id="bsjp-magnitude">–</span></div>
+            <div class="step-kv"><span class="step-key">Kondisi</span><span class="step-val" id="bsjp-kondisi">–</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3: Exit besok -->
+      <div class="step-row pending" id="bsjp-step-exit">
+        <span class="step-icon" id="bsjp-icon-exit">○</span>
+        <div class="step-body">
+          <div class="step-label" id="bsjp-exit-label">Exit besok</div>
+          <div class="step-details">
+            <div class="step-kv"><span class="step-key">Jam exit</span><span class="step-val warn" id="bsjp-exit-time">–</span></div>
+            <div class="step-kv"><span class="step-key">Statistik</span><span class="step-val" id="bsjp-exit-stat">–</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hasil trade (besok setelah exit) -->
+      <div class="result-box" id="bsjp-result-box" style="display:none">
+        <div class="result-ret" id="bsjp-result-ret">–</div>
+        <div class="result-meta" id="bsjp-result-meta">–</div>
+      </div>
+
+      <!-- Info box: statistik formula -->
+      <div style="margin:8px 12px;padding:8px 10px;border-radius:4px;background:var(--raised);
+                  border:1px solid var(--line);font-family:var(--f-mono);font-size:10px;">
+        <div style="color:var(--ghost);margin-bottom:4px;font-weight:700">Formula Tervalidasi (238 hari)</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;color:var(--dim)">
+          <span>WLB 61.9%</span><span>Win 68.1%</span>
+          <span>avg +1.01%/hari</span><span>MDD 36.1%</span>
+        </div>
+      </div>
+
+      <div class="card-footer">
+        <div class="card-params">
+          <span class="param-tag">entry 16:00</span>
+          <span class="param-tag">exit dinamis</span>
+          <span class="param-tag">P75 0.156%</span>
+        </div>
+        <span id="bsjp-refresh">–</span>
+      </div>
+    </div>
+
+    <!-- Info card BSJP -->
+    <div class="it-card" style="padding:0">
+      <div class="card-header">
+        <span class="card-sym" style="font-size:12px">BSJP — Cara Kerja</span>
+      </div>
+      <div style="padding:10px 12px;font-family:var(--f-mono);font-size:10px;line-height:1.7;color:var(--dim)">
+        <div style="margin-bottom:8px;font-weight:700;color:var(--paper)">4 Kondisi Exit:</div>
+        <div style="display:grid;gap:5px">
+          <div style="display:flex;justify-content:space-between">
+            <span style="color:var(--live)">NET BUY kuat (mag≥P75)</span>
+            <span>→ exit <b>09:05</b> · WLB 67.9%★</span>
+          </div>
+          <div style="display:flex;justify-content:space-between">
+            <span style="color:#86efac">NET BUY lemah</span>
+            <span>→ exit <b>10:00</b> · WLB 49.7%</span>
+          </div>
+          <div style="display:flex;justify-content:space-between">
+            <span style="color:#f97316">NET SELL kuat (mag≥P75)</span>
+            <span>→ exit <b>09:30</b> · WLB 48.8%</span>
+          </div>
+          <div style="display:flex;justify-content:space-between">
+            <span style="color:var(--ghost)">NET SELL lemah</span>
+            <span>→ exit <b>09:00</b> · WLB 61.1%</span>
+          </div>
+        </div>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--line);color:var(--ghost)">
+          P75 magnitude ≈ 0.156% dari value trading<br>
+          Kalibrasi ulang tiap 6 bulan<br>
+          Fee 0.40%/RT → net avg +0.61%/hari
+        </div>
+      </div>
+    </div>
+  `
+}
+
+async function _fetchBsjpMonitor() {
+  if (!TOKEN.isSet()) return
+  try {
+    const now = Date.now()
+    const wib = new Date(now + 7*3600*1000)
+    const dateStr = wib.toISOString().slice(0,10)
+    const timeNow = _wibTime()
+    const toTs = Math.floor(now/1000)
+    const fromTs = Math.floor(new Date(dateStr+'T01:00:00Z').getTime()/1000)
+
+    const raw = await fetchIntraday('RAJA', toTs, fromTs, 1)
+    if (!raw || !raw.length) return
+
+    const sort = [...raw].sort((a,b) => a.unix - b.unix)
+
+    // Entry price: candle jam 16:00 (lelang penutupan)
+    const entry16 = sort.filter(c => (c.datetime||'').slice(11,16) >= '16:00')
+    const entryPrice = entry16.length ? entry16[0].close : null
+
+    // Fetch daily hari ini untuk foreign flow
+    let fb = 0, fs = 0, netForeign = 0, magnitude = 0, kategori = null, exitTime = null
+    try {
+      const dailyData = await fetchDaily('RAJA', dateStr, dateStr)
+      if (dailyData && dailyData.length) {
+        const d = dailyData[dailyData.length-1]
+        fb = d.foreignbuy || 0
+        fs = d.foreignsell || 0
+        netForeign = fb - fs
+        const closePrice = sort[sort.length-1]?.close || 1
+        const vol = sort.reduce((s,c) => s+(c.volume||0), 0)
+        const volVal = closePrice * vol * 100
+        magnitude = volVal > 0 ? Math.abs(netForeign) / volVal * 100 : 0
+        const isNetBuy = fb > fs
+        const isStrong = magnitude >= BSJP_P75_MAG
+        if (isNetBuy && isStrong)  kategori = 'buy_strong'
+        else if (isNetBuy)         kategori = 'buy_weak'
+        else if (isStrong)         kategori = 'sell_strong'
+        else                       kategori = 'sell_weak'
+        exitTime = BSJP_EXIT_MAP[kategori]
+      }
+    } catch(e2) {}
+
+    // Cek apakah sudah lewat jam exit (tampilkan hasil)
+    let exitPrice = null, tradeReturn = null
+    if (exitTime && entryPrice && timeNow >= exitTime) {
+      const ec = sort.filter(c => (c.datetime||'').slice(11,16) <= exitTime)
+      exitPrice = ec.length ? ec[ec.length-1].close : null
+      if (exitPrice) tradeReturn = (exitPrice - entryPrice) / entryPrice * 100
+    }
+
+    _renderBsjpMonitor({ entryPrice, fb, fs, netForeign, magnitude, kategori,
+                          exitTime, exitPrice, tradeReturn, timeNow, dateStr })
+  } catch(e) { console.warn('[bsjp]', e.message) }
+}
+
+function _renderBsjpMonitor(d) {
+  const fmt = v => v ? v.toLocaleString('id-ID') : '–'
+  const fmtM = v => v ? (v/1e9).toFixed(1)+'M' : '–'
+
+  function $v(id, val) { const el=document.getElementById(id); if(el) el.textContent=val||'–' }
+  function setStep(id, state, icon) {
+    const el=document.getElementById('bsjp-step-'+id)
+    if (el) el.className='step-row '+state
+    const ic=document.getElementById('bsjp-icon-'+id)
+    if (ic) ic.textContent=icon
+  }
+  function setBanner(type, text) {
+    const b=document.getElementById('bsjp-banner')
+    if (!b) return
+    b.className='signal-banner '+(type?type+'-banner':'')
+    b.style.display=type?'block':'none'
+    b.textContent=text||''
+  }
+
+  const ref=document.getElementById('bsjp-refresh')
+  if (ref) ref.textContent='Update: '+d.timeNow+' WIB'
+  if (!d) return
+
+  const t=d.timeNow
+
+  // Step 1: Entry (setelah 16:00)
+  if (t >= '16:00' && d.entryPrice) {
+    setStep('entry','done','✓')
+    $v('bsjp-entry-price', fmt(d.entryPrice))
+  } else if (t >= '15:30') {
+    setStep('entry','active','⏰')
+    $v('bsjp-entry-price', 'Siapkan order 16:00')
+  } else {
+    setStep('entry','pending','○')
+    $v('bsjp-entry-price', '–')
+  }
+
+  // Step 2: Foreign flow (tersedia setelah 16:30)
+  const KONDISI_LABEL = {
+    buy_strong:  '🟢 NET BUY KUAT',
+    buy_weak:    '🟡 NET BUY LEMAH',
+    sell_strong: '🟠 NET SELL KUAT',
+    sell_weak:   '⚪ NET SELL LEMAH',
+  }
+  const KONDISI_STAT = {
+    buy_strong:  'WLB 67.9%★ · avg +2.05%',
+    buy_weak:    'WLB 49.7% · avg +1.15%',
+    sell_strong: 'WLB 48.8% · avg +1.40%',
+    sell_weak:   'WLB 61.1% · avg +0.50%',
+  }
+  if (d.kategori) {
+    setStep('foreign','done','✓')
+    const netSign = d.netForeign >= 0 ? '+' : ''
+    $v('bsjp-net-foreign', netSign+fmtM(d.netForeign))
+    $v('bsjp-magnitude', d.magnitude.toFixed(3)+'%'+(d.magnitude>=BSJP_P75_MAG?' (KUAT)':' (lemah)'))
+    $v('bsjp-kondisi', KONDISI_LABEL[d.kategori] || '–')
+    // Foreign label di header
+    const fl=document.getElementById('bsjp-foreign-label')
+    if (fl) {
+      fl.textContent=KONDISI_LABEL[d.kategori]
+      fl.style.color=d.kategori==='buy_strong'?'var(--live)':d.kategori==='buy_weak'?'#86efac':d.kategori==='sell_strong'?'#f97316':'var(--ghost)'
+    }
+  } else if (t >= '16:00') {
+    setStep('foreign','active','⏳')
+    $v('bsjp-net-foreign', 'Menunggu data (~16:30)')
+    $v('bsjp-magnitude', '–'); $v('bsjp-kondisi', '–')
+  } else {
+    setStep('foreign','pending','○')
+  }
+
+  // Step 3: Exit
+  if (d.exitTime && d.tradeReturn !== null) {
+    // Sudah selesai
+    setStep('exit','done','✓')
+    $v('bsjp-exit-label','SELESAI — Exit '+d.exitTime)
+    $v('bsjp-exit-time', d.exitTime)
+    $v('bsjp-exit-stat', KONDISI_STAT[d.kategori]||'–')
+    const box=document.getElementById('bsjp-result-box')
+    const retEl=document.getElementById('bsjp-result-ret')
+    const metaEl=document.getElementById('bsjp-result-meta')
+    if (box) box.style.display='block'
+    const sign=d.tradeReturn>=0?'+':''
+    const cls=d.tradeReturn>=0?'profit':'loss'
+    if (box) box.className='result-box '+cls
+    if (retEl) { retEl.className='result-ret '+cls; retEl.textContent=sign+d.tradeReturn.toFixed(2)+'%' }
+    if (metaEl) metaEl.textContent='Entry '+fmt(d.entryPrice)+' → Exit '+fmt(d.exitPrice)+' ('+d.exitTime+')'
+    setBanner(d.tradeReturn>=0?'entry':'avoid',
+      (d.tradeReturn>=0?'✓ PROFIT ':'✗ LOSS ')+sign+d.tradeReturn.toFixed(2)+'%')
+  } else if (d.exitTime) {
+    setStep('exit','active','🎯')
+    $v('bsjp-exit-label','Exit besok jam '+d.exitTime)
+    $v('bsjp-exit-time', d.exitTime)
+    $v('bsjp-exit-stat', KONDISI_STAT[d.kategori]||'–')
+    setBanner('entry','🌙 POSISI OVERNIGHT — Exit besok '+d.exitTime+' · '+(KONDISI_STAT[d.kategori]||''))
+  } else if (t >= '16:00') {
+    setStep('exit','pending','○')
+    $v('bsjp-exit-label','Menunggu data foreign...')
+    $v('bsjp-exit-time', '–')
+    $v('bsjp-exit-stat', '–')
+  } else {
+    setStep('exit','pending','○')
+    $v('bsjp-exit-label','Exit besok (ditentukan malam ini)')
+    $v('bsjp-exit-time', '–')
+    $v('bsjp-exit-stat', '–')
+  }
+}
+
+let _bsjpTimer = null
+function _startBsjp() {
+  if (_bsjpTimer) clearInterval(_bsjpTimer)
+  _buildBsjpCards()
+  _fetchBsjpMonitor()
+  _bsjpTimer = setInterval(_fetchBsjpMonitor, 60*1000)
+}
+window.addEventListener('ihsg:token-saved', _startBsjp)
+if (TOKEN.isSet()) _startBsjp()
 </script>
 </body>
 </html>
+
 
