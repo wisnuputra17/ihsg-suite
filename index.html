@@ -1354,6 +1354,9 @@
   const _origFetchRaja = _fetchRajaMonitor
   // Alert RAJA sudah di-handle via _rajaData.orbStatus change detection di bawah
 
+  window.addEventListener('ihsg:token-saved', _startRajaMonitor)
+  if (TOKEN.isSet()) _startRajaMonitor()
+
   window.addEventListener('ihsg:token-saved', _startMbmaMonitor)
   if (TOKEN.isSet()) _startMbmaMonitor()
 
@@ -1539,6 +1542,7 @@
 
 </body>
 </html>
+
 
 
 
