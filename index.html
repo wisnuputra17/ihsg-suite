@@ -1450,12 +1450,20 @@
   const tokenSaveBtn= document.getElementById('tokenSave')
 
   function _renderTokenBtn() {
-    tokenBtn.textContent = TOKEN.isSet() ? '✓ Token' : 'Token'
-    // Tampilkan durasi token kalau sudah diset
+    // Tampilkan sisa waktu token (TTL 24 jam dari waktu set)
     if (TOKEN.isSet() && TOKEN.elapsedMs) {
-      const hrs = Math.floor(TOKEN.elapsedMs() / 3600000)
-      const mins = Math.floor((TOKEN.elapsedMs() % 3600000) / 60000)
-      tokenBtn.textContent = `✓ Token (${hrs}j ${mins}m)`
+      const TTL_MS = 24 * 60 * 60 * 1000
+      const remaining = TTL_MS - (TOKEN.elapsedMs() || 0)
+      if (remaining > 0) {
+        const hrs  = Math.floor(remaining / 3600000)
+        const mins = Math.floor((remaining % 3600000) / 60000)
+        tokenBtn.textContent = `✓ Token (sisa ${hrs}j ${mins}m)`
+      } else {
+        tokenBtn.textContent = '⚠ Token kadaluarsa'
+        tokenBtn.classList.remove('btn-primary')
+      }
+    } else {
+      tokenBtn.textContent = TOKEN.isSet() ? '✓ Token' : 'Token'
     }
     tokenBtn.classList.toggle('btn-primary', TOKEN.isSet())
   }
