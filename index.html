@@ -748,6 +748,7 @@
 
   let _rajaMonitorTimer = null
   let _rajaData = null   // cache hasil fetch terakhir
+  let _rajaAlertedState = {}  // track alert agar tidak double bunyi per hari
 
   async function _fetchRajaMonitor() {
     if (!TOKEN.isSet()) return
@@ -1349,11 +1350,6 @@
     }, 60*1000)
   }
 
-  // ── Patch alert ke RAJA juga (tambahkan alert yang sudah ada) ──
-  let _rajaAlertedState = {}
-  const _origFetchRaja = _fetchRajaMonitor
-  // Alert RAJA sudah di-handle via _rajaData.orbStatus change detection di bawah
-
   window.addEventListener('ihsg:token-saved', _startRajaMonitor)
   if (TOKEN.isSet()) _startRajaMonitor()
 
@@ -1542,6 +1538,7 @@
 
 </body>
 </html>
+
 
 
 
