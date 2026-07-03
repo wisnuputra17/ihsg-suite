@@ -178,7 +178,8 @@
 <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@5.2.0/dist/lightweight-charts.standalone.production.js"></script>
 
 <script type="module">
-  import { TOKEN } from '../../shared/store.js'
+  import { TOKEN }        from '../../shared/store.js'
+import { isMarketHours } from '../../shared/monitor.js'
   import { fetchDaily, fetchIntraday } from '../../shared/api.js'
 
   // Baca gap category dari URL parameter (dikirim dari dashboard panel kiri)
@@ -517,16 +518,7 @@
   let _autoRefreshTimer = null // setInterval handle untuk auto-refresh
 
   // Cek apakah sekarang jam bursa IDX (Senin-Jumat 08:45-16:00 WIB)
-  function _isMarketHours() {
-    const now = new Date()
-    const wib = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }))
-    const day = wib.getDay() // 0=Minggu, 6=Sabtu
-    if (day === 0 || day === 6) return false
-    const h = wib.getHours()
-    const m = wib.getMinutes()
-    const totalMin = h * 60 + m
-    return totalMin >= 8*60+45 && totalMin < 16*60  // 08:45–16:00
-  }
+  // isMarketHours → diimport dari shared/monitor.js
 
   function _nextRefreshSecs() {
     return 5 * 60  // 5 menit
@@ -587,7 +579,7 @@
     } catch (e) {
       console.warn('[auto-refresh] gagal:', e.message)
     } finally {
-      if (_isMarketHours()) {
+      if (isMarketHours()) {
         _startCountdown(_nextRefreshSecs())
       } else {
         _stopAutoRefresh()
@@ -597,10 +589,10 @@
 
   function _setupAutoRefresh() {
     _stopAutoRefresh()
-    if (!_isMarketHours()) { _updateRefreshBadge('off'); return }
+    if (!isMarketHours()) { _updateRefreshBadge('off'); return }
     _startCountdown(_nextRefreshSecs())
     _autoRefreshTimer = setInterval(() => {
-      if (!_isMarketHours()) { _stopAutoRefresh(); return }
+      if (!isMarketHours()) { _stopAutoRefresh(); return }
       _refreshData()
     }, _nextRefreshSecs() * 1000)
   }
@@ -876,9 +868,9 @@
       await _loadIntraday(profile)
 
       // Auto-refresh 1 menit saat jam bursa
-      if (_isMarketHours()) {
+      if (isMarketHours()) {
         _orbAutoRefreshTimer = setInterval(async () => {
-          if (!_isMarketHours()) { clearInterval(_orbAutoRefreshTimer); return }
+          if (!isMarketHours()) { clearInterval(_orbAutoRefreshTimer); return }
           if (_activeSym === profile.sym) await _loadIntraday(profile)
         }, 60 * 1000)
       }
@@ -989,6 +981,7 @@
 
 
 <!-- rebuild trigger 1782838361 -->
+
 
 
 
