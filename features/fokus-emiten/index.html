@@ -204,10 +204,11 @@
     {
       sym: 'RAJA',
       indicatorName: 'Kunci RAJA',
-      summary: 'Entry: Connors RSI ≤15, max 3 posisi bersamaan, min jarak 14 hari antar entry. Exit tiap posisi: Trailing stop 30% dari highest-nya ATAU MACD hist>100 (exit SEMUA posisi sekaligus).',
+      summary: 'Entry: Connors RSI ≤15 + Asing Net Buy (filter konfluensi). Max 3 posisi, min jarak 14 hari. Exit per posisi: Trailing stop 30%. Exit semua: MACD hist>100. Filter asing membuang trade saat institusi distribusi (WLB naik 43%→65%, win rate 65%→92%).',
       stat: { n: 20, wlb: '69.9%', horizon: 'per-trade, avg hold ~184 hari kalender' },
       rules: [
         { type: 'entry', text: 'Connors RSI ≤ 15' },
+        { type: 'entry', text: 'Asing NET BUY hari itu (foreignbuy > foreignsell) — filter konfluensi' },
         { type: 'entry', text: 'Max 3 posisi terbuka bersamaan' },
         { type: 'entry', text: 'Min jarak 14 hari dari entry sebelumnya' },
         { type: 'exit',  text: 'Trailing stop 30% dari highest tiap posisi (independen)' },
@@ -285,7 +286,13 @@
           out[i]._posCount = positions.length
 
           // Cek entry baru
-          const entryOk = d._connorsRsi != null && d._connorsRsi <= CRSI_THRESH
+          // Filter konfluensi: CRSI ≤ 15 + Asing NET BUY
+          // (dari backtest: WLB naik dari 43% → 65%, win rate 65% → 92%, n=12)
+          const foreignNetBuy = (d.foreignbuy || 0) > (d.foreignsell || 0)
+          const entryOk = d._connorsRsi != null && d._connorsRsi <= CRSI_THRESH && foreignNetBuy
+          // Tandai hari CRSI rendah tapi asing distribusi → marker khusus
+          const crsiOkButForeignSell = d._connorsRsi != null && d._connorsRsi <= CRSI_THRESH && !foreignNetBuy
+          if (crsiOkButForeignSell && d._signal == null) d._signal = 'crsi_no_foreign'
           if (entryOk && positions.length < MAX_POS) {
             // Cek min gap dari entry terakhir
             let gapOk = true
@@ -752,6 +759,15 @@
             shape: 'arrowUp',
             text: isNearEnd ? `ENTRY (${lastPosCount} open)` : 'ENTRY'
           })
+        } else if (d._signal === 'crsi_no_foreign') {
+          // CRSI rendah tapi asing net sell — sinyal lemah, tidak entry
+          markers.push({
+            time: d.date,
+            position: 'belowBar',
+            color: '#6b7280',
+            shape: 'circle',
+            text: '○ CRSI≤15 (Asing Jual)'
+          })
         } else if (d._signal === 'exit_trail') {
           markers.push({ time: d.date, position: 'aboveBar', color: '#f0635c', shape: 'arrowDown', text: 'EXIT (trail)' })
         } else if (d._signal === 'exit_macd') {
@@ -801,6 +817,8 @@
       <span class="item">MA20 <b>${last._ma20 != null ? last._ma20.toLocaleString('id-ID', {maximumFractionDigits:0}) : '–'}</b></span>
       <span class="item">MACD Hist <b>${last._macdHist != null ? last._macdHist.toFixed(2) : '–'}</b></span>
       <span class="item">Connors RSI <b>${last._connorsRsi != null ? last._connorsRsi.toFixed(1) : '–'}</b></span>
+      <span class="item">Asing <b>${(last.foreignbuy||0) > (last.foreignsell||0) ? '🟢 NET BUY' : '🔴 NET SELL'}</b></span>
+      <span class="item">Foreign Buy <b>${last.foreignbuy ? (last.foreignbuy/1e9).toFixed(1)+'M' : '–'}</b></span>
       <span class="item">Sinyal hari ini: ${signalHtml}</span>
       <span class="item" style="width:100%; padding-top:6px; border-top:1px solid var(--line); margin-top:4px;">${positionHtml}</span>
     `
@@ -971,6 +989,7 @@
 
 
 <!-- rebuild trigger 1782838361 -->
+
 
 
 
