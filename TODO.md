@@ -116,13 +116,13 @@ Kalau ada yang baru muncul pas testing, kasih tau Claude di sesi manapun — "ta
 
 ## Jangka Pendek (sebelum tambah fitur baru)
 
-- [ ] **Generalisasi monitor menjadi satu fungsi `_fetchEmitenMonitor(cfg)`**
+- [x] ~~Generalisasi monitor menjadi satu fungsi~~ — **SELESAI (3 Jul 2026)**: `shared/monitor.js` `EmitenMonitor` class config-driven, 23 test
   - Saat ini `_fetchRajaMonitor` dan `_fetchMbmaMonitor` di index.html strukturnya 80% identik
   - Kalau ada bug di satu, harus fix di dua tempat
   - Fix: satu fungsi generik yang terima config `{sym, gap_threshold, orb_deadline, exit_up, exit_down}`
   - Berlaku juga untuk `_renderMonitor` dan `_renderMbmaMonitor`
 
-- [ ] **Pindahkan monitor RAJA+MBMA dari index.html ke `features/monitor/`**
+- [x] ~~Pindahkan monitor dari index.html~~ — **SELESAI (3 Jul 2026)**: dipindah ke `shared/monitor.js`, index.html berkurang 565 baris
   - index.html sekarang 1500+ baris — terlalu besar
   - Monitor panel sebaiknya jadi fitur tersendiri di-embed via `<iframe>` atau di-load dinamis
   - Atau minimal pisahkan JS monitor ke `shared/monitor.js`
@@ -136,12 +136,12 @@ Kalau ada yang baru muncul pas testing, kasih tau Claude di sesi manapun — "ta
 
 ## Jangka Menengah
 
-- [ ] **Buat `shared/monitor.js` — generalisasi checklist IEP→ORB→Exit**
+- [x] ~~Buat `shared/monitor.js`~~ — **SELESAI (3 Jul 2026)**: `EmitenMonitor` + `renderMonitorCard` + `playAlert` + helpers
   - Satu class/module yang handle semua emiten
   - Config-driven: `new EmitenMonitor({sym, gap_threshold, ...})`
   - Dipakai oleh index.html (panel kiri) DAN features/intraday-trading/
 
-- [ ] **Sinkronkan formula BSJP antara index.html dan intraday-trading**
+- [x] ~~Sinkronkan formula BSJP~~ — **SELESAI (3 Jul 2026)**: tidak duplikat karena BSJP hanya di intraday-trading, monitor sudah di shared
   - Saat ini BSJP logic ada di `features/intraday-trading/index.html` saja
   - Kalau formula berubah, harus update di dua tempat
 
