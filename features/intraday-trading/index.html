@@ -169,43 +169,34 @@ renderHeader(document.getElementById('app-header'), [
   ])
 
 // ============================================================
-// KONFIGURASI PER EMITEN — parameter tervalidasi dari backtest
+// KONFIGURASI INTRADAY — parameter tervalidasi per emiten
+// Menggunakan EmitenMonitor dari shared/monitor.js
 // ============================================================
-// ============================================================
-// MODE: 'intraday' atau 'bsjp'
-// ============================================================
-let _currentMode = 'intraday'
-window._setMode = function(mode) {
-  _currentMode = mode
-  document.querySelectorAll('.mode-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.mode === mode)
-  })
-  document.getElementById('intraday-section').style.display = mode==='intraday' ? '' : 'none'
-  document.getElementById('bsjp-section').style.display    = mode==='bsjp'     ? '' : 'none'
-}
 
 const EMITEN_CONFIG = [
   {
-    sym: 'RAJA',
-    name: 'Rukun Raharja',
+    sym:           'RAJA',
+    name:          'Rukun Raharja',
     gap_threshold: 0.5,
-    orb_deadline: '09:15',
-    exit_up: '10:00',
-    exit_down: '09:15',
-    exit_avoid: '09:15',
+    orb_deadline:  '09:15',
+    exit_up:       '10:00',
+    exit_down:     '09:15',
+    exit_avoid:    '09:15',
+    prefix:        'raja',
     stats: {
       up:   { wlb: '71.6%', avg: '+2.83%', win: '85.4%', exit: '10:00' },
       down: { wlb: '81.6%', avg: '+2.80%', win: '100%',  exit: '09:15' },
     }
   },
   {
-    sym: 'MBMA',
-    name: 'Merdeka Battery Materials',
+    sym:           'MBMA',
+    name:          'Merdeka Battery Materials',
     gap_threshold: 1.5,
-    orb_deadline: '09:31',
-    exit_up: '09:30',
-    exit_down: '09:30',
-    exit_avoid: '09:15',
+    orb_deadline:  '09:31',
+    exit_up:       '09:30',
+    exit_down:     '09:30',
+    exit_avoid:    '09:15',
+    prefix:        'mbma',
     stats: {
       up:   { wlb: '68.5%', avg: '+2.59%', win: '85.7%', exit: '09:30' },
       down: { wlb: '75.7%', avg: '+2.29%', win: '100%',  exit: '09:30' },
@@ -213,72 +204,13 @@ const EMITEN_CONFIG = [
   }
 ]
 
-// BSJP config — hanya RAJA (tervalidasi dari backtest 238 hari)
-// Entry: 16:00 (lelang penutupan) | Exit: dinamis berdasarkan foreign flow
-const BSJP_P75_MAG = 0.156  // perlu dikalibrasi tiap 6 bulan
-const BSJP_EXIT_MAP = {
-  buy_strong:  '09:05',  // fb>fs + mag≥P75: WLB 67.9%★, avg +2.05%
-  buy_weak:    '10:00',  // fb>fs + mag<P75:  WLB 49.7%, avg +1.15%
-  sell_strong: '09:30',  // fs>fb + mag≥P75:  WLB 48.8%, avg +1.40%
-  sell_weak:   '09:00',  // fs>fb + mag<P75:  WLB 61.1%, avg +0.50%
-}
-
-// ============================================================
-// ALERT SUARA
-// ============================================================
-let _alertEnabled = true
-window._toggleAlert = function() {
-  _alertEnabled = !_alertEnabled
-  const btn = document.getElementById('alert-toggle')
-  btn.textContent = _alertEnabled ? '🔔 Alert ON' : '🔕 Alert OFF'
-  btn.className = 'alert-toggle ' + (_alertEnabled ? 'on' : '')
-}
-
-function _playAlert(type) {
-  if (!_alertEnabled) return
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)()
-    const patterns = {
-      iep_confirmed: [{f:520,d:0.12,t:0},{f:650,d:0.15,t:0.15}],
-      orb_up:        [{f:440,d:0.12,t:0},{f:550,d:0.12,t:0.14},{f:660,d:0.22,t:0.28}],
-      avoid:         [{f:440,d:0.18,t:0},{f:330,d:0.28,t:0.20}],
-    }
-    ;(patterns[type]||[]).forEach(({f,d,t}) => {
-      const osc=ctx.createOscillator(), gain=ctx.createGain()
-      osc.connect(gain); gain.connect(ctx.destination)
-      osc.frequency.value=f; osc.type=type==='avoid'?'sawtooth':'sine'
-      gain.gain.setValueAtTime(0, ctx.currentTime+t)
-      gain.gain.linearRampToValueAtTime(0.20, ctx.currentTime+t+0.01)
-      gain.gain.linearRampToValueAtTime(0, ctx.currentTime+t+d)
-      osc.start(ctx.currentTime+t); osc.stop(ctx.currentTime+t+d+0.05)
-    })
-  } catch(e) {}
-}
-
-// ============================================================
-// HELPER
-// ============================================================
-function _wibTime() {
-  return new Date(Date.now()+7*3600*1000).toISOString().slice(11,16)
-}
-function _isMarketHours() {
-  const wib = new Date(Date.now()+7*3600*1000)
-  const day = wib.getUTCDay()
-  if (day===0||day===6) return false
-  const tot = wib.getUTCHours()*60+wib.getUTCMinutes()
-  return tot>=8*60+45 && tot<16*60
-}
-function fmt(v)    { return v ? v.toLocaleString('id-ID') : '–' }
-function fmtVol(v) { return v ? (v>=1e6?(v/1e6).toFixed(1)+'jt':(v/1000).toFixed(0)+'rb') : '–' }
-
-// ============================================================
-// RENDER CARDS (satu kali saat load)
-// ============================================================
+// ── Build cards dari config ──
 function _buildCards() {
   const grid = document.getElementById('cards-grid')
+  if (!grid) return
   grid.innerHTML = ''
   EMITEN_CONFIG.forEach(cfg => {
-    const id = cfg.sym.toLowerCase()
+    const id = cfg.prefix
     const card = document.createElement('div')
     card.className = 'it-card'
     card.id = `card-${id}`
@@ -288,11 +220,8 @@ function _buildCards() {
         <span class="card-badge">INTRADAY</span>
         <span class="card-gap-label stabil" id="${id}-gap-label">–</span>
       </div>
-
-      <div class="signal-banner" id="${id}-banner"></div>
-
+      <div class="signal-banner" id="${id}-signal-box" style="display:none"></div>
       <div class="card-steps">
-        <!-- Step 1: IEP -->
         <div class="step-row pending" id="${id}-step-iep">
           <span class="step-icon" id="${id}-icon-iep">○</span>
           <div class="step-body">
@@ -304,8 +233,6 @@ function _buildCards() {
             </div>
           </div>
         </div>
-
-        <!-- Step 2: Entry -->
         <div class="step-row pending" id="${id}-step-entry">
           <span class="step-icon" id="${id}-icon-entry">○</span>
           <div class="step-body">
@@ -315,8 +242,6 @@ function _buildCards() {
             </div>
           </div>
         </div>
-
-        <!-- Step 3: ORB -->
         <div class="step-row pending" id="${id}-step-orb">
           <span class="step-icon" id="${id}-icon-orb">○</span>
           <div class="step-body">
@@ -328,319 +253,139 @@ function _buildCards() {
             </div>
           </div>
         </div>
-
-        <!-- Step 4: Exit -->
         <div class="step-row pending" id="${id}-step-exit">
           <span class="step-icon" id="${id}-icon-exit">○</span>
           <div class="step-body">
-            <div class="step-label" id="${id}-exit-label">Exit</div>
+            <div class="step-label" id="${id}-exit-title">Exit</div>
             <div class="step-details">
-              <div class="step-kv" style="flex-direction:column;gap:0">
-                <span class="step-val" id="${id}-exit-msg" style="white-space:normal;text-align:right">–</span>
-              </div>
+              <span class="step-val" id="${id}-exit-msg" style="white-space:normal;text-align:right">–</span>
             </div>
           </div>
         </div>
       </div>
-
-      <!-- Result Box -->
-      <div class="result-box" id="${id}-result-box">
+      <div class="result-box" id="${id}-step-result" style="display:none">
         <div class="result-ret" id="${id}-result-ret">–</div>
         <div class="result-meta" id="${id}-result-meta">–</div>
       </div>
-
-      <!-- Card Footer -->
       <div class="card-footer">
         <div class="card-params">
           <span class="param-tag">gap ±${cfg.gap_threshold}%</span>
           <span class="param-tag">ORB ${cfg.orb_deadline}</span>
           <span class="param-tag">exit ${cfg.exit_up}</span>
         </div>
-        <span id="${id}-refresh">–</span>
+        <span id="${id}-refresh-time">–</span>
       </div>
     `
     grid.appendChild(card)
   })
 }
 
-// ============================================================
-// FETCH & COMPUTE per emiten
-// ============================================================
-async function _fetchEmiten(cfg) {
-  const sym = cfg.sym
-  const id  = sym.toLowerCase()
-  try {
-    const now = Date.now()
-    const wib = new Date(now+7*3600*1000)
-    const dateStr = wib.toISOString().slice(0,10)
-    const toTs  = Math.floor(now/1000)
-    const fromTs= Math.floor(new Date(dateStr+'T01:00:00Z').getTime()/1000)
+// ── Buat instance EmitenMonitor per emiten ──
+let _monitors = []
 
-    const raw = await fetchIntraday(sym, toTs, fromTs, 1)
-    if (!raw||!raw.length) return _renderEmiten(cfg, null)
-    const sort = [...raw].sort((a,b)=>a.unix-b.unix)
-
-    // IEP
-    const iepC = sort.filter(c=>{const t=(c.datetime||'').slice(11,16); return t>='08:45'&&t<='08:59'})
-    const iepPrice = iepC.length ? iepC[iepC.length-1].close : null
-    const iepVol   = iepC.reduce((s,c)=>s+(c.volume||0),0)
-
-    // Open 09:00
-    const open9 = sort.filter(c=>(c.datetime||'').slice(11,16)==='09:00')
-    const openPrice = open9.length ? open9[0].open : null
-
-    // ORB 09:00-09:04
-    const orbC = sort.filter(c=>{const t=(c.datetime||'').slice(11,16); return t>='09:00'&&t<='09:04'})
-    const orbHigh = orbC.length ? Math.max(...orbC.map(c=>c.high)) : null
-    const orbLow  = orbC.length ? Math.min(...orbC.map(c=>c.low))  : null
-
-    // ORB breakout
-    const postOrb = sort.filter(c=>{
-      const t=(c.datetime||'').slice(11,16)
-      return t>='09:05' && t<cfg.orb_deadline
-    })
-    const brokenUp = orbHigh && postOrb.some(c=>c.close>orbHigh)
-
-    // Prev close
-    let prevClose=null
-    try {
-      const yesterday = new Date(wib.getTime()-24*3600*1000).toISOString().slice(0,10)
-      const daily = await fetchDaily(sym, yesterday, yesterday)
-      if (daily&&daily.length) prevClose=daily[daily.length-1].close
-    } catch(e2){}
-
-    // Gap classification
-    let gapCat='STABIL', gapPct=null
-    if (iepPrice&&prevClose) {
-      gapPct=(iepPrice-prevClose)/prevClose*100
-      if (gapPct>cfg.gap_threshold)       gapCat='UP'
-      else if (gapPct<-cfg.gap_threshold) gapCat='DOWN'
-      else                                gapCat='STABIL'
-    }
-
-    // Exit time sesuai gap
-    const exitOrbTime = gapCat==='DOWN' ? cfg.exit_down : cfg.exit_up
-
-    // Status
-    const timeNow=_wibTime()
-    let orbStatus, exitPrice=null, tradeReturn=null
-
-    if (gapCat==='STABIL') {
-      orbStatus='skip'
-    } else if (timeNow<'08:58') {
-      orbStatus='pre_iep'
-    } else if (timeNow<'09:00') {
-      orbStatus='iep_confirmed'
-    } else if (timeNow<'09:05') {
-      orbStatus='orb_forming'
-    } else if (brokenUp) {
-      if (timeNow>=exitOrbTime) {
-        const ec=sort.filter(c=>(c.datetime||'').slice(11,16)<=exitOrbTime)
-        exitPrice=ec.length?ec[ec.length-1].close:null
-        if (openPrice&&exitPrice) tradeReturn=(exitPrice-openPrice)/openPrice*100
-        orbStatus='done_orb'
-      } else {
-        orbStatus='broken_up'
-      }
-    } else if (timeNow<cfg.orb_deadline) {
-      orbStatus='waiting'
-    } else {
-      const ec=sort.filter(c=>(c.datetime||'').slice(11,16)<=cfg.exit_avoid)
-      exitPrice=ec.length?ec[ec.length-1].close:null
-      if (openPrice&&exitPrice) tradeReturn=(exitPrice-openPrice)/openPrice*100
-      orbStatus='done_avoid'
-    }
-
-    const d={sym,id,iepPrice,iepVol,openPrice,prevClose,gapCat,gapPct,
-             orbHigh,orbLow,orbStatus,brokenUp,exitOrbTime,exitPrice,tradeReturn,timeNow,cfg}
-    _renderEmiten(cfg, d)
-
-    // Alert (hanya sekali per hari per status)
-    const alertKey=`${dateStr}_${sym}_${orbStatus}`
-    if (!window._alertedKeys) window._alertedKeys={}
-    if (!window._alertedKeys[alertKey]) {
-      window._alertedKeys[alertKey]=true
-      if (orbStatus==='iep_confirmed') _playAlert('iep_confirmed')
-      if (orbStatus==='broken_up')     _playAlert('orb_up')
-      if (orbStatus==='done_avoid')    _playAlert('avoid')
-    }
-  } catch(e) { console.warn(`[${sym}]`, e.message) }
+function _initMonitors() {
+  _monitors.forEach(m => m.stop())
+  _monitors = EMITEN_CONFIG.map(cfg => new EmitenMonitor({
+    ...cfg,
+    onData:  (d) => _renderCard(cfg, d),
+    onAlert: (type) => playAlert(type),
+  }))
 }
 
-// ============================================================
-// RENDER per emiten
-// ============================================================
-function _renderEmiten(cfg, d) {
-  const id = cfg.sym.toLowerCase()
+// ── Render card intraday — wrapper renderMonitorCard + card-specific UI ──
+function _renderCard(cfg, d) {
+  const id = cfg.prefix
   const card = document.getElementById(`card-${id}`)
   if (!card) return
 
-  function $v(sel, val) {
-    const el=document.getElementById(`${id}-${sel}`)
-    if (el) el.textContent=val||'–'
-  }
-  function $c(sel, cls) {
-    const el=document.getElementById(`${id}-${sel}`)
-    if (el) el.className=cls
-  }
-  function setStep(step, state, icon) {
-    const sr=document.getElementById(`${id}-step-${step}`)
-    const ic=document.getElementById(`${id}-icon-${step}`)
-    if (sr) sr.className='step-row '+state
-    if (ic) ic.textContent=icon
-  }
-  function setBanner(type, text) {
-    const b=document.getElementById(`${id}-banner`)
-    if (!b) return
-    b.className='signal-banner '+(type?type+'-banner':'')
-    b.style.display=type?'block':'none'
-    b.textContent=text||''
-  }
+  // Render checklist via shared/monitor.js
+  renderMonitorCard(id, d)
 
-  // Update footer refresh
-  $v('refresh', d ? 'Update: '+d.timeNow+' WIB' : '–')
-
-  if (!d) {
-    ['iep','entry','orb','exit'].forEach(s=>setStep(s,'pending','○'))
-    setBanner(null)
-    card.className='it-card'
-    return
-  }
-
-  // IEP data
-  $v('iep-price', fmt(d.iepPrice))
-  $v('iep-vol',   fmtVol(d.iepVol))
-  $v('open-price',fmt(d.openPrice))
-  $v('orb-high',  fmt(d.orbHigh))
-  $v('orb-low',   fmt(d.orbLow))
-
-  // Gap label di header
-  const gapEl=document.getElementById(`${id}-gap-label`)
-  if (gapEl && d.gapPct!=null) {
-    const sign=d.gapPct>=0?'+':''
-    const gapStr=sign+d.gapPct.toFixed(2)+'%'
-    if (d.gapCat==='UP')     { gapEl.textContent='🟢 '+gapStr; gapEl.className='card-gap-label up' }
-    else if (d.gapCat==='DOWN') { gapEl.textContent='🔵 '+gapStr; gapEl.className='card-gap-label down' }
-    else                        { gapEl.textContent='🟡 '+gapStr; gapEl.className='card-gap-label stabil' }
-  }
-
-  // IEP gap detail
-  const iepGapEl=document.getElementById(`${id}-iep-gap`)
-  if (iepGapEl && d.gapPct!=null) {
-    const sign=d.gapPct>=0?'+':''
-    iepGapEl.textContent=sign+d.gapPct.toFixed(2)+'%'
-    iepGapEl.className='step-val '+(d.gapCat==='UP'?'up':d.gapCat==='DOWN'?'down':'')
-  }
-
-  const s=d.orbStatus
-  const statInfo = d.gapCat!=='STABIL' ? d.cfg.stats[d.gapCat==='DOWN'?'down':'up'] : null
-
-  if (s==='skip') {
-    setStep('iep','skip','⚪'); setStep('entry','pending','○')
-    setStep('orb','pending','○'); setStep('exit','pending','○')
-    $v('exit-label','SKIP hari ini')
-    $v('exit-msg','Gap ±'+d.cfg.gap_threshold+'% — tidak ada sinyal')
-    setBanner(null); card.className='it-card signal-skip'
-
-  } else if (s==='pre_iep') {
-    setStep('iep','pending','○'); setStep('entry','pending','○')
-    setStep('orb','pending','○'); setStep('exit','pending','○')
-    $v('exit-label','Exit'); $v('exit-msg','–')
-    setBanner(null); card.className='it-card'
-
-  } else if (s==='iep_confirmed') {
-    setStep('iep','active','🔔'); setStep('entry','pending','○')
-    setStep('orb','pending','○'); setStep('exit','pending','○')
-    const gl=d.gapCat==='UP'?'🟢 GAP UP':d.gapCat==='DOWN'?'🔵 GAP DOWN':'🟡 STABIL'
-    $v('exit-label','→ Siapkan ENTRY 09:00')
-    $v('exit-msg', gl+' — masuk di Open 09:00')
-    setBanner('iep',`🔔 IEP FINAL ${gl} — ENTRY di Open 09:00`)
-    card.className='it-card signal-entry'
-
-  } else if (s==='orb_forming') {
-    setStep('iep','done','✓'); setStep('entry','active','⏰')
-    setStep('orb','pending','○'); setStep('exit','pending','○')
-    $v('exit-label','Exit'); $v('exit-msg','ORB 09:00–09:04 terbentuk...')
-    setBanner(null); card.className='it-card'
-
-  } else if (s==='waiting') {
-    setStep('iep','done','✓'); setStep('entry','done','✓')
-    setStep('orb','active','👁'); setStep('exit','pending','○')
-    $v('exit-label','Menunggu ORB')
-    $v('exit-msg','Deadline '+d.cfg.orb_deadline+' — belum ada breakout')
-    setBanner(null); card.className='it-card'
-
-  } else if (s==='broken_up') {
-    setStep('iep','done','✓'); setStep('entry','done','✓')
-    setStep('orb','done','✓'); setStep('exit','active','🎯')
-    $v('exit-label','EXIT '+d.exitOrbTime+' — ORB UP ✓')
-    const statTxt=statInfo?`WLB ${statInfo.wlb} · avg ${statInfo.avg} · win ${statInfo.win}`:''
-    $v('exit-msg', 'HOLD posisi · '+statTxt)
-    const gl=d.gapCat==='UP'?'🟢 GAP UP':'🔵 GAP DOWN'
-    setBanner('entry',`✓ ORB UP CONFIRMED ${gl} — HOLD → exit ${d.exitOrbTime}`)
-    card.className='it-card signal-entry'
-
-  } else if (s==='done_avoid') {
-    setStep('iep','done','✓'); setStep('entry','done','✓')
-    setStep('orb','avoid','✗'); setStep('exit','avoid','⚠')
-    $v('exit-label','EXIT AVOID '+d.cfg.exit_avoid)
-    $v('exit-msg','Tidak ada ORB breakout')
-    setBanner('avoid','✗ AVOID — Tidak ada ORB · exit '+d.cfg.exit_avoid)
-    card.className='it-card signal-avoid'
-    // Result box
-    if (d.tradeReturn!=null) _showResult(id, d, false)
-
-  } else if (s==='done_orb') {
-    setStep('iep','done','✓'); setStep('entry','done','✓')
-    setStep('orb','done','✓'); setStep('exit','done','✓')
-    $v('exit-label','SELESAI — Exit '+d.exitOrbTime)
-    $v('exit-msg','ORB UP terkonfirmasi')
-    setBanner(null); card.className='it-card'
-    if (d.tradeReturn!=null) _showResult(id, d, true)
-  }
-}
-
-function _showResult(id, d, isWin) {
-  const box=document.getElementById(`${id}-result-box`)
-  const retEl=document.getElementById(`${id}-result-ret`)
-  const metaEl=document.getElementById(`${id}-result-meta`)
-  if (!box||!retEl||!metaEl) return
-  box.style.display='block'
-  const sign=d.tradeReturn>=0?'+':''
-  const cls=d.tradeReturn>=0?'profit':'loss'
-  box.className='result-box '+cls
-  retEl.className='result-ret '+cls
-  retEl.textContent=sign+d.tradeReturn.toFixed(2)+'%'
-  metaEl.textContent=(isWin?'ORB UP → exit '+d.exitOrbTime:'AVOID → exit '+d.cfg.exit_avoid)
-    +' · entry '+fmt(d.openPrice)+' → exit '+fmt(d.exitPrice)
-}
-
-// ============================================================
-// AUTO REFRESH
-// ============================================================
-let _timer=null
-async function _refresh() {
-  const ms=document.getElementById('market-status')
-  const ri=document.getElementById('refresh-info')
-  if (_isMarketHours()) {
-    if (ms) { ms.textContent='● Pasar buka'; ms.className='market-status live' }
-    await Promise.all(EMITEN_CONFIG.map(cfg=>_fetchEmiten(cfg)))
-    if (ri) ri.textContent='Refresh otomatis tiap 1 menit'
+  // Update card border state
+  if (!d || d.orbStatus === 'skip') {
+    card.className = 'it-card signal-skip'
+  } else if (d.orbStatus === 'broken_up' || d.orbStatus === 'iep_confirmed') {
+    card.className = 'it-card signal-entry'
+  } else if (d.orbStatus === 'done_avoid') {
+    card.className = 'it-card signal-avoid'
   } else {
-    if (ms) { ms.textContent='Pasar tutup'; ms.className='market-status' }
-    if (ri) ri.textContent='Auto-refresh aktif jam 08:45–16:00 WIB'
-    EMITEN_CONFIG.forEach(cfg=>_renderEmiten(cfg,null))
+    card.className = 'it-card'
+  }
+
+  // Gap label di header card
+  if (d && d.gapPct != null) {
+    const gl = document.getElementById(`${id}-gap-label`)
+    if (gl) {
+      const sign = d.gapPct >= 0 ? '+' : ''
+      gl.textContent = (d.gapCat==='UP'?'🟢 ':d.gapCat==='DOWN'?'🔵 ':'🟡 ')+sign+d.gapPct.toFixed(2)+'%'
+      gl.className = 'card-gap-label '+(d.gapCat==='UP'?'up':d.gapCat==='DOWN'?'down':'stabil')
+    }
+  }
+
+  // Signal banner (reuse signal-box element sebagai banner)
+  const banner = document.getElementById(`${id}-signal-box`)
+  if (banner && d) {
+    if (d.orbStatus === 'broken_up') {
+      banner.style.display = 'block'
+      banner.className = 'signal-banner entry-banner'
+      banner.textContent = `✓ ORB UP CONFIRMED — HOLD → exit ${d.exitOrbTime}`
+    } else if (d.orbStatus === 'iep_confirmed') {
+      banner.style.display = 'block'
+      banner.className = 'signal-banner iep-banner'
+      banner.textContent = `🔔 IEP FINAL — ${d.gapCat==='UP'?'🟢 GAP UP':'🔵 GAP DOWN'} → ENTRY 09:00`
+    } else if (d.orbStatus === 'done_avoid') {
+      banner.style.display = 'block'
+      banner.className = 'signal-banner avoid-banner'
+      banner.textContent = `✗ AVOID — exit ${d.exitAvoidTime}`
+    } else {
+      banner.style.display = 'none'
+    }
+  } else if (banner) {
+    banner.style.display = 'none'
+  }
+
+  // Result box
+  const rb = document.getElementById(`${id}-step-result`)
+  const rr = document.getElementById(`${id}-result-ret`)
+  const rm = document.getElementById(`${id}-result-meta`)
+  if (rb && d && (d.orbStatus === 'done_orb' || d.orbStatus === 'done_avoid') && d.tradeReturn != null) {
+    rb.style.display = 'block'
+    const sign = d.tradeReturn >= 0 ? '+' : ''
+    const cls  = d.tradeReturn >= 0 ? 'profit' : 'loss'
+    rb.className = 'result-box ' + cls
+    if (rr) { rr.className = 'result-ret ' + cls; rr.textContent = sign + d.tradeReturn.toFixed(2) + '%' }
+    if (rm) rm.textContent = (d.orbStatus==='done_orb'?'ORB UP':'AVOID') + ' → exit ' +
+      (d.orbStatus==='done_orb'?d.exitOrbTime:d.exitAvoidTime)
+  } else if (rb) {
+    rb.style.display = 'none'
+  }
+}
+
+// ── Refresh cycle ──
+let _timer = null
+async function _refresh() {
+  const ms = document.getElementById('market-status')
+  const ri = document.getElementById('refresh-info')
+  if (isMarketHours()) {
+    if (ms) { ms.textContent = '● Pasar buka'; ms.className = 'market-status live' }
+    await Promise.all(_monitors.map(m => m.fetch()))
+    if (ri) ri.textContent = 'Refresh otomatis tiap 1 menit'
+  } else {
+    if (ms) { ms.textContent = 'Pasar tutup'; ms.className = 'market-status' }
+    if (ri) ri.textContent = 'Auto-refresh aktif jam 08:45–16:00 WIB'
+    EMITEN_CONFIG.forEach(cfg => _renderCard(cfg, null))
   }
 }
 
 function _start() {
   if (_timer) clearInterval(_timer)
   _buildCards()
+  _initMonitors()
   _refresh()
-  _timer=setInterval(()=>{
-    if (!_isMarketHours()) { clearInterval(_timer); _start(); return }
+  _timer = setInterval(() => {
+    if (!isMarketHours()) { clearInterval(_timer); return }
     _refresh()
-  }, 60*1000)
+  }, 60 * 1000)
 }
 
 window._start = _start
