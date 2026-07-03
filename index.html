@@ -810,15 +810,16 @@
       let exitPrice = null
       let tradeReturn = null
 
-      if (gapCat === 'STABIL') {
+      if (gapCat === 'STABIL' && timeNow < '09:00') {
+        // Hanya skip kalau memang belum buka dan gap stabil
         orbStatus = 'skip'
       } else if (timeNow < '08:58') {
         orbStatus = 'pre_iep'
       } else if (timeNow < '09:00') {
         // 08:58-08:59: IEP sudah hampir final, beri sinyal entry/skip
-        orbStatus = 'iep_confirmed'
+        orbStatus = gapCat === 'STABIL' ? 'skip' : 'iep_confirmed'
       } else if (timeNow < '09:05') {
-        orbStatus = 'orb_forming'
+        orbStatus = gapCat === 'STABIL' ? 'skip' : 'orb_forming'
       } else if (brokenUp) {
         if (timeNow >= exitOrbTime) {
           const exitC = sort.filter(c => (c.datetime||'').slice(11,16) <= exitOrbTime)
@@ -829,12 +830,13 @@
           orbStatus = 'broken_up'
         }
       } else if (timeNow < '09:15') {
-        orbStatus = 'waiting'
+        orbStatus = gapCat === 'STABIL' ? 'skip' : 'waiting'
       } else {
+        // Setelah 09:15: kalau STABIL atau tidak ada ORB → done_avoid
         const exitC = sort.filter(c => (c.datetime||'').slice(11,16) <= exitAvoidTime)
         exitPrice = exitC.length ? exitC[exitC.length-1].close : null
         if (openPrice && exitPrice) tradeReturn = (exitPrice - openPrice) / openPrice * 100
-        orbStatus = timeNow >= exitAvoidTime ? 'done_avoid' : 'no_signal'
+        orbStatus = 'done_avoid'
       }
 
       _rajaData = { iepPrice, iepVol, openPrice, prevClose, gapCat, gapPct,
@@ -1538,6 +1540,7 @@
 
 </body>
 </html>
+
 
 
 
