@@ -886,8 +886,8 @@ function _renderBsjpMonitor(d) {
   } else if (t >= '16:00') {
     setStep('foreign','active','⏳')
     $v('bsjp-net-foreign', 'Menunggu data Stockbit...')
-    $v('bsjp-magnitude', 'Auto-retry tiap 1 menit')
-    $v('bsjp-kondisi', '(biasanya tersedia ~16:30-17:00)')
+    $v('bsjp-magnitude', 'Data final tersedia jam 19:00')
+    $v('bsjp-kondisi', 'App akan update otomatis jam 19:00')
   } else {
     setStep('foreign','pending','○')
     $v('bsjp-net-foreign', '–')
@@ -937,13 +937,21 @@ function _startBsjp() {
   if (_bsjpTimer) clearInterval(_bsjpTimer)
   _buildBsjpCards()
   _fetchBsjpMonitor()
-  _bsjpTimer = setInterval(_fetchBsjpMonitor, 60*1000)
+  // Cek tiap menit HANYA untuk update entry 16:00 dan hasil trade pagi
+  // Foreign fetch dilakukan sekali saat jam >= 19:00 (data sudah final di Stockbit)
+  _bsjpTimer = setInterval(() => {
+    const t = _wibTime()
+    // Jam bursa atau jam 19:00 (fetch foreign)
+    if (t >= '08:00' && t <= '17:00') { _fetchBsjpMonitor(); return }
+    if (t >= '19:00' && t <= '19:05') { _fetchBsjpMonitor(); return }
+  }, 60*1000)
 }
 window.addEventListener('ihsg:token-saved', _startBsjp)
 if (TOKEN.isSet()) _startBsjp()
 </script>
 </body>
 </html>
+
 
 
 
