@@ -97,12 +97,7 @@ export function syncTokenFromSheetsIfNeeded() {
 async function _doSync() {
   if (TOKEN.isSet()) {
     const expMs = TOKEN.getExpiryMs()
-    if (expMs === null || expMs > Date.now()) {
-      // Token lokal masih valid — dispatch event supaya fitur auto-load
-      // Pakai setTimeout(0) agar listener di fitur sudah terpasang dulu
-      setTimeout(() => window.dispatchEvent(new CustomEvent('ihsg:token-saved')), 0)
-      return
-    }
+    if (expMs === null || expMs > Date.now()) return // token lokal masih oke (atau tak bisa dicek), jangan ganggu
   }
   try {
     // Timeout 10 detik -- Sheets API kadang lambat (bukan mati total), jadi
