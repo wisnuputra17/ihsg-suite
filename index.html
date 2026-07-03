@@ -1451,6 +1451,12 @@
 
   function _renderTokenBtn() {
     tokenBtn.textContent = TOKEN.isSet() ? '✓ Token' : 'Token'
+    // Tampilkan durasi token kalau sudah diset
+    if (TOKEN.isSet() && TOKEN.elapsedMs) {
+      const hrs = Math.floor(TOKEN.elapsedMs() / 3600000)
+      const mins = Math.floor((TOKEN.elapsedMs() % 3600000) / 60000)
+      tokenBtn.textContent = `✓ Token (${hrs}j ${mins}m)`
+    }
     tokenBtn.classList.toggle('btn-primary', TOKEN.isSet())
   }
 
@@ -1538,6 +1544,7 @@
 
 </body>
 </html>
+
 
 
 
