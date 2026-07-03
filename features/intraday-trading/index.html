@@ -812,19 +812,48 @@ async function _fetchBsjpMonitor() {
       }
     } catch(e2) {}
 
-    // Cek apakah sudah lewat jam exit (tampilkan hasil)
-    // HANYA hitung kalau foreignReady = true (data foreign sudah final, jam >= 19:00)
+    // ── BSJP exit logic ──
+    // Entry hari ini (16:00), EXIT besok pagi sesuai kondisi foreign
+    // Hasil trade hanya bisa dihitung SETELAH market besok buka dan lewat jam exit
+    // Logic:
+    //   - Hari entry (sebelum 16:00)    → belum entry, tampilkan checklist
+    //   - Hari entry (16:00-18:59)      → sudah entry, menunggu foreign jam 19:00
+    //   - Hari entry (19:00+)           → foreign tersedia, tampilkan jam exit besok
+    //   - Hari berikutnya (sebelum exit)→ posisi masih terbuka, tampilkan countdown
+    //   - Hari berikutnya (setelah exit)→ hitung dan tampilkan hasil trade
+
+    // Simpan tanggal entry di localStorage agar tahu posisi masih terbuka
+    const entryKey = 'bsjp_entry_date'
+    const savedEntryDate = localStorage.getItem(entryKey)
+
     let exitPrice = null, tradeReturn = null
-    // Hitung hasil trade hanya setelah jam 19:00 (data foreign sudah dikonfirmasi final)
-    if (timeNow >= '19:00' && exitTime && entryPrice && timeNow >= exitTime) {
-      const ec = sort.filter(c => (c.datetime||'').slice(11,16) <= exitTime)
-      exitPrice = ec.length ? ec[ec.length-1].close : null
-      if (exitPrice) tradeReturn = (exitPrice - entryPrice) / entryPrice * 100
+    let isEntryDay = true   // apakah hari ini adalah hari entry?
+    let isExitDay = false   // apakah hari ini adalah hari exit?
+
+    // Cek apakah hari ini adalah hari setelah entry (hari exit)
+    // Kalau ada saved entry date dan bukan hari ini → ini hari exit
+    if (savedEntryDate && savedEntryDate !== dateStr) {
+      isEntryDay = false
+      isExitDay = true
+      // Fetch candle hari ini (hari exit) untuk hitung return
+      if (exitTime && entryPrice && timeNow >= exitTime) {
+        const ec = sort.filter(c => (c.datetime||'').slice(11,16) <= exitTime)
+        exitPrice = ec.length ? ec[ec.length-1].close : null
+        // entryPrice dari hari sebelumnya — ambil dari localStorage
+        const savedEntry = parseFloat(localStorage.getItem('bsjp_entry_price') || '0')
+        if (savedEntry && exitPrice) tradeReturn = (exitPrice - savedEntry) / savedEntry * 100
+      }
+    }
+
+    // Simpan data entry ke localStorage kalau sudah entry hari ini
+    if (isEntryDay && entryPrice && timeNow >= '16:00') {
+      localStorage.setItem(entryKey, dateStr)
+      localStorage.setItem('bsjp_entry_price', String(entryPrice))
     }
 
     _renderBsjpMonitor({ entryPrice, fb, fs, netForeign, magnitude, kategori,
                           exitTime, exitPrice, tradeReturn, timeNow, dateStr,
-                          foreignReady })
+                          foreignReady, isEntryDay, isExitDay })
   } catch(e) { console.warn('[bsjp]', e.message) }
 }
 
@@ -878,7 +907,7 @@ function _renderBsjpMonitor(d) {
     sell_strong: 'WLB 48.8% · avg +1.40%',
     sell_weak:   'WLB 61.1% · avg +0.50%',
   }
-  if (d.kategori && d.timeNow >= '19:00') {
+  if (d.kategori && d.isEntryDay && d.timeNow >= '19:00') {
     setStep('foreign','done','✓')
     const netSign = d.netForeign >= 0 ? '+' : ''
     $v('bsjp-net-foreign', netSign+fmtM(d.netForeign))
@@ -890,6 +919,15 @@ function _renderBsjpMonitor(d) {
       fl.textContent=KONDISI_LABEL[d.kategori]
       fl.style.color=d.kategori==='buy_strong'?'var(--live)':d.kategori==='buy_weak'?'#86efac':d.kategori==='sell_strong'?'#f97316':'var(--ghost)'
     }
+  } else if (d.isExitDay && d.exitTime && t < d.exitTime) {
+    // Hari exit, belum lewat jam exit — posisi masih terbuka
+    setStep('entry','done','✓')
+    setStep('foreign','done','✓')
+    setStep('exit','active','⏰')
+    $v('bsjp-exit-label','POSISI TERBUKA — Exit hari ini '+d.exitTime)
+    $v('bsjp-exit-time', d.exitTime)
+    $v('bsjp-exit-stat', d.kategori ? (KONDISI_STAT[d.kategori]||'–') : '–')
+    setBanner('entry','⏰ POSISI BSJP AKTIF — Exit hari ini jam '+d.exitTime)
   } else if (t >= '16:00' && t < '19:00') {
     setStep('foreign','active','⏳')
     $v('bsjp-net-foreign', 'Menunggu data Stockbit...')
@@ -904,7 +942,7 @@ function _renderBsjpMonitor(d) {
 
   // Step 3: Exit
   // Tampilkan SELESAI hanya setelah foreign data tersedia (jam >= 19:00)
-  if (d.timeNow >= '19:00' && d.exitTime && d.tradeReturn !== null) {
+  if (d.isExitDay && d.exitTime && d.tradeReturn !== null) {
     // Sudah selesai
     setStep('exit','done','✓')
     $v('bsjp-exit-label','SELESAI — Exit '+d.exitTime)
@@ -921,7 +959,7 @@ function _renderBsjpMonitor(d) {
     if (metaEl) metaEl.textContent='Entry '+fmt(d.entryPrice)+' → Exit '+fmt(d.exitPrice)+' ('+d.exitTime+')'
     setBanner(d.tradeReturn>=0?'entry':'avoid',
       (d.tradeReturn>=0?'✓ PROFIT ':'✗ LOSS ')+sign+d.tradeReturn.toFixed(2)+'%')
-  } else if (d.kategori && d.timeNow >= '19:00') {
+  } else if (d.kategori && d.isEntryDay && d.timeNow >= '19:00') {
     setStep('exit','active','🎯')
     $v('bsjp-exit-label','Exit besok jam '+d.exitTime)
     $v('bsjp-exit-time', d.exitTime)
@@ -958,6 +996,7 @@ function _startBsjp() {
 </script>
 </body>
 </html>
+
 
 
 
