@@ -779,25 +779,31 @@ async function _fetchBsjpMonitor() {
     const entryPrice = entry16.length ? entry16[0].close : null
 
     // Fetch daily hari ini untuk foreign flow
+    // Data foreign di Stockbit daily API belum tentu langsung tersedia setelah 16:00
+    // Kode ini retry sampai data muncul (nilai fb+fs > 0)
     let fb = 0, fs = 0, netForeign = 0, magnitude = 0, kategori = null, exitTime = null
+    let foreignReady = false
     try {
       const dailyData = await fetchDaily('RAJA', dateStr, dateStr)
       if (dailyData && dailyData.length) {
         const d = dailyData[dailyData.length-1]
         fb = d.foreignbuy || 0
         fs = d.foreignsell || 0
-        netForeign = fb - fs
-        const closePrice = sort[sort.length-1]?.close || 1
-        const vol = sort.reduce((s,c) => s+(c.volume||0), 0)
-        const volVal = closePrice * vol * 100
-        magnitude = volVal > 0 ? Math.abs(netForeign) / volVal * 100 : 0
-        const isNetBuy = fb > fs
-        const isStrong = magnitude >= BSJP_P75_MAG
-        if (isNetBuy && isStrong)  kategori = 'buy_strong'
-        else if (isNetBuy)         kategori = 'buy_weak'
-        else if (isStrong)         kategori = 'sell_strong'
-        else                       kategori = 'sell_weak'
-        exitTime = BSJP_EXIT_MAP[kategori]
+        foreignReady = (fb + fs) > 0  // data sudah tersedia kalau ada nilai
+        if (foreignReady) {
+          netForeign = fb - fs
+          const closePrice = sort[sort.length-1]?.close || 1
+          const vol = sort.reduce((s,c) => s+(c.volume||0), 0)
+          const volVal = closePrice * vol * 100
+          magnitude = volVal > 0 ? Math.abs(netForeign) / volVal * 100 : 0
+          const isNetBuy = fb > fs
+          const isStrong = magnitude >= BSJP_P75_MAG
+          if (isNetBuy && isStrong)  kategori = 'buy_strong'
+          else if (isNetBuy)         kategori = 'buy_weak'
+          else if (isStrong)         kategori = 'sell_strong'
+          else                       kategori = 'sell_weak'
+          exitTime = BSJP_EXIT_MAP[kategori]
+        }
       }
     } catch(e2) {}
 
@@ -810,7 +816,8 @@ async function _fetchBsjpMonitor() {
     }
 
     _renderBsjpMonitor({ entryPrice, fb, fs, netForeign, magnitude, kategori,
-                          exitTime, exitPrice, tradeReturn, timeNow, dateStr })
+                          exitTime, exitPrice, tradeReturn, timeNow, dateStr,
+                          foreignReady })
   } catch(e) { console.warn('[bsjp]', e.message) }
 }
 
@@ -864,7 +871,7 @@ function _renderBsjpMonitor(d) {
     sell_strong: 'WLB 48.8% · avg +1.40%',
     sell_weak:   'WLB 61.1% · avg +0.50%',
   }
-  if (d.kategori) {
+  if (d.kategori && d.foreignReady) {
     setStep('foreign','done','✓')
     const netSign = d.netForeign >= 0 ? '+' : ''
     $v('bsjp-net-foreign', netSign+fmtM(d.netForeign))
@@ -878,10 +885,14 @@ function _renderBsjpMonitor(d) {
     }
   } else if (t >= '16:00') {
     setStep('foreign','active','⏳')
-    $v('bsjp-net-foreign', 'Menunggu data (~16:30)')
-    $v('bsjp-magnitude', '–'); $v('bsjp-kondisi', '–')
+    $v('bsjp-net-foreign', 'Menunggu data Stockbit...')
+    $v('bsjp-magnitude', 'Auto-retry tiap 1 menit')
+    $v('bsjp-kondisi', '(biasanya tersedia ~16:30-17:00)')
   } else {
     setStep('foreign','pending','○')
+    $v('bsjp-net-foreign', '–')
+    $v('bsjp-magnitude', '–')
+    $v('bsjp-kondisi', '–')
   }
 
   // Step 3: Exit
@@ -933,5 +944,6 @@ if (TOKEN.isSet()) _startBsjp()
 </script>
 </body>
 </html>
+
 
 
