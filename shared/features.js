@@ -16,6 +16,13 @@
 
 export const FEATURES = [
   {
+    id:     'intraday-trading',
+    name:   'Intraday Trading',
+    desc:   'Monitor real-time IEP → ORB → Exit untuk RAJA dan MBMA — checklist per emiten dengan parameter formula tervalidasi dan alert suara.',
+    tags:   ['intraday', 'ORB', 'IEP', 'alert', 'monitor', 'raja', 'mbma', 'real-time', 'sinyal'],
+    status: 'ready'
+  },
+  {
     id:     'haka',
     name:   'HAKA & HAKI',
     desc:   'Monitor transaksi agresif real-time — BUY (HAKA) dan SELL (HAKI) di atas threshold.',
@@ -86,5 +93,3 @@ export const FEATURES = [
     status: 'ready'
   }
 ]
-
-
