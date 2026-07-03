@@ -1030,15 +1030,14 @@
   function _startRajaMonitor() {
     if (_rajaMonitorTimer) clearInterval(_rajaMonitorTimer)
     if (!_isMarketHours()) {
-      // Pasar tutup — tapi tetap fetch data hari ini kalau ada
-      // supaya hasil trade (done_orb/done_avoid) tetap ditampilkan
       const wibNow = new Date(Date.now() + 7*3600*1000)
       const day = wibNow.getUTCDay()
       const tot = wibNow.getUTCHours()*60 + wibNow.getUTCMinutes()
       const isWeekday = day !== 0 && day !== 6
-      const isAfterMarket = tot >= 16*60  // sudah lewat jam 16:00 WIB
-      if (isWeekday && isAfterMarket && TOKEN.isSet()) {
-        // Hari kerja setelah pasar tutup — fetch untuk tampilkan hasil trade
+      // Fetch data hari ini kalau sudah lewat jam 09:15 (deadline ORB)
+      // sehingga hasil trade bisa ditampilkan meski pasar belum/sudah tutup
+      const isAfterDeadline = tot >= 9*60+15
+      if (isWeekday && isAfterDeadline && TOKEN.isSet()) {
         _fetchRajaMonitor()
       } else {
         _renderMonitor(null)
@@ -1333,8 +1332,8 @@
       const day = wibNow.getUTCDay()
       const tot = wibNow.getUTCHours()*60 + wibNow.getUTCMinutes()
       const isWeekday = day !== 0 && day !== 6
-      const isAfterMarket = tot >= 16*60
-      if (isWeekday && isAfterMarket && TOKEN.isSet()) {
+      const isAfterDeadline = tot >= 9*60+31  // setelah deadline ORB MBMA
+      if (isWeekday && isAfterDeadline && TOKEN.isSet()) {
         _fetchMbmaMonitor()
       } else {
         _renderMbmaMonitor(null)
@@ -1540,6 +1539,7 @@
 
 </body>
 </html>
+
 
 
 
