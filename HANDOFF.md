@@ -223,3 +223,66 @@ Wisnu, tidak bisa dikerjakan blind tanpa pengawasan live):
 ## 10. Cara Pakai Dokumen Ini
 
 Paste seluruh isi dokumen ini di awal sesi baru. Kalau Wisnu bilang sudah setup Firebase, cek §2 dulu sebelum lanjut kerja apa pun yang menyentuh data — jangan asumsi migrasi sudah/belum selesai tanpa tanya/cek `firebase.config.js`.
+
+
+---
+
+## Common Pitfalls — Wajib Cek Setiap File Baru
+
+Bug-bug berikut sudah terjadi berulang kali. Cek sebelum push:
+
+### 1. `import TOKEN` vs `import { TOKEN }`
+TOKEN adalah **named export**, bukan default.
+```js
+// ✗ SALAH — TOKEN jadi undefined, tidak ada error
+import TOKEN from '../../shared/store.js'
+
+// ✓ BENAR
+import { TOKEN } from '../../shared/store.js'
+```
+
+### 2. Fungsi di module scope tidak accessible dari `onclick`
+`<script type="module">` punya scope terisolasi — tidak otomatis jadi global.
+```js
+// ✗ SALAH — ReferenceError saat diklik
+<button onclick="_setMode('bsjp')">
+
+// ✓ BENAR — expose ke window dulu
+window._setMode = function(mode) { ... }
+<button onclick="window._setMode('bsjp')">
+```
+
+### 3. `renderHeader` butuh array, bukan object
+```js
+// ✗ SALAH — "crumbs.map is not a function"
+renderHeader(el, { back: true, title: 'Halaman' })
+
+// ✓ BENAR
+renderHeader(el, [
+  { label: 'IHSG Suite', href: '../../index.html' },
+  { label: 'Halaman' }
+])
+```
+
+### 4. Tambah emiten baru ke monitor
+Cukup tambah config ke array di masing-masing halaman — tidak perlu duplikasi kode:
+```js
+// Di index.html dan/atau features/intraday-trading/index.html:
+const MONITOR_CONFIGS = [
+  { sym: 'RAJA', prefix: 'raja', gap_threshold: 0.5, ... },
+  { sym: 'MBMA', prefix: 'mbma', gap_threshold: 1.5, ... },
+  { sym: 'BBRI', prefix: 'bbri', gap_threshold: 0.5, ... },  // ← tambah di sini
+]
+// Lalu tambah elemen HTML dengan ID prefix yang sesuai
+```
+
+### 5. `init()` di module harus pakai `window.addEventListener('load', ...)`
+Module script async — `TOKEN.isSet()` dipanggil sebelum module selesai load kalau tidak pakai `load` event.
+```js
+// ✗ SALAH — kadang tidak terpanggil
+if (TOKEN.isSet()) _start()
+
+// ✓ BENAR
+window.addEventListener('load', () => { if (TOKEN.isSet()) _start() })
+window.addEventListener('ihsg:token-saved', _start)
+```
