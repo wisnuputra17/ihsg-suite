@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Intraday Trading · IHSG Suite</title>
+  <link rel="stylesheet" href="../../shared/ui.css">
+  <style>
+    .page { max-width: none; }
+
+    /* ── TOOLBAR ── */
+    .toolbar {
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+      padding-bottom: 14px; border-bottom: 1px solid var(--line); margin-bottom: 20px;
+    }
+    .toolbar-title { font-family: var(--f-mono); font-size: 13px; font-weight: 700; color: var(--paper); }
+    .market-status { margin-left: auto; font-family: var(--f-mono); font-size: 11px; color: var(--ghost); }
+    .market-status.live { color: var(--live); }
+    .refresh-info { font-family: var(--f-mono); font-size: 10px; color: var(--ghost); }
+    .alert-toggle { font-family: var(--f-mono); font-size: 11px; color: var(--ghost);
+      cursor: pointer; padding: 4px 8px; border: 1px solid var(--line); border-radius: 4px; }
+    .alert-toggle.on { color: var(--live); border-color: var(--live); }
+
+    /* ── GRID CARDS ── */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 16px;
+      align-items: start;
+    }
+
+    /* ── CARD ── */
+    .it-card { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); overflow: hidden; }
+    .it-card.signal-entry { border-color: var(--live); box-shadow: 0 0 0 1px var(--live); }
+    .it-card.signal-avoid  { border-color: var(--down); }
+    .it-card.signal-skip   { opacity: 0.5; }
+
+    /* Card Header */
+    .card-header {
+      display: flex; align-items: center; gap: 8px; padding: 9px 12px;
+      border-bottom: 1px solid var(--line); background: var(--raised);
+    }
+    .card-sym { font-family: var(--f-mono); font-size: 14px; font-weight: 900; color: var(--paper); }
+    .card-badge { font-family: var(--f-mono); font-size: 9px; padding: 2px 6px;
+      border-radius: 10px; background: var(--phosphor); color: var(--bg); font-weight: 700; }
+    .card-gap-label { margin-left: auto; font-family: var(--f-mono); font-size: 10px; font-weight: 700; }
+    .card-gap-label.up   { color: var(--live); }
+    .card-gap-label.down { color: #60a5fa; }
+    .card-gap-label.stabil { color: var(--ghost); }
+
+    /* Signal Banner — muncul saat ada sinyal aktif */
+    .signal-banner {
+      display: none; padding: 8px 12px;
+      font-family: var(--f-mono); font-size: 11px; font-weight: 700;
+      border-bottom: 1px solid var(--line);
+    }
+    .signal-banner.entry-banner { background: rgba(74,222,128,0.10); color: var(--live); display: block; }
+    .signal-banner.avoid-banner { background: rgba(240,99,92,0.10); color: var(--down); display: block; }
+    .signal-banner.iep-banner   { background: rgba(251,191,36,0.10); color: #fbbf24; display: block; }
+
+    /* Checklist Steps */
+    .card-steps { padding: 8px 0; }
+    .step-row {
+      display: flex; align-items: flex-start; gap: 8px;
+      padding: 5px 12px;
+    }
+    .step-row + .step-row { border-top: 1px solid var(--line); }
+    .step-icon { font-size: 12px; width: 16px; flex-shrink: 0; margin-top: 1px; }
+    .step-body { flex: 1; min-width: 0; }
+    .step-label { font-family: var(--f-mono); font-size: 10px; font-weight: 700; color: var(--dim); margin-bottom: 3px; }
+    .step-details { display: flex; flex-direction: column; gap: 1px; }
+    .step-kv { display: flex; justify-content: space-between; font-family: var(--f-mono); font-size: 10px; }
+    .step-key { color: var(--ghost); }
+    .step-val { color: var(--dim); font-weight: 600; }
+    .step-val.up   { color: var(--live); }
+    .step-val.down { color: var(--down); }
+    .step-val.warn { color: #fbbf24; }
+
+    /* Step states */
+    .step-row.done  .step-label { color: var(--live); }
+    .step-row.active .step-label { color: #fbbf24; }
+    .step-row.avoid .step-label { color: var(--down); }
+    .step-row.pending .step-label { color: var(--ghost); }
+    .step-row.skip  .step-label { color: var(--ghost); text-decoration: line-through; }
+
+    /* Result box */
+    .result-box {
+      display: none; margin: 8px 12px;
+      padding: 8px 10px; border-radius: 4px;
+      background: var(--raised); border: 1px solid var(--line);
+      font-family: var(--f-mono); font-size: 11px;
+    }
+    .result-box.profit { border-color: var(--live); }
+    .result-box.loss   { border-color: var(--down); }
+    .result-ret { font-size: 16px; font-weight: 900; margin-bottom: 4px; }
+    .result-ret.profit { color: var(--live); }
+    .result-ret.loss   { color: var(--down); }
+    .result-meta { color: var(--ghost); font-size: 10px; }
+
+    /* Card footer */
+    .card-footer {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 5px 12px 7px; border-top: 1px solid var(--line);
+      font-family: var(--f-mono); font-size: 9px; color: var(--ghost);
+    }
+    .card-params { display: flex; gap: 8px; }
+    .param-tag { background: var(--raised); padding: 1px 5px; border-radius: 3px; color: var(--ghost); }
+  </style>
+</head>
+<body>
+<div class="page">
+  <div id="app-header"></div>
+
+  <div class="feature-section">
+    <div class="section-label">Intraday Trading</div>
+
+    <!-- TOOLBAR -->
+    <div class="toolbar">
+      <span class="toolbar-title">Monitor Real-Time</span>
+      <span class="market-status" id="market-status">Memuat...</span>
+      <span class="refresh-info" id="refresh-info">–</span>
+      <button class="alert-toggle on" id="alert-toggle" onclick="_toggleAlert()">🔔 Alert ON</button>
+    </div>
+
+    <!-- CARDS GRID -->
+    <div class="cards-grid" id="cards-grid">
+      <!-- Cards di-generate oleh JS -->
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { renderHeader } from '../../shared/header.js'
+import { fetchIntraday, fetchDaily } from '../../shared/api.js'
+import TOKEN from '../../shared/store.js'
+
+renderHeader(document.getElementById('app-header'), { back: true, title: 'Intraday Trading' })
+
+// ============================================================
+// KONFIGURASI PER EMITEN — parameter tervalidasi dari backtest
+// ============================================================
+const EMITEN_CONFIG = [
+  {
+    sym: 'RAJA',
+    name: 'Rukun Raharja',
+    gap_threshold: 0.5,     // ±0.5%
+    orb_deadline: '09:15',  // deadline ORB breakout
+    exit_up: '10:00',       // GAP UP → exit 10:00 (WLB 71.6%, avg +2.83%)
+    exit_down: '09:15',     // GAP DOWN → exit 09:15 (WLB 81.6%, win 100%)
+    exit_avoid: '09:15',    // tidak ada ORB → exit avoid
+    stats: {
+      up:   { wlb: '71.6%', avg: '+2.83%', win: '85.4%', exit: '10:00' },
+      down: { wlb: '81.6%', avg: '+2.80%', win: '100%',  exit: '09:15' },
+    }
+  },
+  {
+    sym: 'MBMA',
+    name: 'Merdeka Battery Materials',
+    gap_threshold: 1.5,     // ±1.5% (lebih volatile)
+    orb_deadline: '09:31',  // deadline 09:31 (1 menit lebih lama dari RAJA)
+    exit_up: '09:30',       // GAP UP → exit 09:30 (WLB 68.5%, avg +2.59%)
+    exit_down: '09:30',     // GAP DOWN → exit 09:30 (WLB 75.7%, win 100%)
+    exit_avoid: '09:15',
+    stats: {
+      up:   { wlb: '68.5%', avg: '+2.59%', win: '85.7%', exit: '09:30' },
+      down: { wlb: '75.7%', avg: '+2.29%', win: '100%',  exit: '09:30' },
+    }
+  }
+]
+
+// ============================================================
+// ALERT SUARA
+// ============================================================
+let _alertEnabled = true
+window._toggleAlert = function() {
+  _alertEnabled = !_alertEnabled
+  const btn = document.getElementById('alert-toggle')
+  btn.textContent = _alertEnabled ? '🔔 Alert ON' : '🔕 Alert OFF'
+  btn.className = 'alert-toggle ' + (_alertEnabled ? 'on' : '')
+}
+
+function _playAlert(type) {
+  if (!_alertEnabled) return
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)()
+    const patterns = {
+      iep_confirmed: [{f:520,d:0.12,t:0},{f:650,d:0.15,t:0.15}],
+      orb_up:        [{f:440,d:0.12,t:0},{f:550,d:0.12,t:0.14},{f:660,d:0.22,t:0.28}],
+      avoid:         [{f:440,d:0.18,t:0},{f:330,d:0.28,t:0.20}],
+    }
+    ;(patterns[type]||[]).forEach(({f,d,t}) => {
+      const osc=ctx.createOscillator(), gain=ctx.createGain()
+      osc.connect(gain); gain.connect(ctx.destination)
+      osc.frequency.value=f; osc.type=type==='avoid'?'sawtooth':'sine'
+      gain.gain.setValueAtTime(0, ctx.currentTime+t)
+      gain.gain.linearRampToValueAtTime(0.20, ctx.currentTime+t+0.01)
+      gain.gain.linearRampToValueAtTime(0, ctx.currentTime+t+d)
+      osc.start(ctx.currentTime+t); osc.stop(ctx.currentTime+t+d+0.05)
+    })
+  } catch(e) {}
+}
+
+// ============================================================
+// HELPER
+// ============================================================
+function _wibTime() {
+  return new Date(Date.now()+7*3600*1000).toISOString().slice(11,16)
+}
+function _isMarketHours() {
+  const wib = new Date(Date.now()+7*3600*1000)
+  const day = wib.getUTCDay()
+  if (day===0||day===6) return false
+  const tot = wib.getUTCHours()*60+wib.getUTCMinutes()
+  return tot>=8*60+45 && tot<16*60
+}
+function fmt(v)    { return v ? v.toLocaleString('id-ID') : '–' }
+function fmtVol(v) { return v ? (v>=1e6?(v/1e6).toFixed(1)+'jt':(v/1000).toFixed(0)+'rb') : '–' }
+
+// ============================================================
+// RENDER CARDS (satu kali saat load)
+// ============================================================
+function _buildCards() {
+  const grid = document.getElementById('cards-grid')
+  grid.innerHTML = ''
+  EMITEN_CONFIG.forEach(cfg => {
+    const id = cfg.sym.toLowerCase()
+    const card = document.createElement('div')
+    card.className = 'it-card'
+    card.id = `card-${id}`
+    card.innerHTML = `
+      <div class="card-header">
+        <span class="card-sym">${cfg.sym}</span>
+        <span class="card-badge">INTRADAY</span>
+        <span class="card-gap-label stabil" id="${id}-gap-label">–</span>
+      </div>
+
+      <div class="signal-banner" id="${id}-banner"></div>
+
+      <div class="card-steps">
+        <!-- Step 1: IEP -->
+        <div class="step-row pending" id="${id}-step-iep">
+          <span class="step-icon" id="${id}-icon-iep">○</span>
+          <div class="step-body">
+            <div class="step-label">08:58 IEP Final</div>
+            <div class="step-details">
+              <div class="step-kv"><span class="step-key">Harga IEP</span><span class="step-val" id="${id}-iep-price">–</span></div>
+              <div class="step-kv"><span class="step-key">vs kemarin</span><span class="step-val" id="${id}-iep-gap">–</span></div>
+              <div class="step-kv"><span class="step-key">Volume IEP</span><span class="step-val" id="${id}-iep-vol">–</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 2: Entry -->
+        <div class="step-row pending" id="${id}-step-entry">
+          <span class="step-icon" id="${id}-icon-entry">○</span>
+          <div class="step-body">
+            <div class="step-label">09:00 ENTRY Open</div>
+            <div class="step-details">
+              <div class="step-kv"><span class="step-key">Open price</span><span class="step-val" id="${id}-open-price">–</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 3: ORB -->
+        <div class="step-row pending" id="${id}-step-orb">
+          <span class="step-icon" id="${id}-icon-orb">○</span>
+          <div class="step-body">
+            <div class="step-label">09:05 Monitor ORB</div>
+            <div class="step-details">
+              <div class="step-kv"><span class="step-key">ORB High</span><span class="step-val" id="${id}-orb-high">–</span></div>
+              <div class="step-kv"><span class="step-key">ORB Low</span><span class="step-val" id="${id}-orb-low">–</span></div>
+              <div class="step-kv"><span class="step-key">Deadline</span><span class="step-val warn">${cfg.orb_deadline}</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 4: Exit -->
+        <div class="step-row pending" id="${id}-step-exit">
+          <span class="step-icon" id="${id}-icon-exit">○</span>
+          <div class="step-body">
+            <div class="step-label" id="${id}-exit-label">Exit</div>
+            <div class="step-details">
+              <div class="step-kv" style="flex-direction:column;gap:0">
+                <span class="step-val" id="${id}-exit-msg" style="white-space:normal;text-align:right">–</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Result Box -->
+      <div class="result-box" id="${id}-result-box">
+        <div class="result-ret" id="${id}-result-ret">–</div>
+        <div class="result-meta" id="${id}-result-meta">–</div>
+      </div>
+
+      <!-- Card Footer -->
+      <div class="card-footer">
+        <div class="card-params">
+          <span class="param-tag">gap ±${cfg.gap_threshold}%</span>
+          <span class="param-tag">ORB ${cfg.orb_deadline}</span>
+          <span class="param-tag">exit ${cfg.exit_up}</span>
+        </div>
+        <span id="${id}-refresh">–</span>
+      </div>
+    `
+    grid.appendChild(card)
+  })
+}
+
+// ============================================================
+// FETCH & COMPUTE per emiten
+// ============================================================
+async function _fetchEmiten(cfg) {
+  const sym = cfg.sym
+  const id  = sym.toLowerCase()
+  try {
+    const now = Date.now()
+    const wib = new Date(now+7*3600*1000)
+    const dateStr = wib.toISOString().slice(0,10)
+    const toTs  = Math.floor(now/1000)
+    const fromTs= Math.floor(new Date(dateStr+'T01:00:00Z').getTime()/1000)
+
+    const raw = await fetchIntraday(sym, toTs, fromTs, 1)
+    if (!raw||!raw.length) return _renderEmiten(cfg, null)
+    const sort = [...raw].sort((a,b)=>a.unix-b.unix)
+
+    // IEP
+    const iepC = sort.filter(c=>{const t=(c.datetime||'').slice(11,16); return t>='08:45'&&t<='08:59'})
+    const iepPrice = iepC.length ? iepC[iepC.length-1].close : null
+    const iepVol   = iepC.reduce((s,c)=>s+(c.volume||0),0)
+
+    // Open 09:00
+    const open9 = sort.filter(c=>(c.datetime||'').slice(11,16)==='09:00')
+    const openPrice = open9.length ? open9[0].open : null
+
+    // ORB 09:00-09:04
+    const orbC = sort.filter(c=>{const t=(c.datetime||'').slice(11,16); return t>='09:00'&&t<='09:04'})
+    const orbHigh = orbC.length ? Math.max(...orbC.map(c=>c.high)) : null
+    const orbLow  = orbC.length ? Math.min(...orbC.map(c=>c.low))  : null
+
+    // ORB breakout
+    const postOrb = sort.filter(c=>{
+      const t=(c.datetime||'').slice(11,16)
+      return t>='09:05' && t<cfg.orb_deadline
+    })
+    const brokenUp = orbHigh && postOrb.some(c=>c.close>orbHigh)
+
+    // Prev close
+    let prevClose=null
+    try {
+      const yesterday = new Date(wib.getTime()-24*3600*1000).toISOString().slice(0,10)
+      const daily = await fetchDaily(sym, yesterday, yesterday)
+      if (daily&&daily.length) prevClose=daily[daily.length-1].close
+    } catch(e2){}
+
+    // Gap classification
+    let gapCat='STABIL', gapPct=null
+    if (iepPrice&&prevClose) {
+      gapPct=(iepPrice-prevClose)/prevClose*100
+      if (gapPct>cfg.gap_threshold)       gapCat='UP'
+      else if (gapPct<-cfg.gap_threshold) gapCat='DOWN'
+      else                                gapCat='STABIL'
+    }
+
+    // Exit time sesuai gap
+    const exitOrbTime = gapCat==='DOWN' ? cfg.exit_down : cfg.exit_up
+
+    // Status
+    const timeNow=_wibTime()
+    let orbStatus, exitPrice=null, tradeReturn=null
+
+    if (gapCat==='STABIL') {
+      orbStatus='skip'
+    } else if (timeNow<'08:58') {
+      orbStatus='pre_iep'
+    } else if (timeNow<'09:00') {
+      orbStatus='iep_confirmed'
+    } else if (timeNow<'09:05') {
+      orbStatus='orb_forming'
+    } else if (brokenUp) {
+      if (timeNow>=exitOrbTime) {
+        const ec=sort.filter(c=>(c.datetime||'').slice(11,16)<=exitOrbTime)
+        exitPrice=ec.length?ec[ec.length-1].close:null
+        if (openPrice&&exitPrice) tradeReturn=(exitPrice-openPrice)/openPrice*100
+        orbStatus='done_orb'
+      } else {
+        orbStatus='broken_up'
+      }
+    } else if (timeNow<cfg.orb_deadline) {
+      orbStatus='waiting'
+    } else {
+      const ec=sort.filter(c=>(c.datetime||'').slice(11,16)<=cfg.exit_avoid)
+      exitPrice=ec.length?ec[ec.length-1].close:null
+      if (openPrice&&exitPrice) tradeReturn=(exitPrice-openPrice)/openPrice*100
+      orbStatus='done_avoid'
+    }
+
+    const d={sym,id,iepPrice,iepVol,openPrice,prevClose,gapCat,gapPct,
+             orbHigh,orbLow,orbStatus,brokenUp,exitOrbTime,exitPrice,tradeReturn,timeNow,cfg}
+    _renderEmiten(cfg, d)
+
+    // Alert (hanya sekali per hari per status)
+    const alertKey=`${dateStr}_${sym}_${orbStatus}`
+    if (!window._alertedKeys) window._alertedKeys={}
+    if (!window._alertedKeys[alertKey]) {
+      window._alertedKeys[alertKey]=true
+      if (orbStatus==='iep_confirmed') _playAlert('iep_confirmed')
+      if (orbStatus==='broken_up')     _playAlert('orb_up')
+      if (orbStatus==='done_avoid')    _playAlert('avoid')
+    }
+  } catch(e) { console.warn(`[${sym}]`, e.message) }
+}
+
+// ============================================================
+// RENDER per emiten
+// ============================================================
+function _renderEmiten(cfg, d) {
+  const id = cfg.sym.toLowerCase()
+  const card = document.getElementById(`card-${id}`)
+  if (!card) return
+
+  function $v(sel, val) {
+    const el=document.getElementById(`${id}-${sel}`)
+    if (el) el.textContent=val||'–'
+  }
+  function $c(sel, cls) {
+    const el=document.getElementById(`${id}-${sel}`)
+    if (el) el.className=cls
+  }
+  function setStep(step, state, icon) {
+    const sr=document.getElementById(`${id}-step-${step}`)
+    const ic=document.getElementById(`${id}-icon-${step}`)
+    if (sr) sr.className='step-row '+state
+    if (ic) ic.textContent=icon
+  }
+  function setBanner(type, text) {
+    const b=document.getElementById(`${id}-banner`)
+    if (!b) return
+    b.className='signal-banner '+(type?type+'-banner':'')
+    b.style.display=type?'block':'none'
+    b.textContent=text||''
+  }
+
+  // Update footer refresh
+  $v('refresh', d ? 'Update: '+d.timeNow+' WIB' : '–')
+
+  if (!d) {
+    ['iep','entry','orb','exit'].forEach(s=>setStep(s,'pending','○'))
+    setBanner(null)
+    card.className='it-card'
+    return
+  }
+
+  // IEP data
+  $v('iep-price', fmt(d.iepPrice))
+  $v('iep-vol',   fmtVol(d.iepVol))
+  $v('open-price',fmt(d.openPrice))
+  $v('orb-high',  fmt(d.orbHigh))
+  $v('orb-low',   fmt(d.orbLow))
+
+  // Gap label di header
+  const gapEl=document.getElementById(`${id}-gap-label`)
+  if (gapEl && d.gapPct!=null) {
+    const sign=d.gapPct>=0?'+':''
+    const gapStr=sign+d.gapPct.toFixed(2)+'%'
+    if (d.gapCat==='UP')     { gapEl.textContent='🟢 '+gapStr; gapEl.className='card-gap-label up' }
+    else if (d.gapCat==='DOWN') { gapEl.textContent='🔵 '+gapStr; gapEl.className='card-gap-label down' }
+    else                        { gapEl.textContent='🟡 '+gapStr; gapEl.className='card-gap-label stabil' }
+  }
+
+  // IEP gap detail
+  const iepGapEl=document.getElementById(`${id}-iep-gap`)
+  if (iepGapEl && d.gapPct!=null) {
+    const sign=d.gapPct>=0?'+':''
+    iepGapEl.textContent=sign+d.gapPct.toFixed(2)+'%'
+    iepGapEl.className='step-val '+(d.gapCat==='UP'?'up':d.gapCat==='DOWN'?'down':'')
+  }
+
+  const s=d.orbStatus
+  const statInfo = d.gapCat!=='STABIL' ? d.cfg.stats[d.gapCat==='DOWN'?'down':'up'] : null
+
+  if (s==='skip') {
+    setStep('iep','skip','⚪'); setStep('entry','pending','○')
+    setStep('orb','pending','○'); setStep('exit','pending','○')
+    $v('exit-label','SKIP hari ini')
+    $v('exit-msg','Gap ±'+d.cfg.gap_threshold+'% — tidak ada sinyal')
+    setBanner(null); card.className='it-card signal-skip'
+
+  } else if (s==='pre_iep') {
+    setStep('iep','pending','○'); setStep('entry','pending','○')
+    setStep('orb','pending','○'); setStep('exit','pending','○')
+    $v('exit-label','Exit'); $v('exit-msg','–')
+    setBanner(null); card.className='it-card'
+
+  } else if (s==='iep_confirmed') {
+    setStep('iep','active','🔔'); setStep('entry','pending','○')
+    setStep('orb','pending','○'); setStep('exit','pending','○')
+    const gl=d.gapCat==='UP'?'🟢 GAP UP':d.gapCat==='DOWN'?'🔵 GAP DOWN':'🟡 STABIL'
+    $v('exit-label','→ Siapkan ENTRY 09:00')
+    $v('exit-msg', gl+' — masuk di Open 09:00')
+    setBanner('iep',`🔔 IEP FINAL ${gl} — ENTRY di Open 09:00`)
+    card.className='it-card signal-entry'
+
+  } else if (s==='orb_forming') {
+    setStep('iep','done','✓'); setStep('entry','active','⏰')
+    setStep('orb','pending','○'); setStep('exit','pending','○')
+    $v('exit-label','Exit'); $v('exit-msg','ORB 09:00–09:04 terbentuk...')
+    setBanner(null); card.className='it-card'
+
+  } else if (s==='waiting') {
+    setStep('iep','done','✓'); setStep('entry','done','✓')
+    setStep('orb','active','👁'); setStep('exit','pending','○')
+    $v('exit-label','Menunggu ORB')
+    $v('exit-msg','Deadline '+d.cfg.orb_deadline+' — belum ada breakout')
+    setBanner(null); card.className='it-card'
+
+  } else if (s==='broken_up') {
+    setStep('iep','done','✓'); setStep('entry','done','✓')
+    setStep('orb','done','✓'); setStep('exit','active','🎯')
+    $v('exit-label','EXIT '+d.exitOrbTime+' — ORB UP ✓')
+    const statTxt=statInfo?`WLB ${statInfo.wlb} · avg ${statInfo.avg} · win ${statInfo.win}`:''
+    $v('exit-msg', 'HOLD posisi · '+statTxt)
+    const gl=d.gapCat==='UP'?'🟢 GAP UP':'🔵 GAP DOWN'
+    setBanner('entry',`✓ ORB UP CONFIRMED ${gl} — HOLD → exit ${d.exitOrbTime}`)
+    card.className='it-card signal-entry'
+
+  } else if (s==='done_avoid') {
+    setStep('iep','done','✓'); setStep('entry','done','✓')
+    setStep('orb','avoid','✗'); setStep('exit','avoid','⚠')
+    $v('exit-label','EXIT AVOID '+d.cfg.exit_avoid)
+    $v('exit-msg','Tidak ada ORB breakout')
+    setBanner('avoid','✗ AVOID — Tidak ada ORB · exit '+d.cfg.exit_avoid)
+    card.className='it-card signal-avoid'
+    // Result box
+    if (d.tradeReturn!=null) _showResult(id, d, false)
+
+  } else if (s==='done_orb') {
+    setStep('iep','done','✓'); setStep('entry','done','✓')
+    setStep('orb','done','✓'); setStep('exit','done','✓')
+    $v('exit-label','SELESAI — Exit '+d.exitOrbTime)
+    $v('exit-msg','ORB UP terkonfirmasi')
+    setBanner(null); card.className='it-card'
+    if (d.tradeReturn!=null) _showResult(id, d, true)
+  }
+}
+
+function _showResult(id, d, isWin) {
+  const box=document.getElementById(`${id}-result-box`)
+  const retEl=document.getElementById(`${id}-result-ret`)
+  const metaEl=document.getElementById(`${id}-result-meta`)
+  if (!box||!retEl||!metaEl) return
+  box.style.display='block'
+  const sign=d.tradeReturn>=0?'+':''
+  const cls=d.tradeReturn>=0?'profit':'loss'
+  box.className='result-box '+cls
+  retEl.className='result-ret '+cls
+  retEl.textContent=sign+d.tradeReturn.toFixed(2)+'%'
+  metaEl.textContent=(isWin?'ORB UP → exit '+d.exitOrbTime:'AVOID → exit '+d.cfg.exit_avoid)
+    +' · entry '+fmt(d.openPrice)+' → exit '+fmt(d.exitPrice)
+}
+
+// ============================================================
+// AUTO REFRESH
+// ============================================================
+let _timer=null
+async function _refresh() {
+  const ms=document.getElementById('market-status')
+  const ri=document.getElementById('refresh-info')
+  if (_isMarketHours()) {
+    if (ms) { ms.textContent='● Pasar buka'; ms.className='market-status live' }
+    await Promise.all(EMITEN_CONFIG.map(cfg=>_fetchEmiten(cfg)))
+    if (ri) ri.textContent='Refresh otomatis tiap 1 menit'
+  } else {
+    if (ms) { ms.textContent='Pasar tutup'; ms.className='market-status' }
+    if (ri) ri.textContent='Auto-refresh aktif jam 08:45–16:00 WIB'
+    EMITEN_CONFIG.forEach(cfg=>_renderEmiten(cfg,null))
+  }
+}
+
+function _start() {
+  if (_timer) clearInterval(_timer)
+  _buildCards()
+  _refresh()
+  _timer=setInterval(()=>{
+    if (!_isMarketHours()) { clearInterval(_timer); _start(); return }
+    _refresh()
+  }, 60*1000)
+}
+
+window.addEventListener('ihsg:token-saved', _start)
+if (TOKEN.isSet()) _start()
+</script>
+</body>
+</html>
