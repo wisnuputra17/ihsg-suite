@@ -643,14 +643,16 @@ function _start() {
   }, 60*1000)
 }
 
-window.addEventListener('ihsg:token-saved', _start)
-if (TOKEN.isSet()) _start()
+window._start = _start
+window._startBsjp = _startBsjp
 
-// ============================================================
-// BSJP MONITOR — Beli Sore Jual Pagi (hanya RAJA)
-// Entry: 16:00 (lelang penutupan)
-// Exit: dinamis berdasarkan foreign flow malam hari
-// ============================================================
+window.addEventListener('ihsg:token-saved', _start)
+window.addEventListener('ihsg:token-saved', _startBsjp)
+
+// Inisialisasi setelah semua module selesai load
+window.addEventListener('load', () => {
+  if (TOKEN.isSet()) { _start(); _startBsjp() }
+})
 function _buildBsjpCards() {
   const grid = document.getElementById('bsjp-cards-grid')
   if (!grid) return
@@ -949,11 +951,11 @@ function _startBsjp() {
     if (t >= '19:00' && t <= '19:05') { _fetchBsjpMonitor(); return }
   }, 60*1000)
 }
-window.addEventListener('ihsg:token-saved', _startBsjp)
-if (TOKEN.isSet()) _startBsjp()
+// _startBsjp sudah di-init di atas bersama _start
 </script>
 </body>
 </html>
+
 
 
 
