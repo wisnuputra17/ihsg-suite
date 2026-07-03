@@ -1450,18 +1450,25 @@
   const tokenSaveBtn= document.getElementById('tokenSave')
 
   function _renderTokenBtn() {
-    // Tampilkan sisa waktu token (TTL 24 jam dari waktu set)
-    if (TOKEN.isSet() && TOKEN.elapsedMs) {
-      const TTL_MS = 24 * 60 * 60 * 1000
-      const remaining = TTL_MS - (TOKEN.elapsedMs() || 0)
-      if (remaining > 0) {
-        const hrs  = Math.floor(remaining / 3600000)
-        const mins = Math.floor((remaining % 3600000) / 60000)
-        tokenBtn.textContent = `✓ Token (sisa ${hrs}j ${mins}m)`
-      } else {
-        tokenBtn.textContent = '⚠ Token kadaluarsa'
-        tokenBtn.classList.remove('btn-primary')
-      }
+    // Tampilkan sisa waktu token — sama persis dengan cara header.js di fitur lain
+    // Prioritas: claim exp dari JWT, fallback ke TTL 24 jam dari waktu set
+    const TOKEN_TTL_MS = 24 * 60 * 60 * 1000
+    const expMs = TOKEN.getExpiryMs ? TOKEN.getExpiryMs() : null
+    let remaining = null
+    if (expMs !== null) {
+      remaining = expMs - Date.now()
+    } else if (TOKEN.elapsedMs) {
+      const elapsed = TOKEN.elapsedMs()
+      remaining = elapsed !== null ? TOKEN_TTL_MS - elapsed : null
+    }
+    if (remaining !== null && remaining <= 0) {
+      tokenBtn.textContent = '⚠ Token kadaluarsa'
+      tokenBtn.classList.remove('btn-primary')
+    } else if (remaining !== null) {
+      const h = Math.floor(remaining / 3600000)
+      const m = Math.floor((remaining % 3600000) / 60000)
+      const sisaTxt = h > 0 ? `${h}j ${m}m` : `${m}m`
+      tokenBtn.textContent = `✓ Token (sisa ${sisaTxt})`
     } else {
       tokenBtn.textContent = TOKEN.isSet() ? '✓ Token' : 'Token'
     }
@@ -1552,6 +1559,7 @@
 
 </body>
 </html>
+
 
 
 
