@@ -132,7 +132,7 @@
 <script type="module">
 import { renderHeader } from '../../shared/header.js'
 import { fetchIntraday, fetchDaily } from '../../shared/api.js'
-import TOKEN from '../../shared/store.js'
+import { TOKEN } from '../../shared/store.js'
 
 renderHeader(document.getElementById('app-header'), { back: true, title: 'Intraday Trading' })
 
@@ -593,3 +593,4 @@ if (TOKEN.isSet()) _start()
 </script>
 </body>
 </html>
+
