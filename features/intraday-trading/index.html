@@ -119,18 +119,18 @@
       <span class="toolbar-title">Monitor Real-Time</span>
       <span class="market-status" id="market-status">Memuat...</span>
       <span class="refresh-info" id="refresh-info">–</span>
-      <button class="alert-toggle on" id="alert-toggle" onclick="_toggleAlert()">🔔 Alert ON</button>
+      <button class="alert-toggle on" id="alert-toggle" onclick="window._toggleAlert()">🔔 Alert ON</button>
     </div>
 
     <!-- MODE TOGGLE -->
     <div class="mode-toggle" style="display:flex;gap:8px;margin-bottom:16px;">
-      <button class="mode-btn active" data-mode="intraday" onclick="_setMode('intraday')"
+      <button class="mode-btn active" data-mode="intraday" onclick="window._setMode('intraday')"
         style="font-family:var(--f-mono);font-size:11px;font-weight:700;padding:5px 14px;
                border-radius:4px;border:1px solid var(--live);background:rgba(74,222,128,0.12);
                color:var(--live);cursor:pointer;">
         📈 Intraday
       </button>
-      <button class="mode-btn" data-mode="bsjp" onclick="_setMode('bsjp')"
+      <button class="mode-btn" data-mode="bsjp" onclick="window._setMode('bsjp')"
         style="font-family:var(--f-mono);font-size:11px;font-weight:700;padding:5px 14px;
                border-radius:4px;border:1px solid var(--line);background:transparent;
                color:var(--ghost);cursor:pointer;">
@@ -163,7 +163,10 @@ import { renderHeader } from '../../shared/header.js'
 import { fetchIntraday, fetchDaily } from '../../shared/api.js'
 import { TOKEN } from '../../shared/store.js'
 
-renderHeader(document.getElementById('app-header'), { back: true, title: 'Intraday Trading' })
+renderHeader(document.getElementById('app-header'), [
+    { label: 'IHSG Suite', href: '../../index.html' },
+    { label: 'Intraday Trading' }
+  ])
 
 // ============================================================
 // KONFIGURASI PER EMITEN — parameter tervalidasi dari backtest
@@ -951,6 +954,7 @@ if (TOKEN.isSet()) _startBsjp()
 </script>
 </body>
 </html>
+
 
 
 
