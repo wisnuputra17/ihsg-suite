@@ -105,3 +105,60 @@ Kalau ada yang baru muncul pas testing, kasih tau Claude di sesi manapun — "ta
     - Bangun modul order management (abstraksi broker, bisa swap Mirae ↔ broker lain)
     - Dry-run mode: log "WOULD BUY/SELL" tanpa eksekusi nyata dulu — untuk verifikasi sebelum go-live
   - Status: EKSPLORASI SELESAI, menunggu keputusan Wisnu dan prasyarat di atas
+
+
+---
+
+# Refactor & Technical Debt — Mode Bakar Token (3 Jul 2026)
+
+> Evaluasi struktur kode sesi ini. Dikerjakan saat "gunakan mode bakar token"
+> dan tidak ada task fitur lain yang lebih prioritas.
+
+## Jangka Pendek (sebelum tambah fitur baru)
+
+- [ ] **Generalisasi monitor menjadi satu fungsi `_fetchEmitenMonitor(cfg)`**
+  - Saat ini `_fetchRajaMonitor` dan `_fetchMbmaMonitor` di index.html strukturnya 80% identik
+  - Kalau ada bug di satu, harus fix di dua tempat
+  - Fix: satu fungsi generik yang terima config `{sym, gap_threshold, orb_deadline, exit_up, exit_down}`
+  - Berlaku juga untuk `_renderMonitor` dan `_renderMbmaMonitor`
+
+- [ ] **Pindahkan monitor RAJA+MBMA dari index.html ke `features/monitor/`**
+  - index.html sekarang 1500+ baris — terlalu besar
+  - Monitor panel sebaiknya jadi fitur tersendiri di-embed via `<iframe>` atau di-load dinamis
+  - Atau minimal pisahkan JS monitor ke `shared/monitor.js`
+
+- [ ] **Checklist wajib setiap buat file baru**
+  - Bug `import TOKEN from` vs `import { TOKEN }` sudah terjadi 3x
+  - Tambahkan ke HANDOFF.md sebagai "common pitfalls":
+    - TOKEN adalah named export → wajib `import { TOKEN }`
+    - Fungsi di module scope tidak accessible dari `onclick` → pakai `window._fn`
+    - `renderHeader` butuh array `[{label, href}]` bukan object
+
+## Jangka Menengah
+
+- [ ] **Buat `shared/monitor.js` — generalisasi checklist IEP→ORB→Exit**
+  - Satu class/module yang handle semua emiten
+  - Config-driven: `new EmitenMonitor({sym, gap_threshold, ...})`
+  - Dipakai oleh index.html (panel kiri) DAN features/intraday-trading/
+
+- [ ] **Sinkronkan formula BSJP antara index.html dan intraday-trading**
+  - Saat ini BSJP logic ada di `features/intraday-trading/index.html` saja
+  - Kalau formula berubah, harus update di dua tempat
+
+- [ ] **Test coverage untuk render functions**
+  - CI saat ini test logic backend (IndexedDB, indicators) — 193 test
+  - Tidak ada test untuk `_renderMonitor`, `_fetchRajaMonitor`, dll
+  - Bug seperti `no_signal` state tanpa handler tidak ketahuan sampai runtime
+  - Tambah unit test untuk state machine render: setiap orbStatus → expected DOM output
+
+## Jangka Panjang
+
+- [ ] **Sistem monitor yang scalable untuk banyak emiten**
+  - Saat ini kalau tambah emiten baru (BBRI, TLKM, dll) harus copy-paste card lagi
+  - Desain: config-driven dari array `EMITEN_CONFIG` → generate card otomatis
+  - Sudah sebagian ada di `features/intraday-trading/` tapi belum di index.html
+
+- [ ] **Pisahkan analisa BSJP ke `shared/bsjp.js`**
+  - Logic: hitung kategori foreign (buy_strong/weak/sell_strong/weak), tentukan exit time
+  - Agar bisa dipakai dari index.html, intraday-trading, dan fitur lain
+
