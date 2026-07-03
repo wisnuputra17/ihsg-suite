@@ -813,8 +813,9 @@ async function _fetchBsjpMonitor() {
     } catch(e2) {}
 
     // Cek apakah sudah lewat jam exit (tampilkan hasil)
+    // HANYA hitung kalau foreignReady = true (data foreign sudah final, jam >= 19:00)
     let exitPrice = null, tradeReturn = null
-    if (exitTime && entryPrice && timeNow >= exitTime) {
+    if (foreignReady && exitTime && entryPrice && timeNow >= exitTime) {
       const ec = sort.filter(c => (c.datetime||'').slice(11,16) <= exitTime)
       exitPrice = ec.length ? ec[ec.length-1].close : null
       if (exitPrice) tradeReturn = (exitPrice - entryPrice) / entryPrice * 100
@@ -901,7 +902,8 @@ function _renderBsjpMonitor(d) {
   }
 
   // Step 3: Exit
-  if (d.exitTime && d.tradeReturn !== null) {
+  // Tampilkan SELESAI hanya setelah foreign data tersedia (jam >= 19:00)
+  if (d.exitTime && d.tradeReturn !== null && d.foreignReady) {
     // Sudah selesai
     setStep('exit','done','✓')
     $v('bsjp-exit-label','SELESAI — Exit '+d.exitTime)
@@ -918,7 +920,7 @@ function _renderBsjpMonitor(d) {
     if (metaEl) metaEl.textContent='Entry '+fmt(d.entryPrice)+' → Exit '+fmt(d.exitPrice)+' ('+d.exitTime+')'
     setBanner(d.tradeReturn>=0?'entry':'avoid',
       (d.tradeReturn>=0?'✓ PROFIT ':'✗ LOSS ')+sign+d.tradeReturn.toFixed(2)+'%')
-  } else if (d.exitTime) {
+  } else if (d.kategori && d.foreignReady) {
     setStep('exit','active','🎯')
     $v('bsjp-exit-label','Exit besok jam '+d.exitTime)
     $v('bsjp-exit-time', d.exitTime)
@@ -955,6 +957,7 @@ function _startBsjp() {
 </script>
 </body>
 </html>
+
 
 
 
