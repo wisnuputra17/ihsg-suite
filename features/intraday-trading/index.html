@@ -858,32 +858,26 @@ async function _fetchBsjpMonitor() {
     //   - Hari berikutnya (sebelum exit)→ posisi masih terbuka, tampilkan countdown
     //   - Hari berikutnya (setelah exit)→ hitung dan tampilkan hasil trade
 
-    // Simpan tanggal entry di localStorage agar tahu posisi masih terbuka
-    const entryKey = 'bsjp_entry_date'
-    const savedEntryDate = localStorage.getItem(entryKey)
-
+    // Tentukan apakah hari ini adalah hari entry atau hari exit
+    // savedEntryDate & savedEntryPrice sudah dideklarasikan di atas
     let exitPrice = null, tradeReturn = null
-    let isEntryDay = true   // apakah hari ini adalah hari entry?
-    let isExitDay = false   // apakah hari ini adalah hari exit?
+    let isEntryDay = true
+    let isExitDay = false
 
-    // Cek apakah hari ini adalah hari setelah entry (hari exit)
-    // Kalau ada saved entry date dan bukan hari ini → ini hari exit
     if (savedEntryDate && savedEntryDate !== dateStr) {
+      // Hari ini adalah hari exit (hari setelah entry)
       isEntryDay = false
       isExitDay = true
-      // Fetch candle hari ini (hari exit) untuk hitung return
-      if (exitTime && entryPrice && timeNow >= exitTime) {
+      if (exitTime && savedEntryPrice && timeNow >= exitTime) {
         const ec = sort.filter(c => (c.datetime||'').slice(11,16) <= exitTime)
         exitPrice = ec.length ? ec[ec.length-1].close : null
-        // entryPrice dari hari sebelumnya — ambil dari localStorage
-        const savedEntry = parseFloat(localStorage.getItem('bsjp_entry_price') || '0')
-        if (savedEntry && exitPrice) tradeReturn = (exitPrice - savedEntry) / savedEntry * 100
+        if (savedEntryPrice && exitPrice) tradeReturn = (exitPrice - savedEntryPrice) / savedEntryPrice * 100
       }
     }
 
-    // Simpan data entry ke localStorage kalau sudah entry hari ini
+    // Simpan data entry ke localStorage kalau baru entry hari ini jam 16:00+
     if (isEntryDay && entryPrice && timeNow >= '16:00') {
-      localStorage.setItem(entryKey, dateStr)
+      localStorage.setItem('bsjp_entry_date', dateStr)
       localStorage.setItem('bsjp_entry_price', String(entryPrice))
     }
 
@@ -1064,6 +1058,7 @@ function _startBsjp() {
 </script>
 </body>
 </html>
+
 
 
 
