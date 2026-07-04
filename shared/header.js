@@ -183,13 +183,16 @@ function _fmtDuration(ms) {
   return h > 0 ? `${h}j ${m}m` : `${m}m`
 }
 
-function _renderStatus() {
+let _statusRetryTimer = null
+const _STATUS_RETRY_DELAYS = [3000, 5000, 10000, 15000, 30000] // ms, max 5x
+
+function _renderStatus(retryCount = 0) {
   const dot   = document.getElementById('hdr-token-dot')
   const label = document.getElementById('hdr-token-label')
   if (!dot || !label) return
 
   if (!TOKEN.isSet()) {
-    dot.className   = 'status-dot'
+    dot.className     = 'status-dot'
     label.textContent = 'Token belum diisi'
     return
   }
@@ -207,24 +210,31 @@ function _renderStatus() {
     : ''
 
   if (remaining !== null && remaining <= 0) {
-    dot.className   = 'status-dot down'
+    dot.className     = 'status-dot down'
     label.textContent = 'Token expired'
     return
   }
 
-  dot.className   = 'status-dot wait'
+  dot.className     = 'status-dot wait'
   label.textContent = sisaTxt ? `Memeriksa · ${sisaTxt}` : 'Memeriksa...'
 
+  if (_statusRetryTimer) { clearTimeout(_statusRetryTimer); _statusRetryTimer = null }
+
   fetchMarketStatus().then(() => {
-    dot.className   = 'status-dot live'
+    dot.className     = 'status-dot live'
     label.textContent = sisaTxt ? `Token · ${sisaTxt}` : 'Token aktif'
   }).catch(e => {
     if (e.code === 'TOKEN_EXPIRED') {
-      dot.className   = 'status-dot down'
+      dot.className     = 'status-dot down'
       label.textContent = 'Token expired'
-    } else {
-      dot.className   = 'status-dot wait'
-      label.textContent = sisaTxt || 'Status tidak diketahui'
+      return
     }
+    // Network error / timeout — retry otomatis
+    const delay = _STATUS_RETRY_DELAYS[Math.min(retryCount, _STATUS_RETRY_DELAYS.length - 1)]
+    const attempt = retryCount + 1
+    dot.className     = 'status-dot wait'
+    label.textContent = `Gagal · coba lagi (${attempt}/${_STATUS_RETRY_DELAYS.length})...`
+    _statusRetryTimer = setTimeout(() => _renderStatus(attempt), delay)
   })
 }
+
