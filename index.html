@@ -337,6 +337,9 @@
 
 <div class="page">
 
+  <!-- HEADER STANDAR (breadcrumb + token status) -->
+  <header class="app-header" id="app-header"></header>
+
   <!-- HERO -->
   <header class="hero">
     <div class="hero-top">
@@ -344,27 +347,12 @@
         <div class="hero-logo">IHSG Suite · wisnuputra17</div>
         <h1 class="hero-title">Analisa<br><span>Saham IDX</span></h1>
       </div>
-      <div style="display:flex; align-items:center; gap:14px;">
-        <div class="market-badge" id="marketBadge">
-          <span class="status-dot" id="marketDot"></span>
-          <span id="marketLabel">–––</span>
-        </div>
-        <button class="btn btn-sm" id="tokenBtn">Token</button>
+      <div class="market-badge" id="marketBadge">
+        <span class="status-dot" id="marketDot"></span>
+        <span id="marketLabel">–––</span>
       </div>
     </div>
 
-    <!-- TOKEN INPUT -->
-    <div class="terminal hidden" id="tokenBox" style="margin-bottom:12px;">
-      <span class="terminal-prompt" style="font-size:11px;">KEY</span>
-      <input
-        type="password"
-        class="terminal-input"
-        id="tokenInput"
-        placeholder="Bearer token Stockbit..."
-        autocomplete="off"
-      >
-      <button class="btn btn-primary btn-sm" id="tokenSave">Simpan</button>
-    </div>
 
     <!-- TERMINAL SEARCH -->
     <div class="terminal">
@@ -393,58 +381,58 @@
       <div class="market-card monitor-card" id="raja-monitor-card">
         <div class="monitor-card-header">
           <span class="monitor-sym">RAJA</span>
-          <span class="monitor-badge" id="raja-badge">INTRADAY</span>
+          <span class="monitor-badge" id="m-badge">INTRADAY</span>
         </div>
 
         <!-- Step 1: IEP -->
-        <div class="checklist-step" id="raja-step-iep">
+        <div class="checklist-step" id="step-iep">
           <div class="checklist-step-header">
-            <span class="checklist-icon" id="raja-icon-iep">⏳</span>
+            <span class="checklist-icon" id="icon-iep">⏳</span>
             <span class="checklist-title">08:58 IEP Final</span>
           </div>
           <div class="checklist-detail" id="detail-iep">
             <span class="monitor-key">Harga IEP</span>
-            <span class="monitor-val" id="raja-iep-price">–</span>
+            <span class="monitor-val" id="m-iep-price">–</span>
           </div>
           <div class="checklist-detail" id="detail-iep-gap">
             <span class="monitor-key">vs kemarin</span>
-            <span class="monitor-val" id="raja-iep-gap">–</span>
+            <span class="monitor-val" id="m-iep-gap">–</span>
           </div>
           <div class="checklist-detail">
             <span class="monitor-key">Volume IEP</span>
-            <span class="monitor-val" id="raja-iep-vol">–</span>
+            <span class="monitor-val" id="m-iep-vol">–</span>
           </div>
         </div>
 
         <div class="checklist-divider"></div>
 
         <!-- Step 2: Entry -->
-        <div class="checklist-step" id="raja-step-entry">
+        <div class="checklist-step" id="step-entry">
           <div class="checklist-step-header">
-            <span class="checklist-icon" id="raja-icon-entry">○</span>
+            <span class="checklist-icon" id="icon-entry">○</span>
             <span class="checklist-title">09:00 ENTRY Open</span>
           </div>
           <div class="checklist-detail" id="detail-entry">
             <span class="monitor-key">Open price</span>
-            <span class="monitor-val" id="raja-open-price">–</span>
+            <span class="monitor-val" id="m-open-price">–</span>
           </div>
         </div>
 
         <div class="checklist-divider"></div>
 
         <!-- Step 3: ORB -->
-        <div class="checklist-step" id="raja-step-orb">
+        <div class="checklist-step" id="step-orb">
           <div class="checklist-step-header">
-            <span class="checklist-icon" id="raja-icon-orb">○</span>
+            <span class="checklist-icon" id="icon-orb">○</span>
             <span class="checklist-title">09:05 Monitor ORB</span>
           </div>
           <div class="checklist-detail">
             <span class="monitor-key">ORB High</span>
-            <span class="monitor-val" id="raja-orb-high">–</span>
+            <span class="monitor-val" id="m-orb-high">–</span>
           </div>
           <div class="checklist-detail">
             <span class="monitor-key">ORB Low</span>
-            <span class="monitor-val" id="raja-orb-low">–</span>
+            <span class="monitor-val" id="m-orb-low">–</span>
           </div>
           <div class="checklist-detail">
             <span class="monitor-key">Deadline</span>
@@ -453,53 +441,53 @@
         </div>
 
         <!-- Signal Box: muncul setelah ORB status diketahui -->
-        <div class="signal-box" id="raja-signal-box">
-          <span class="signal-box-title" id="raja-signal-box-title">–</span>
-          <span class="signal-box-sub"  id="raja-signal-box-sub">–</span>
+        <div class="signal-box" id="signal-box">
+          <span class="signal-box-title" id="signal-box-title">–</span>
+          <span class="signal-box-sub"  id="signal-box-sub">–</span>
         </div>
 
         <div class="checklist-divider"></div>
 
         <!-- Step 4: Exit -->
-        <div class="checklist-step" id="raja-step-exit">
+        <div class="checklist-step" id="step-exit">
           <div class="checklist-step-header">
-            <span class="checklist-icon" id="raja-icon-exit">○</span>
-            <span class="checklist-title" id="raja-exit-title">Exit</span>
+            <span class="checklist-icon" id="icon-exit">○</span>
+            <span class="checklist-title" id="exit-title">Exit</span>
           </div>
           <div class="checklist-detail" id="detail-exit">
-            <span class="monitor-val" id="raja-exit-msg">Menunggu konfirmasi ORB</span>
+            <span class="monitor-val" id="m-exit-msg">Menunggu konfirmasi ORB</span>
           </div>
         </div>
 
-        <div class="checklist-divider" id="raja-step-result-divider" style="display:none"></div>
+        <div class="checklist-divider" id="step-result-divider" style="display:none"></div>
 
         <!-- Step 5: Hasil Trade -->
-        <div class="checklist-step" id="raja-step-result" style="display:none">
+        <div class="checklist-step" id="step-result" style="display:none">
           <div class="checklist-step-header">
-            <span class="checklist-icon" id="raja-icon-result">📋</span>
+            <span class="checklist-icon" id="icon-result">📋</span>
             <span class="checklist-title" id="result-title">Hasil Trade</span>
           </div>
           <div class="checklist-detail">
             <span class="monitor-key">Entry</span>
-            <span class="monitor-val" id="raja-result-entry">–</span>
+            <span class="monitor-val" id="m-result-entry">–</span>
           </div>
           <div class="checklist-detail">
             <span class="monitor-key">Exit</span>
-            <span class="monitor-val" id="raja-result-exit">–</span>
+            <span class="monitor-val" id="m-result-exit">–</span>
           </div>
           <div class="checklist-detail">
             <span class="monitor-key">Return</span>
-            <span class="monitor-val" id="raja-result-ret" style="font-size:13px;font-weight:900">–</span>
+            <span class="monitor-val" id="m-result-ret" style="font-size:13px;font-weight:900">–</span>
           </div>
           <div class="checklist-detail">
             <span class="monitor-key">Tipe</span>
-            <span class="monitor-val" id="raja-result-type">–</span>
+            <span class="monitor-val" id="m-result-type">–</span>
           </div>
         </div>
 
-        <div class="monitor-refresh" id="raja-refresh-time"></div>
-        <button class="monitor-enter-btn hidden" id="raja-enter-btn"
-                onclick="window.location='features/fokus-emiten/?gap='+(window._rajaGapCat||'UP')">
+        <div class="monitor-refresh" id="m-refresh-time"></div>
+        <button class="monitor-enter-btn hidden" id="m-enter-btn"
+                onclick="window.location='features/fokus-emiten/?gap=' + (window._rajaGapCat||'UP')">
           → Buka Fokus Emiten
         </button>
       </div>
@@ -508,55 +496,55 @@
       <div class="market-card monitor-card" id="mbma-monitor-card">
         <div class="monitor-card-header">
           <span class="monitor-sym">MBMA</span>
-          <span class="monitor-badge" id="mbma-badge">INTRADAY</span>
+          <span class="monitor-badge" id="mb-badge">INTRADAY</span>
         </div>
 
-        <div class="checklist-step" id="mbma-step-iep">
+        <div class="checklist-step" id="mb-step-iep">
           <div class="checklist-step-header">
-            <span class="checklist-icon" id="mbma-icon-iep">○</span>
+            <span class="checklist-icon" id="mb-icon-iep">○</span>
             <span class="checklist-title">08:58 IEP Final</span>
           </div>
           <div class="checklist-detail">
             <span class="monitor-key">Harga IEP</span>
-            <span class="monitor-val" id="mbma-iep-price">–</span>
+            <span class="monitor-val" id="mb-iep-price">–</span>
           </div>
           <div class="checklist-detail">
             <span class="monitor-key">vs kemarin</span>
-            <span class="monitor-val" id="mbma-iep-gap">–</span>
+            <span class="monitor-val" id="mb-iep-gap">–</span>
           </div>
           <div class="checklist-detail">
             <span class="monitor-key">Vol IEP</span>
-            <span class="monitor-val" id="mbma-iep-vol">–</span>
+            <span class="monitor-val" id="mb-iep-vol">–</span>
           </div>
         </div>
 
         <div class="checklist-divider"></div>
 
-        <div class="checklist-step" id="mbma-step-entry">
+        <div class="checklist-step" id="mb-step-entry">
           <div class="checklist-step-header">
-            <span class="checklist-icon" id="mbma-icon-entry">○</span>
+            <span class="checklist-icon" id="mb-icon-entry">○</span>
             <span class="checklist-title">09:00 ENTRY Open</span>
           </div>
           <div class="checklist-detail">
             <span class="monitor-key">Open price</span>
-            <span class="monitor-val" id="mbma-open-price">–</span>
+            <span class="monitor-val" id="mb-open-price">–</span>
           </div>
         </div>
 
         <div class="checklist-divider"></div>
 
-        <div class="checklist-step" id="mbma-step-orb">
+        <div class="checklist-step" id="mb-step-orb">
           <div class="checklist-step-header">
-            <span class="checklist-icon" id="mbma-icon-orb">○</span>
+            <span class="checklist-icon" id="mb-icon-orb">○</span>
             <span class="checklist-title">09:05 Monitor ORB</span>
           </div>
           <div class="checklist-detail">
             <span class="monitor-key">ORB High</span>
-            <span class="monitor-val" id="mbma-orb-high">–</span>
+            <span class="monitor-val" id="mb-orb-high">–</span>
           </div>
           <div class="checklist-detail">
             <span class="monitor-key">ORB Low</span>
-            <span class="monitor-val" id="mbma-orb-low">–</span>
+            <span class="monitor-val" id="mb-orb-low">–</span>
           </div>
           <div class="checklist-detail">
             <span class="monitor-key">Deadline</span>
@@ -565,48 +553,48 @@
         </div>
 
         <!-- Signal Box MBMA -->
-        <div class="signal-box" id="mbma-signal-box">
-          <span class="signal-box-title" id="mbma-signal-box-title">–</span>
-          <span class="signal-box-sub"   id="mbma-signal-box-sub">–</span>
+        <div class="signal-box" id="mb-signal-box">
+          <span class="signal-box-title" id="mb-signal-box-title">–</span>
+          <span class="signal-box-sub"   id="mb-signal-box-sub">–</span>
         </div>
 
         <div class="checklist-divider"></div>
 
-        <div class="checklist-step" id="mbma-step-exit">
+        <div class="checklist-step" id="mb-step-exit">
           <div class="checklist-step-header">
-            <span class="checklist-icon" id="mbma-icon-exit">○</span>
-            <span class="checklist-title" id="mbma-exit-title">Exit</span>
+            <span class="checklist-icon" id="mb-icon-exit">○</span>
+            <span class="checklist-title" id="mb-exit-title">Exit</span>
           </div>
           <div class="checklist-detail" id="mb-detail-exit">
-            <span class="monitor-val" id="mbma-exit-msg">–</span>
+            <span class="monitor-val" id="mb-exit-msg">–</span>
           </div>
         </div>
 
-        <div class="checklist-divider" id="mbma-step-result-divider" style="display:none"></div>
-        <div class="checklist-step" id="mbma-step-result" style="display:none">
+        <div class="checklist-divider" id="mb-step-result-divider" style="display:none"></div>
+        <div class="checklist-step" id="mb-step-result" style="display:none">
           <div class="checklist-step-header">
-            <span class="checklist-icon" id="mbma-icon-result">📋</span>
+            <span class="checklist-icon" id="mb-icon-result">📋</span>
             <span class="checklist-title" id="mb-result-title">Hasil Trade</span>
           </div>
           <div class="checklist-detail">
             <span class="monitor-key">Entry</span>
-            <span class="monitor-val" id="mbma-result-entry">–</span>
+            <span class="monitor-val" id="mb-result-entry">–</span>
           </div>
           <div class="checklist-detail">
             <span class="monitor-key">Exit</span>
-            <span class="monitor-val" id="mbma-result-exit">–</span>
+            <span class="monitor-val" id="mb-result-exit">–</span>
           </div>
           <div class="checklist-detail">
             <span class="monitor-key">Return</span>
-            <span class="monitor-val" id="mbma-result-ret" style="font-size:13px;font-weight:900">–</span>
+            <span class="monitor-val" id="mb-result-ret" style="font-size:13px;font-weight:900">–</span>
           </div>
           <div class="checklist-detail">
             <span class="monitor-key">Tipe</span>
-            <span class="monitor-val" id="mbma-result-type">–</span>
+            <span class="monitor-val" id="mb-result-type">–</span>
           </div>
         </div>
 
-        <div class="monitor-refresh" id="mbma-refresh-time"></div>
+        <div class="monitor-refresh" id="mb-refresh-time"></div>
       </div>
 
     </aside>
@@ -723,77 +711,644 @@
   import { FEATURES }                          from './shared/features.js'
   import { TOKEN, has, setEmitenInfo }          from './shared/store.js'
   import { fetchMarketStatus, fetchEmitenJson, fetchIntraday, fetchDaily } from './shared/api.js'
-  import { saveTokenEverywhere, syncTokenFromSheetsIfNeeded } from './shared/header.js'
-  import { EmitenMonitor, renderMonitorCard, playAlert, isMarketHours, wibTime, shouldFetchAfterMarket } from './shared/monitor.js'
+  import { renderHeader, saveTokenEverywhere, syncTokenFromSheetsIfNeeded } from './shared/header.js'
+  import { onReady } from './shared/token.js'
 
   // ============================================================
-  // INTRADAY MONITOR — RAJA & MBMA
-  // Dikelola oleh shared/monitor.js (EmitenMonitor)
+  // RAJA INTRADAY MONITOR
+  // Formula: ORB deadline 09:15, exit 10:00
+  // Win rate 79.5%, WLB 69.6%, avg +2.36% (n=83, tervalidasi)
   // ============================================================
 
-  // Konfigurasi per emiten — parameter tervalidasi dari backtest
-  const MONITOR_CONFIGS = [
-    {
-      sym:           'RAJA',
-      gap_threshold: 0.5,
-      orb_deadline:  '09:15',
-      exit_up:       '10:00',  // GAP UP → WLB 71.6%, avg +2.83%
-      exit_down:     '09:15',  // GAP DOWN → WLB 81.6%, avg +2.80%
-      exit_avoid:    '09:15',
-      prefix:        'raja',   // prefix ID elemen HTML
-      onData:  (d) => {
-        renderMonitorCard('raja', d)
-        // Expose gap untuk tombol "Buka Fokus Emiten"
-        if (d) window._rajaGapCat = d.gapCat
-        // Tampilkan/sembunyikan tombol Fokus Emiten
-        const btn = document.getElementById('m-enter-btn')
-        if (btn) btn.classList.toggle('hidden', !d || d.orbStatus !== 'broken_up')
-      },
-      onAlert: (type) => playAlert(type),
-    },
-    {
-      sym:           'MBMA',
-      gap_threshold: 1.5,      // lebih volatile dari RAJA
-      orb_deadline:  '09:31',  // deadline 1 menit lebih lama
-      exit_up:       '09:30',  // GAP UP → WLB 68.5%, avg +2.59%
-      exit_down:     '09:30',  // GAP DOWN → WLB 75.7%, win 100%
-      exit_avoid:    '09:15',
-      prefix:        'mbma',
-      onData:  (d) => renderMonitorCard('mbma', d),
-      onAlert: (type) => playAlert(type),
-    },
-  ]
+  function _isMarketHours() {
+    const now = new Date()
+    const wib = new Date(now.getTime() + 7*3600*1000)
+    const day = wib.getUTCDay()
+    if (day === 0 || day === 6) return false
+    const h = wib.getUTCHours(), m = wib.getUTCMinutes()
+    const tot = h*60+m
+    return tot >= 8*60+45 && tot < 16*60
+  }
 
-  // Buat instance monitor per emiten
-  const _monitors = MONITOR_CONFIGS.map(cfg => new EmitenMonitor(cfg))
+  function _wibTime() {
+    const wib = new Date(Date.now() + 7*3600*1000)
+    return wib.toISOString().slice(11,16)
+  }
 
-  function _startAllMonitors() {
-    const now = new Date(Date.now() + 7*3600*1000)
-    const day = now.getUTCDay()
-    const tot = now.getUTCHours()*60 + now.getUTCMinutes()
-    const isWeekday = day !== 0 && day !== 6
+  let _rajaMonitorTimer = null
+  let _rajaData = null   // cache hasil fetch terakhir
+  let _rajaAlertedState = {}  // track alert agar tidak double bunyi per hari
 
-    if (isMarketHours()) {
-      _monitors.forEach(m => m.start())
-    } else if (isWeekday && tot >= 9*15) {
-      // Setelah deadline ORB terpendek (09:15) — fetch sekali untuk tampilkan hasil
-      _monitors.forEach(m => m.fetch())
-    } else {
-      // Pasar tutup — render null
-      MONITOR_CONFIGS.forEach(cfg => renderMonitorCard(cfg.prefix, null))
-      const r1 = document.getElementById('raja-refresh-time')
-      const r2 = document.getElementById('mbma-refresh-time')
-      if (r1) r1.textContent = 'Pasar tutup — aktif 08:45–16:00 WIB'
-      if (r2) r2.textContent = 'Pasar tutup — aktif 08:45–16:00 WIB'
+  async function _fetchRajaMonitor() {
+    if (!TOKEN.isSet()) return
+    try {
+      const now = Date.now()
+      const wib = new Date(now + 7*3600*1000)
+      const dateStr = wib.toISOString().slice(0,10)
+      const toTs   = Math.floor(now/1000)
+      const fromTs = Math.floor(new Date(dateStr+'T01:00:00Z').getTime()/1000)
+
+      const raw = await fetchIntraday('RAJA', toTs, fromTs, 1)
+      if (!raw || raw.length === 0) { _renderMonitor(null); return }
+      const sort = [...raw].sort((a,b)=>a.unix-b.unix)
+
+      // IEP (08:45-08:59)
+      const iepC = sort.filter(c=>{const t=(c.datetime||'').slice(11,16); return t>='08:45'&&t<='08:59'})
+      const iepPrice = iepC.length ? iepC[iepC.length-1].close : null
+      const iepVol   = iepC.reduce((s,c)=>s+(c.volume||0),0)
+
+      // Open price (candle 09:00)
+      const open9 = sort.filter(c=>{const t=(c.datetime||'').slice(11,16); return t==='09:00'})
+      const openPrice = open9.length ? open9[0].open : null
+
+      // ORB (09:00-09:04)
+      const orbC = sort.filter(c=>{const t=(c.datetime||'').slice(11,16); return t>='09:00'&&t<='09:04'})
+      const orbHigh = orbC.length ? Math.max(...orbC.map(c=>c.high)) : null
+      const orbLow  = orbC.length ? Math.min(...orbC.map(c=>c.low))  : null
+
+      // ORB breakout check (09:05-09:14, deadline 09:15)
+      const postOrb = sort.filter(c=>{const t=(c.datetime||'').slice(11,16); return t>='09:05'&&t<'09:15'})
+      const brokenUp = orbHigh && postOrb.some(c=>c.close>orbHigh)
+
+      // Prev close dari daily kemarin
+      let prevClose = null
+      try {
+        const yesterday = new Date(wib.getTime() - 24*3600*1000).toISOString().slice(0,10)
+        const daily = await fetchDaily('RAJA', yesterday, yesterday)
+        if (daily && daily.length) prevClose = daily[daily.length-1].close
+      } catch(e2) { /* tidak kritis */ }
+
+      // Klasifikasi IEP gap
+      let gapCat = 'STABIL'
+      let gapPct = null
+      if (iepPrice && prevClose) {
+        gapPct = (iepPrice - prevClose) / prevClose * 100
+        if (gapPct > 0.5)       gapCat = 'UP'
+        else if (gapPct < -0.5) gapCat = 'DOWN'
+        else                    gapCat = 'STABIL'
+      }
+
+      // Exit time berbeda per kondisi gap (formula tervalidasi dari backtest)
+      // GAP UP  → exit ORB 10:00 (WLB 71.6%, avg +2.83%, R/R 4.36x)
+      // GAP DOWN → exit ORB 09:15 (WLB 81.6%, avg +2.80%, win 100%, n=17)
+      // STABIL  → SKIP, tidak trading
+      const exitOrbTime   = gapCat === 'DOWN' ? '09:15' : '10:00'
+      const exitAvoidTime = '09:15'
+
+      const timeNow = _wibTime()
+      let orbStatus
+      let exitPrice = null
+      let tradeReturn = null
+
+      if (gapCat === 'STABIL' && timeNow < '09:00') {
+        // Hanya skip kalau memang belum buka dan gap stabil
+        orbStatus = 'skip'
+      } else if (timeNow < '08:58') {
+        orbStatus = 'pre_iep'
+      } else if (timeNow < '09:00') {
+        // 08:58-08:59: IEP sudah hampir final, beri sinyal entry/skip
+        orbStatus = gapCat === 'STABIL' ? 'skip' : 'iep_confirmed'
+      } else if (timeNow < '09:05') {
+        orbStatus = gapCat === 'STABIL' ? 'skip' : 'orb_forming'
+      } else if (brokenUp) {
+        if (timeNow >= exitOrbTime) {
+          const exitC = sort.filter(c => (c.datetime||'').slice(11,16) <= exitOrbTime)
+          exitPrice = exitC.length ? exitC[exitC.length-1].close : null
+          if (openPrice && exitPrice) tradeReturn = (exitPrice - openPrice) / openPrice * 100
+          orbStatus = 'done_orb'
+        } else {
+          orbStatus = 'broken_up'
+        }
+      } else if (timeNow < '09:15') {
+        orbStatus = gapCat === 'STABIL' ? 'skip' : 'waiting'
+      } else {
+        // Setelah 09:15: kalau STABIL atau tidak ada ORB → done_avoid
+        const exitC = sort.filter(c => (c.datetime||'').slice(11,16) <= exitAvoidTime)
+        exitPrice = exitC.length ? exitC[exitC.length-1].close : null
+        if (openPrice && exitPrice) tradeReturn = (exitPrice - openPrice) / openPrice * 100
+        orbStatus = 'done_avoid'
+      }
+
+      _rajaData = { iepPrice, iepVol, openPrice, prevClose, gapCat, gapPct,
+                    orbHigh, orbLow, orbStatus, brokenUp,
+                    exitOrbTime, exitPrice, tradeReturn, timeNow }
+      window._rajaGapCat = gapCat
+
+      // ── TRIGGER ALERT RAJA ──
+      const alertKey = dateStr + '_' + orbStatus
+      if (!_rajaAlertedState[alertKey]) {
+        _rajaAlertedState[alertKey] = true
+        if (orbStatus === 'iep_confirmed' && gapCat !== 'STABIL') _playAlert('iep_forming')
+        if (orbStatus === 'broken_up')   _playAlert('orb_up')
+        if (orbStatus === 'done_avoid')  _playAlert('avoid')
+      }
+
+      _renderMonitor(_rajaData)
+    } catch(e) {
+      console.warn('[raja-monitor]', e.message)
     }
   }
 
-  window.addEventListener('ihsg:token-saved', _startAllMonitors)
-  window.addEventListener('load', () => { if (TOKEN.isSet()) _startAllMonitors() })
+  function _renderMonitor(d) {
+    const fmt    = v => v ? v.toLocaleString('id-ID') : '–'
+    const fmtVol = v => v ? (v >= 1000000 ? (v/1000000).toFixed(1)+'jt' : (v/1000).toFixed(0)+'rb') : '–'
+    const refreshEl = document.getElementById('m-refresh-time')
+    const enterBtn  = document.getElementById('m-enter-btn')
+
+    function setStep(id, state, icon) {
+      const el = document.getElementById('step-' + id)
+      if (!el) return
+      el.className = 'checklist-step ' + state
+      const ic = document.getElementById('icon-' + id)
+      if (ic) ic.textContent = icon
+    }
+
+    function setSignalBox(type, title, sub) {
+      const box = document.getElementById('signal-box')
+      const tEl = document.getElementById('signal-box-title')
+      const sEl = document.getElementById('signal-box-sub')
+      if (!box) return
+      if (!type) { box.style.display = 'none'; return }
+      box.style.display = ''
+      box.className = 'signal-box ' + type
+      if (tEl) tEl.textContent = title
+      if (sEl) sEl.textContent = sub
+    }
+
+    if (!d) {
+      setStep('iep', 'pending', '○')
+      setStep('entry', 'pending', '○')
+      setStep('orb', 'pending', '○')
+      setStep('exit', 'pending', '○')
+      if (refreshEl) refreshEl.textContent = 'Menunggu token...'
+      return
+    }
+
+    if (refreshEl) refreshEl.textContent = 'Update: ' + d.timeNow + ' WIB'
+
+    // Isi data
+    const iepPEl = document.getElementById('m-iep-price')
+    const iepVEl = document.getElementById('m-iep-vol')
+    const openEl = document.getElementById('m-open-price')
+    const orbHEl = document.getElementById('m-orb-high')
+    const orbLEl = document.getElementById('m-orb-low')
+    const gapEl  = document.getElementById('m-iep-gap')
+    if (iepPEl) iepPEl.textContent = fmt(d.iepPrice)
+    if (iepVEl) iepVEl.textContent = fmtVol(d.iepVol)
+    if (openEl) openEl.textContent = fmt(d.openPrice)
+    if (orbHEl) orbHEl.textContent = fmt(d.orbHigh)
+    if (orbLEl) orbLEl.textContent = fmt(d.orbLow)
+    if (gapEl && d.gapPct != null) {
+      const gap = d.gapPct
+      const sign = gap >= 0 ? '+' : ''
+      let label = sign + gap.toFixed(2) + '%'
+      if (d.gapCat === 'UP')     label += ' 🟢 GAP UP'
+      else if (d.gapCat === 'DOWN') label += ' 🔵 GAP DOWN'
+      else                         label += ' 🟡 STABIL'
+      gapEl.textContent = label
+      gapEl.className = 'monitor-val ' + (d.gapCat==='UP' ? 'up' : d.gapCat==='DOWN' ? 'warn' : '')
+    }
+
+    const exitTitle = document.getElementById('exit-title')
+    const exitMsg   = document.getElementById('m-exit-msg')
+    const s = d.orbStatus
+
+    if (s === 'skip') {
+      setStep('iep', 'avoid', '⚪')
+      setStep('entry', 'pending', '○')
+      setStep('orb', 'pending', '○')
+      setStep('exit', 'pending', '○')
+      if (exitTitle) exitTitle.textContent = 'SKIP — IEP Stabil'
+      if (exitMsg)   exitMsg.innerHTML = '<span style="color:var(--ghost)">WLB 50.8% — tidak trading hari ini</span>'
+      if (enterBtn)  enterBtn.classList.add('hidden')
+      setSignalBox(null)
+
+    } else if (s === 'pre_iep') {
+      setStep('iep', 'pending', '○'); setStep('entry', 'pending', '○')
+      setStep('orb', 'pending', '○'); setStep('exit', 'pending', '○')
+      if (exitTitle) exitTitle.textContent = 'Exit'
+      if (exitMsg)   exitMsg.textContent = '–'
+      if (enterBtn)  enterBtn.classList.add('hidden')
+      setSignalBox(null)
+
+    } else if (s === 'iep_confirmed') {
+      setStep('iep', 'active', '🔔'); setStep('entry', 'pending', '○')
+      setStep('orb', 'pending', '○'); setStep('exit', 'pending', '○')
+      const isEntry = d.gapCat !== 'STABIL'
+      const gapLabel = d.gapCat === 'UP' ? '🟢 GAP UP' : d.gapCat === 'DOWN' ? '🔵 GAP DOWN' : '🟡 STABIL'
+      if (exitTitle) exitTitle.textContent = isEntry ? 'Siapkan ENTRY 09:00' : 'SKIP hari ini'
+      if (exitMsg)   exitMsg.innerHTML = isEntry
+        ? `<span style="color:var(--live)">IEP final — ${gapLabel} → ENTRY di Open 09:00</span>`
+        : `<span style="color:var(--ghost)">Gap ±0.5% — tidak ada sinyal hari ini</span>`
+      if (enterBtn)  enterBtn.classList.add('hidden')
+      setSignalBox(isEntry ? 'orb-wait' : null,
+        isEntry ? `🔔 IEP FINAL — ${gapLabel}` : null,
+        isEntry ? `Gap ${d.gapPct!=null?(d.gapPct>=0?'+':'')+d.gapPct.toFixed(2)+'%':''} → ENTRY di Open 09:00, monitor ORB 09:05–09:15` : null)
+
+    } else if (s === 'orb_forming') {
+      setStep('iep', 'done', '✓'); setStep('entry', 'active', '⏰')
+      setStep('orb', 'pending', '○'); setStep('exit', 'pending', '○')
+      if (exitTitle) exitTitle.textContent = 'Exit'
+      if (exitMsg)   exitMsg.textContent = 'ORB 09:00–09:04 terbentuk...'
+      if (enterBtn)  enterBtn.classList.add('hidden')
+      setSignalBox(null)
+
+    } else if (s === 'waiting') {
+      setStep('iep', 'done', '✓'); setStep('entry', 'done', '✓')
+      setStep('orb', 'active', '👁'); setStep('exit', 'pending', '○')
+      if (exitTitle) exitTitle.textContent = 'Exit — menunggu ORB'
+      if (exitMsg)   exitMsg.textContent = 'Deadline 09:15 · belum ada breakout'
+      if (enterBtn)  enterBtn.classList.add('hidden')
+      setSignalBox('waiting-signal', '⏳ MENUNGGU KONFIRMASI ORB', 'Monitor hingga 09:15 — belum ada breakout di atas ORB High')
+
+    } else if (s === 'broken_up') {
+      setStep('iep', 'done', '✓'); setStep('entry', 'done', '✓')
+      setStep('orb', 'done', '✓'); setStep('exit', 'active', '🎯')
+      const isDown = d.gapCat === 'DOWN'
+      const extStr = isDown ? '09:15' : '10:00'
+      const wlbStr = isDown ? 'WLB 81.6%' : 'WLB 71.6%'
+      const avgStr = isDown ? 'avg +2.80%' : 'avg +2.83%'
+      if (exitTitle) exitTitle.textContent = `EXIT ${extStr} — ORB UP ✓`
+      if (exitMsg)   exitMsg.innerHTML = `<span style="color:var(--live)">${wlbStr} · ${avgStr}</span>`
+      if (enterBtn)  enterBtn.classList.remove('hidden')
+      const extLbl = d.gapCat === 'DOWN' ? '09:15' : '10:00'
+      const wlbLbl = d.gapCat === 'DOWN' ? 'WLB 81.6% · avg +2.80% · win 100%' : 'WLB 71.6% · avg +2.83% · R/R 4.36x'
+      setSignalBox('orb-confirmed',
+        '✓ ORB UP CONFIRMED — ' + (d.gapCat==='DOWN'?'GAP DOWN':'GAP UP'),
+        'HOLD posisi · Exit jam ' + extLbl + ' · ' + wlbLbl)
+
+    } else if (s === 'no_signal') {
+      setStep('iep', 'done', '✓'); setStep('entry', 'done', '✓')
+      setStep('orb', 'avoid', '✗'); setStep('exit', 'avoid', '⚠')
+      if (exitTitle) exitTitle.textContent = 'EXIT AVOID 09:15'
+      if (exitMsg)   exitMsg.innerHTML = '<span style="color:var(--down)">Tidak ada ORB · avg -0.81%</span>'
+      if (enterBtn)  enterBtn.classList.add('hidden')
+      setSignalBox('avoid-signal', '✗ AVOID — Tidak ada ORB Breakout', 'EXIT sekarang di 09:15 · avg loss hanya -0.81% (vs stay -3.56%)')
+
+    } else if (s === 'done_orb' || s === 'done_avoid') {
+      // Trade sudah selesai hari ini — tampilkan hasil
+      const isOrb = s === 'done_orb'
+      setStep('iep', 'done', '✓'); setStep('entry', 'done', '✓')
+      setStep('orb', isOrb ? 'done' : 'avoid', isOrb ? '✓' : '✗')
+      setStep('exit', isOrb ? 'done' : 'avoid', isOrb ? '✓' : '⚠')
+      if (exitTitle) exitTitle.textContent = isOrb ? `SELESAI — Exit ${d.exitOrbTime || '?'}` : 'SELESAI — Avoid 09:15'
+      if (exitMsg)   exitMsg.textContent = isOrb ? 'ORB UP terkonfirmasi' : 'Tidak ada ORB breakout'
+
+      // Tampilkan step hasil
+      const stepResult = document.getElementById('step-result')
+      const divResult  = document.getElementById('step-result-divider')
+      if (stepResult) stepResult.style.display = ''
+      if (divResult)  divResult.style.display = ''
+
+      const retRaw = d.tradeReturn
+      if (retRaw != null) {
+        const sign = retRaw >= 0 ? '+' : ''
+        const col  = retRaw >= 0 ? 'var(--live)' : 'var(--down)'
+        const icon = retRaw >= 0 ? '📈' : '📉'
+        if (document.getElementById('icon-result'))    document.getElementById('icon-result').textContent = icon
+        if (document.getElementById('result-title'))   document.getElementById('result-title').textContent = 'Hasil Trade Hari Ini'
+        if (document.getElementById('m-result-entry')) document.getElementById('m-result-entry').textContent = d.openPrice ? d.openPrice.toLocaleString('id-ID') : '–'
+        if (document.getElementById('m-result-exit'))  document.getElementById('m-result-exit').textContent = d.exitPrice ? d.exitPrice.toLocaleString('id-ID') : '–'
+        const retEl = document.getElementById('m-result-ret')
+        if (retEl) { retEl.textContent = sign + retRaw.toFixed(2) + '%'; retEl.style.color = col }
+        if (document.getElementById('m-result-type'))  document.getElementById('m-result-type').textContent = isOrb ? `ORB UP → exit ${d.exitOrbTime || '?'}` : 'AVOID → exit 09:15'
+      }
+      if (enterBtn) enterBtn.classList.add('hidden')
+    }
+  }
+
+  function _startRajaMonitor() {
+    if (_rajaMonitorTimer) clearInterval(_rajaMonitorTimer)
+    if (!_isMarketHours()) {
+      const wibNow = new Date(Date.now() + 7*3600*1000)
+      const day = wibNow.getUTCDay()
+      const tot = wibNow.getUTCHours()*60 + wibNow.getUTCMinutes()
+      const isWeekday = day !== 0 && day !== 6
+      // Fetch data hari ini kalau sudah lewat jam 09:15 (deadline ORB)
+      // sehingga hasil trade bisa ditampilkan meski pasar belum/sudah tutup
+      const isAfterDeadline = tot >= 9*60+15
+      if (isWeekday && isAfterDeadline && TOKEN.isSet()) {
+        _fetchRajaMonitor()
+      } else {
+        _renderMonitor(null)
+        const ref = document.getElementById('m-refresh-time')
+        if (ref) ref.textContent = 'Pasar tutup — aktif 08:45–16:00 WIB'
+      }
+      return
+    }
+    _fetchRajaMonitor()
+    // refresh tiap 1 menit saat jam bursa
+    _rajaMonitorTimer = setInterval(() => {
+      if (!_isMarketHours()) { clearInterval(_rajaMonitorTimer); return }
+      _fetchRajaMonitor()
+    }, 60*1000)
+  }
+
+  // Mulai monitor saat token tersedia
+  // ============================================================
+  // ALERT SUARA — Web Audio API
+  // Frekuensi & pola berbeda untuk tiap jenis sinyal
+  // ============================================================
+  function _playAlert(type) {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)()
+      const patterns = {
+        // IEP forming: 2 nada pendek lembut (siap-siap)
+        iep_forming: [{f:520,d:0.12,t:0},{f:650,d:0.12,t:0.15}],
+        // ORB UP: 3 nada naik tegas (masuk!)
+        orb_up:  [{f:440,d:0.15,t:0},{f:550,d:0.15,t:0.17},{f:660,d:0.25,t:0.35}],
+        // AVOID: 2 nada turun peringatan
+        avoid:   [{f:440,d:0.20,t:0},{f:330,d:0.30,t:0.22}],
+      }
+      const notes = patterns[type] || patterns.iep_forming
+      notes.forEach(({f,d,t}) => {
+        const osc = ctx.createOscillator()
+        const gain = ctx.createGain()
+        osc.connect(gain); gain.connect(ctx.destination)
+        osc.frequency.value = f
+        osc.type = type === 'avoid' ? 'sawtooth' : 'sine'
+        gain.gain.setValueAtTime(0, ctx.currentTime + t)
+        gain.gain.linearRampToValueAtTime(0.18, ctx.currentTime + t + 0.01)
+        gain.gain.linearRampToValueAtTime(0, ctx.currentTime + t + d)
+        osc.start(ctx.currentTime + t)
+        osc.stop(ctx.currentTime + t + d + 0.05)
+      })
+    } catch(e) { /* Audio tidak tersedia */ }
+  }
+
+  // ============================================================
+  // MBMA INTRADAY MONITOR
+  // Formula tervalidasi dari backtest 475 hari:
+  // - Gap threshold: ±1.5% (lebih tinggi dari RAJA karena volatilitas)
+  // - ORB deadline: 09:31
+  // - Exit ORB: 09:30 (baik UP maupun DOWN)
+  // - Skip STABIL: WLB ORB hanya 56-64% vs UP/DOWN 68-76%
+  // ============================================================
+  let _mbmaData = null
+  let _mbmaMonitorTimer = null
+  let _mbmaAlertedState = {}  // track state untuk avoid double alert
+
+  async function _fetchMbmaMonitor() {
+    if (!TOKEN.isSet()) return
+    try {
+      const now = Date.now()
+      const wib = new Date(now + 7*3600*1000)
+      const dateStr = wib.toISOString().slice(0,10)
+      const toTs = Math.floor(now/1000)
+      const fromTs = Math.floor(new Date(dateStr+'T01:00:00Z').getTime()/1000)
+
+      const raw = await fetchIntraday('MBMA', toTs, fromTs, 1)
+      if (!raw || raw.length === 0) { _renderMbmaMonitor(null); return }
+      const sort = [...raw].sort((a,b) => a.unix - b.unix)
+
+      // IEP (08:45-08:59)
+      const iepC = sort.filter(c => { const t=(c.datetime||'').slice(11,16); return t>='08:45'&&t<='08:59' })
+      const iepPrice = iepC.length ? iepC[iepC.length-1].close : null
+      const iepVol   = iepC.reduce((s,c) => s+(c.volume||0), 0)
+
+      // Open price (candle 09:00)
+      const open9 = sort.filter(c => (c.datetime||'').slice(11,16) === '09:00')
+      const openPrice = open9.length ? open9[0].open : null
+
+      // ORB (09:00-09:04)
+      const orbC = sort.filter(c => { const t=(c.datetime||'').slice(11,16); return t>='09:00'&&t<='09:04' })
+      const orbHigh = orbC.length ? Math.max(...orbC.map(c=>c.high)) : null
+      const orbLow  = orbC.length ? Math.min(...orbC.map(c=>c.low))  : null
+
+      // ORB breakout (09:05-09:30, deadline 09:31)
+      const postOrb = sort.filter(c => { const t=(c.datetime||'').slice(11,16); return t>='09:05'&&t<'09:31' })
+      const brokenUp = orbHigh && postOrb.some(c => c.close > orbHigh)
+
+      // Prev close dari daily kemarin
+      let prevClose = null
+      try {
+        const yesterday = new Date(wib.getTime() - 24*3600*1000).toISOString().slice(0,10)
+        const daily = await fetchDaily('MBMA', yesterday, yesterday)
+        if (daily && daily.length) prevClose = daily[daily.length-1].close
+      } catch(e2) {}
+
+      // Gap classification — threshold ±1.5% (berbeda dari RAJA ±0.5%)
+      let gapCat = 'STABIL', gapPct = null
+      if (iepPrice && prevClose) {
+        gapPct = (iepPrice - prevClose) / prevClose * 100
+        if (gapPct > 1.5)       gapCat = 'UP'
+        else if (gapPct < -1.5) gapCat = 'DOWN'
+        else                    gapCat = 'STABIL'
+      }
+
+      // Exit ORB: 09:30 untuk kedua kondisi UP dan DOWN
+      const exitOrbTime = '09:30'
+      const timeNow = _wibTime()
+      let orbStatus
+      let exitPrice = null, tradeReturn = null
+
+      if (gapCat === 'STABIL') {
+        orbStatus = 'skip'
+      } else if (timeNow < '08:58') {
+        orbStatus = 'pre_iep'
+      } else if (timeNow < '09:00') {
+        // 08:58-08:59: IEP sudah hampir final, beri sinyal entry/skip
+        orbStatus = 'iep_confirmed'
+      } else if (timeNow < '09:05') {
+        orbStatus = 'orb_forming'
+      } else if (brokenUp) {
+        if (timeNow >= exitOrbTime) {
+          const exitC = sort.filter(c => (c.datetime||'').slice(11,16) <= exitOrbTime)
+          exitPrice = exitC.length ? exitC[exitC.length-1].close : null
+          if (openPrice && exitPrice) tradeReturn = (exitPrice - openPrice) / openPrice * 100
+          orbStatus = 'done_orb'
+        } else {
+          orbStatus = 'broken_up'
+        }
+      } else if (timeNow < '09:31') {
+        orbStatus = 'waiting'
+      } else {
+        const exitC = sort.filter(c => (c.datetime||'').slice(11,16) <= '09:15')
+        exitPrice = exitC.length ? exitC[exitC.length-1].close : null
+        if (openPrice && exitPrice) tradeReturn = (exitPrice - openPrice) / openPrice * 100
+        orbStatus = 'done_avoid'
+      }
+
+      _mbmaData = { iepPrice, iepVol, openPrice, prevClose, gapCat, gapPct,
+                    orbHigh, orbLow, orbStatus, brokenUp, exitOrbTime,
+                    exitPrice, tradeReturn, timeNow }
+
+      // ── TRIGGER ALERT ──
+      const alertKey = dateStr + '_' + orbStatus
+      if (!_mbmaAlertedState[alertKey]) {
+        _mbmaAlertedState[alertKey] = true
+        if (orbStatus === 'iep_confirmed' && gapCat !== 'STABIL') _playAlert('iep_forming')
+        if (orbStatus === 'broken_up')   _playAlert('orb_up')
+        if (orbStatus === 'done_avoid')  _playAlert('avoid')
+      }
+
+      _renderMbmaMonitor(_mbmaData)
+    } catch(e) { console.warn('[mbma-monitor]', e.message) }
+  }
+
+  function _renderMbmaMonitor(d) {
+    const fmt    = v => v ? v.toLocaleString('id-ID') : '–'
+    const fmtVol = v => v ? (v>=1000000?(v/1000000).toFixed(1)+'jt':(v/1000).toFixed(0)+'rb') : '–'
+    const ref = document.getElementById('mb-refresh-time')
+    const prefix = 'mb-'
+
+    function setStep(id, state, icon) {
+      const el = document.getElementById(prefix+'step-'+id)
+      if (el) el.className = 'checklist-step '+state
+      const ic = document.getElementById(prefix+'icon-'+id)
+      if (ic) ic.textContent = icon
+    }
+    function setSignalBox(type, title, sub) {
+      const box=document.getElementById('mb-signal-box')
+      const tEl=document.getElementById('mb-signal-box-title')
+      const sEl=document.getElementById('mb-signal-box-sub')
+      if (!box) return
+      if (!type) { box.style.display='none'; return }
+      box.style.display=''; box.className='signal-box '+type
+      if (tEl) tEl.textContent=title
+      if (sEl) sEl.textContent=sub
+    }
+    function el(id) { return document.getElementById(prefix+id) }
+
+    if (!d) {
+      ['iep','entry','orb','exit'].forEach(s=>setStep(s,'pending','○'))
+      setSignalBox(null)
+      if (ref) ref.textContent='Menunggu token...'
+      return
+    }
+
+    if (ref) ref.textContent = 'Update: '+d.timeNow+' WIB'
+
+    // Isi data
+    if (el('iep-price')) el('iep-price').textContent = fmt(d.iepPrice)
+    if (el('iep-vol'))   el('iep-vol').textContent   = fmtVol(d.iepVol)
+    if (el('open-price'))el('open-price').textContent= fmt(d.openPrice)
+    if (el('orb-high'))  el('orb-high').textContent  = fmt(d.orbHigh)
+    if (el('orb-low'))   el('orb-low').textContent   = fmt(d.orbLow)
+    const gapEl = el('iep-gap')
+    if (gapEl && d.gapPct != null) {
+      const g=d.gapPct, sign=g>=0?'+':''
+      let label=sign+g.toFixed(2)+'%'
+      if (d.gapCat==='UP')     label+=' 🟢 GAP UP'
+      else if (d.gapCat==='DOWN') label+=' 🔵 GAP DOWN'
+      else                         label+=' 🟡 STABIL'
+      gapEl.textContent=label
+      gapEl.className='monitor-val '+(d.gapCat==='UP'?'up':d.gapCat==='DOWN'?'warn':'')
+    }
+
+    const exitTitle=el('exit-title'), exitMsg=el('exit-msg')
+    const s=d.orbStatus
+
+    if (s==='skip') {
+      setStep('iep','avoid','⚪'); setStep('entry','pending','○')
+      setStep('orb','pending','○'); setStep('exit','pending','○')
+      if (exitTitle) exitTitle.textContent='SKIP — IEP Stabil'
+      if (exitMsg)   exitMsg.innerHTML='<span style="color:var(--ghost)">Gap ±1.5% — tidak trading hari ini</span>'
+      setSignalBox(null)
+    } else if (s==='pre_iep') {
+      setStep('iep','pending','○'); setStep('entry','pending','○')
+      setStep('orb','pending','○'); setStep('exit','pending','○')
+      if (exitTitle) exitTitle.textContent='Exit'
+      if (exitMsg)   exitMsg.textContent='–'
+      setSignalBox(null)
+    } else if (s==='iep_confirmed') {
+      setStep('iep','active','🔔'); setStep('entry','pending','○')
+      setStep('orb','pending','○'); setStep('exit','pending','○')
+      const isEntry = d.gapCat !== 'STABIL'
+      const gapLabel = d.gapCat==='UP'?'🟢 GAP UP':d.gapCat==='DOWN'?'🔵 GAP DOWN':'🟡 STABIL'
+      if (exitTitle) exitTitle.textContent = isEntry ? 'Siapkan ENTRY 09:00' : 'SKIP hari ini'
+      if (exitMsg)   exitMsg.innerHTML = isEntry
+        ? `<span style="color:var(--live)">IEP final — ${gapLabel} → ENTRY di Open 09:00</span>`
+        : `<span style="color:var(--ghost)">Gap ±1.5% — tidak ada sinyal hari ini</span>`
+      setSignalBox(isEntry ? 'orb-wait' : null,
+        isEntry ? `🔔 IEP FINAL — ${gapLabel}` : null,
+        isEntry ? `Gap ${d.gapPct!=null?(d.gapPct>=0?'+':'')+d.gapPct.toFixed(2)+'%':''} → ENTRY di Open 09:00, monitor ORB 09:05–09:31` : null)
+    } else if (s==='orb_forming') {
+      setStep('iep','done','✓'); setStep('entry','active','⏰')
+      setStep('orb','pending','○'); setStep('exit','pending','○')
+      if (exitTitle) exitTitle.textContent='Exit'
+      if (exitMsg)   exitMsg.textContent='ORB 09:00–09:04 terbentuk...'
+      setSignalBox(null)
+    } else if (s==='waiting') {
+      setStep('iep','done','✓'); setStep('entry','done','✓')
+      setStep('orb','active','👁'); setStep('exit','pending','○')
+      if (exitTitle) exitTitle.textContent='Exit — menunggu ORB'
+      if (exitMsg)   exitMsg.textContent='Deadline 09:31 · belum ada breakout'
+      setSignalBox('waiting-signal','⏳ MENUNGGU KONFIRMASI ORB','Monitor hingga 09:31 — belum ada breakout di atas ORB High')
+    } else if (s==='broken_up') {
+      setStep('iep','done','✓'); setStep('entry','done','✓')
+      setStep('orb','done','✓'); setStep('exit','active','🎯')
+      if (exitTitle) exitTitle.textContent='EXIT 09:30 — ORB UP ✓'
+      if (exitMsg)   exitMsg.innerHTML='<span style="color:var(--live)">WLB 76.9% · avg +2.50% · win 90%</span>'
+      setSignalBox('orb-confirmed','✓ ORB UP CONFIRMED — '+(d.gapCat==='DOWN'?'GAP DOWN':'GAP UP'),
+        'HOLD posisi · Exit jam 09:30 · WLB 76.9% · avg +2.50%')
+    } else if (s==='done_avoid') {
+      setStep('iep','done','✓'); setStep('entry','done','✓')
+      setStep('orb','avoid','✗'); setStep('exit','avoid','⚠')
+      if (exitTitle) exitTitle.textContent='EXIT AVOID 09:15'
+      if (exitMsg)   exitMsg.innerHTML='<span style="color:var(--down)">Tidak ada ORB · avg -0.83%</span>'
+      setSignalBox('avoid-signal','✗ AVOID — Tidak ada ORB Breakout','EXIT di 09:15 · avg loss -0.83% (WLB avoid 76.3%)')
+    } else if (s==='done_orb' || s==='done_avoid') {
+      const isOrb = s==='done_orb'
+      setStep('iep','done','✓'); setStep('entry','done','✓')
+      setStep('orb',isOrb?'done':'avoid',isOrb?'✓':'✗')
+      setStep('exit',isOrb?'done':'avoid',isOrb?'✓':'⚠')
+      if (exitTitle) exitTitle.textContent=isOrb?'SELESAI — Exit 09:30':'SELESAI — Avoid 09:15'
+      if (exitMsg)   exitMsg.textContent=isOrb?'ORB UP terkonfirmasi':'Tidak ada ORB breakout'
+      setSignalBox(null)
+      // Tampilkan hasil trade
+      const sr=document.getElementById('mb-step-result')
+      const dr=document.getElementById('mb-step-result-divider')
+      if (sr) sr.style.display=''
+      if (dr) dr.style.display=''
+      if (d.tradeReturn != null) {
+        const sign=d.tradeReturn>=0?'+':'', col=d.tradeReturn>=0?'var(--live)':'var(--down)'
+        const icon=d.tradeReturn>=0?'📈':'📉'
+        if (el('icon-result')) el('icon-result').textContent=icon
+        if (el('result-title')) el('result-title').textContent='Hasil Trade Hari Ini'
+        if (el('result-entry')) el('result-entry').textContent=fmt(d.openPrice)
+        if (el('result-exit'))  el('result-exit').textContent=fmt(d.exitPrice)
+        const retEl=el('result-ret')
+        if (retEl) { retEl.textContent=sign+d.tradeReturn.toFixed(2)+'%'; retEl.style.color=col }
+        if (el('result-type')) el('result-type').textContent=isOrb?'ORB UP → exit 09:30':'AVOID → exit 09:15'
+      }
+    }
+  }
+
+  function _startMbmaMonitor() {
+    if (_mbmaMonitorTimer) clearInterval(_mbmaMonitorTimer)
+    if (!_isMarketHours()) {
+      const wibNow = new Date(Date.now() + 7*3600*1000)
+      const day = wibNow.getUTCDay()
+      const tot = wibNow.getUTCHours()*60 + wibNow.getUTCMinutes()
+      const isWeekday = day !== 0 && day !== 6
+      const isAfterDeadline = tot >= 9*60+31  // setelah deadline ORB MBMA
+      if (isWeekday && isAfterDeadline && TOKEN.isSet()) {
+        _fetchMbmaMonitor()
+      } else {
+        _renderMbmaMonitor(null)
+        const ref = document.getElementById('mb-refresh-time')
+        if (ref) ref.textContent = 'Pasar tutup — aktif 08:45–16:00 WIB'
+      }
+      return
+    }
+    _fetchMbmaMonitor()
+    _mbmaMonitorTimer = setInterval(() => {
+      if (!_isMarketHours()) { clearInterval(_mbmaMonitorTimer); return }
+      _fetchMbmaMonitor()
+    }, 60*1000)
+  }
+
+  onReady(_startAllMonitors)
 
   // ============================================================
   // SEKSI 1: RENDER FEATURE LIST
   // ============================================================
+
+  // Render header standar (breadcrumb + token status)
+  renderHeader(document.getElementById('app-header'), [
+    { label: 'IHSG Suite' }
+  ])
 
   const listEl  = document.getElementById('featureList')
   const countEl = document.getElementById('terminalCount')
@@ -879,66 +1434,6 @@
   // SEKSI 3: TOKEN
   // ============================================================
 
-  const tokenBtn    = document.getElementById('tokenBtn')
-  const tokenBox    = document.getElementById('tokenBox')
-  const tokenInput  = document.getElementById('tokenInput')
-  const tokenSaveBtn= document.getElementById('tokenSave')
-
-  function _renderTokenBtn() {
-    // Tampilkan sisa waktu token — sama persis dengan cara header.js di fitur lain
-    // Prioritas: claim exp dari JWT, fallback ke TTL 24 jam dari waktu set
-    const TOKEN_TTL_MS = 24 * 60 * 60 * 1000
-    const expMs = TOKEN.getExpiryMs ? TOKEN.getExpiryMs() : null
-    let remaining = null
-    if (expMs !== null) {
-      remaining = expMs - Date.now()
-    } else if (TOKEN.elapsedMs) {
-      const elapsed = TOKEN.elapsedMs()
-      remaining = elapsed !== null ? TOKEN_TTL_MS - elapsed : null
-    }
-    if (remaining !== null && remaining <= 0) {
-      tokenBtn.textContent = '⚠ Token kadaluarsa'
-      tokenBtn.classList.remove('btn-primary')
-    } else if (remaining !== null) {
-      const h = Math.floor(remaining / 3600000)
-      const m = Math.floor((remaining % 3600000) / 60000)
-      const sisaTxt = h > 0 ? `${h}j ${m}m` : `${m}m`
-      tokenBtn.textContent = `✓ Token (sisa ${sisaTxt})`
-    } else {
-      tokenBtn.textContent = TOKEN.isSet() ? '✓ Token' : 'Token'
-    }
-    tokenBtn.classList.toggle('btn-primary', TOKEN.isSet())
-  }
-
-  tokenBtn.addEventListener('click', () => {
-    tokenBox.classList.toggle('hidden')
-    if (!tokenBox.classList.contains('hidden')) tokenInput.focus()
-  })
-
-  tokenSaveBtn.addEventListener('click', () => {
-    const v = tokenInput.value.trim()
-    if (!v) return
-    saveTokenEverywhere(v)
-    _renderTokenBtn()
-    tokenBox.classList.add('hidden')
-    tokenInput.value = ''
-    _loadMarketStatus()
-  })
-
-  tokenInput.addEventListener('keydown', e => { if (e.key === 'Enter') tokenSaveBtn.click() })
-
-  _renderTokenBtn()
-
-  window.addEventListener('ihsg:token-saved', () => { _renderTokenBtn(); _loadMarketStatus() })
-  syncTokenFromSheetsIfNeeded()
-
-  // ============================================================
-  // SEKSI 4: STATUS PASAR
-  // ============================================================
-
-  const marketBadge = document.getElementById('marketBadge')
-  const marketDot    = document.getElementById('marketDot')
-  const marketLabel  = document.getElementById('marketLabel')
 
   async function _loadMarketStatus() {
     if (!TOKEN.isSet()) { marketLabel.textContent = 'Token belum diisi'; return }
