@@ -901,6 +901,20 @@ async function _fetchBsjpMonitor() {
 }
 
 
+// Konstanta BSJP — di scope module agar bisa diakses _fetchBsjpMonitor dan _renderBsjpMonitor
+const KONDISI_LABEL = {
+    buy_strong:  '🟢 NET BUY KUAT',
+    buy_weak:    '🟡 NET BUY LEMAH',
+    sell_strong: '🟠 NET SELL KUAT',
+    sell_weak:   '⚪ NET SELL LEMAH',
+  }
+const KONDISI_STAT = {
+    buy_strong:  'WLB 67.9%★ · avg +2.05%',
+    buy_weak:    'WLB 49.7% · avg +1.15%',
+    sell_strong: 'WLB 48.8% · avg +1.40%',
+    sell_weak:   'WLB 61.1% · avg +0.50%',
+  }
+
 function _renderBsjpMonitor(d) {
   const fmt = v => v ? v.toLocaleString('id-ID') : '–'
   const fmtM = v => v ? (v/1e9).toFixed(1)+'M' : '–'
@@ -983,18 +997,6 @@ function _renderBsjpMonitor(d) {
   }
 
   // Step 2: Foreign flow (tersedia setelah 16:30)
-  const KONDISI_LABEL = {
-    buy_strong:  '🟢 NET BUY KUAT',
-    buy_weak:    '🟡 NET BUY LEMAH',
-    sell_strong: '🟠 NET SELL KUAT',
-    sell_weak:   '⚪ NET SELL LEMAH',
-  }
-  const KONDISI_STAT = {
-    buy_strong:  'WLB 67.9%★ · avg +2.05%',
-    buy_weak:    'WLB 49.7% · avg +1.15%',
-    sell_strong: 'WLB 48.8% · avg +1.40%',
-    sell_weak:   'WLB 61.1% · avg +0.50%',
-  }
   if (d.kategori && d.isEntryDay && d.timeNow >= '19:00') {
     setStep('foreign','done','✓')
     const netSign = d.netForeign >= 0 ? '+' : ''
@@ -1084,6 +1086,7 @@ function _startBsjp() {
 </script>
 </body>
 </html>
+
 
 
 
