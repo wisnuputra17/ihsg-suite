@@ -128,6 +128,9 @@
             <input type="radio" name="tf" value="daily" checked> Daily
           </label>
           <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
+            <input type="radio" name="tf" value="1m"> 1 Menit
+          </label>
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
             <input type="radio" name="tf" value="30m"> 30 Menit
           </label>
           <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
@@ -256,6 +259,7 @@
   let _activeTf = 'daily'
   const TF_NOTES = {
     'daily': 'Daily: histori penuh sejak listing, semua indikator tersedia.',
+    '1m':    '1 Menit: max ~7 hari per request, multi-batch otomatis. Output format sama dengan data analisa scalping (IEP/ORB).',
     '30m':   '30 Menit: max ~30 hari per request, multi-batch otomatis. Indikator yang tersedia: RSI, MACD, Volume, MA Volume.',
     '1h':    '1 Jam: max ~30 hari per request, multi-batch otomatis. Indikator yang tersedia: RSI, MACD, Volume, MA Volume.',
   }
@@ -331,7 +335,7 @@
       const fromD = new Date(dateFromEl.value)
       const toD   = new Date(dateToEl.value)
       const totalDays = Math.max(1, Math.round((toD - fromD) / 86400000))
-      const batchDays = 30  // 30m dan 1h sama-sama 30 hari per batch
+      const batchDays = _activeTf === '1m' ? 7 : 30  // 1m=7 hari, 30m/1h=30 hari
       const batches = Math.ceil(totalDays / batchDays)
       let html = `<b>${_currentSym}</b> · ${_activeTf} · ~${totalDays} hari kalender dalam rentang.<br>`
       html += `OHLC Intraday: <b>~${batches} request</b> (batch ${batchDays} hari, max ~${batches * batchDays * (24 / (_activeTf === '30m' ? 0.5 : 1) * 7)} candle).<br>`
@@ -394,8 +398,8 @@
     // ── INTRADAY: cabang terpisah, tidak perlu warmup daily ──
     if (_activeTf !== 'daily') {
       try {
-        const mult = _activeTf === '30m' ? 30 : 60
-        const batchMs = 30 * 24 * 3600 * 1000   // 30 hari per batch
+        const mult = _activeTf === '1m' ? 1 : _activeTf === '30m' ? 30 : 60
+        const batchMs = (_activeTf === '1m' ? 7 : 30) * 24 * 3600 * 1000   // 1m=7hr, 30m/1h=30hr
         const fromTs = Math.floor(new Date(from).getTime() / 1000)
         const toTs   = Math.floor(new Date(to + 'T23:59:59').getTime() / 1000)
 
@@ -754,3 +758,4 @@
 
 </body>
 </html>
+
