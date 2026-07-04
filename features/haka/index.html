@@ -157,6 +157,7 @@
   import { TOKEN, SYMS, LQ45, IDX80, EMITEN_INFO, has, setEmitenInfo } from '../../shared/store.js'
   import { fetchEmitenJson } from '../../shared/api.js'
   import { renderHeader, refreshTokenStatus, openTokenPopover, whenTokenReady } from '../../shared/header.js'
+import { onReady } from '../../shared/token.js'
   import { fmtRp, fmtNum } from '../../shared/format.js'
   import { createMonitor } from './poll.js'
   import {
@@ -177,7 +178,7 @@
       { label: 'IHSG Suite', href: '../../index.html' },
       { label: 'HAKA & HAKI' }
     ])
-    window.addEventListener('ihsg:token-saved', refreshTokenStatus)
+    onReady(refreshTokenStatus)
 
     ensureDefaultCards() // sinkron, in-memory saja -- card multi + 5 slot kosong langsung siap
     _bindAddCard()
