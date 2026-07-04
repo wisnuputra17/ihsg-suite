@@ -517,21 +517,25 @@ async function runAnalisa() {
 
   try {
     // ── 1. Fetch intraday 1m ──
-    const fromTs = Math.floor(new Date(dateFrom + 'T01:00:00Z').getTime() / 1000)
-    const toTs   = Math.floor(new Date(dateTo   + 'T17:00:00Z').getTime() / 1000)
+    // Timestamp: fromTs = akhir periode, toTs = awal periode (API konvensi terbalik)
+    // Kalau dateTo = hari ini, pakai now() agar tidak future timestamp
+    const nowTs = Math.floor(Date.now() / 1000)
+    const dateToTs = Math.floor(new Date(dateTo + 'T09:00:00Z').getTime() / 1000) + 7 * 3600 // jam 16:00 WIB
+    const fromTs = Math.min(dateToTs, nowTs)  // tidak boleh future
+    const toTs   = Math.floor(new Date(dateFrom + 'T02:00:00Z').getTime() / 1000) // jam 09:00 WIB
     const batchMs = 7 * 24 * 3600 * 1000
-    const totalMs = (toTs - fromTs) * 1000
+    const totalMs = (fromTs - toTs) * 1000
     const numBatches = Math.ceil(totalMs / batchMs)
 
     const allCandles = []; const seen = new Set()
     for (let b = 0; b < numBatches; b++) {
-      const bTo   = toTs - b * batchMs / 1000
-      const bFrom = Math.max(fromTs, toTs - (b+1) * batchMs / 1000)
-      if (bFrom >= bTo) break  // jangan kirim request invalid
+      const batchTo   = fromTs - b * batchMs / 1000          // lebih baru
+      const batchFrom = Math.max(toTs, fromTs - (b+1) * batchMs / 1000)  // lebih lama
+      if (batchFrom >= batchTo) break
       setProgress(5 + Math.round(b/numBatches * 40))
       runBtn.textContent = `⏳ Batch ${b+1}/${numBatches}...`
       try {
-        const cs = await fetchIntraday(sym, bTo, bFrom, 1)
+        const cs = await fetchIntraday(sym, batchTo, batchFrom, 1)
         for (const c of cs) { if (!seen.has(c.unix)) { seen.add(c.unix); allCandles.push(c) } }
       } catch(e) { if (e.code === 'EMPTY_RESPONSE') break; throw e }
     }
@@ -857,4 +861,5 @@ onReady(() => {})
 </script>
 </body>
 </html>
+
 
