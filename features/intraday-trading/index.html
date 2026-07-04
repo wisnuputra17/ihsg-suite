@@ -124,11 +124,11 @@
 
     <!-- MODE TOGGLE -->
     <div class="mode-toggle" style="display:flex;gap:8px;margin-bottom:16px;">
-      <button class="mode-btn active" data-mode="intraday" onclick="window._setMode('intraday')"
+      <button class="mode-btn active" data-mode="scalping" onclick="window._setMode('scalping')"
         style="font-family:var(--f-mono);font-size:11px;font-weight:700;padding:5px 14px;
                border-radius:4px;border:1px solid var(--live);background:rgba(74,222,128,0.12);
                color:var(--live);cursor:pointer;">
-        📈 Intraday
+        📈 Scalping Pagi
       </button>
       <button class="mode-btn" data-mode="bsjp" onclick="window._setMode('bsjp')"
         style="font-family:var(--f-mono);font-size:11px;font-weight:700;padding:5px 14px;
@@ -143,7 +143,7 @@
     </div>
 
     <!-- INTRADAY SECTION -->
-    <div id="intraday-section">
+    <div id="scalping-section">
       <div class="cards-grid" id="cards-grid">
         <!-- Cards di-generate oleh JS -->
       </div>
@@ -178,7 +178,7 @@ window._setMode = function(mode) {
   document.querySelectorAll('.mode-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.mode === mode)
   })
-  document.getElementById('intraday-section').style.display = mode==='intraday' ? '' : 'none'
+  document.getElementById('scalping-section').style.display = mode==='scalping' ? '' : 'none'
   document.getElementById('bsjp-section').style.display    = mode==='bsjp'     ? '' : 'none'
 }
 
@@ -1086,6 +1086,7 @@ function _startBsjp() {
 </script>
 </body>
 </html>
+
 
 
 
