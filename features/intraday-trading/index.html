@@ -763,7 +763,49 @@ async function _fetchBsjpMonitor() {
     const wib = new Date(now + 7*3600*1000)
     const dateStr = wib.toISOString().slice(0,10)
     const timeNow = _wibTime()
-    const toTs = Math.floor(now/1000)
+    const dayOfWeek = wib.getUTCDay() // 0=Minggu, 6=Sabtu
+
+    // Baca posisi tersimpan dari localStorage
+    const savedEntryDate  = localStorage.getItem('bsjp_entry_date')
+    const savedEntryPrice = parseFloat(localStorage.getItem('bsjp_entry_price') || '0')
+
+    // Kalau hari ini weekend DAN ada posisi terbuka dari hari kerja sebelumnya
+    // → tampilkan status "posisi terbuka, menunggu hari kerja berikutnya"
+    if ((dayOfWeek === 0 || dayOfWeek === 6) && savedEntryDate && savedEntryDate !== dateStr) {
+      // Fetch foreign dari hari entry (bukan hari ini yang weekend)
+      let fb=0, fs=0, netForeign=0, magnitude=0, kategori=null, exitTime=null
+      try {
+        const dailyData = await fetchDaily('RAJA', savedEntryDate, savedEntryDate)
+        if (dailyData && dailyData.length) {
+          const d = dailyData[dailyData.length-1]
+          fb = d.foreignbuy || 0; fs = d.foreignsell || 0
+          netForeign = fb - fs
+          const closePrice = savedEntryPrice || 1
+          magnitude = Math.abs(netForeign) / (closePrice * 1e8) * 100
+          const isNetBuy = fb > fs
+          const isStrong = magnitude >= BSJP_P75_MAG
+          if (isNetBuy && isStrong)  kategori = 'buy_strong'
+          else if (isNetBuy)         kategori = 'buy_weak'
+          else if (isStrong)         kategori = 'sell_strong'
+          else                       kategori = 'sell_weak'
+          exitTime = BSJP_EXIT_MAP[kategori]
+        }
+      } catch(e2) {}
+
+      _renderBsjpMonitor({
+        entryPrice: savedEntryPrice, fb, fs, netForeign, magnitude,
+        kategori, exitTime, exitPrice: null, tradeReturn: null,
+        timeNow, dateStr,
+        foreignReady: (fb+fs) > 0,
+        isEntryDay: false,
+        isExitDay: false,
+        isWeekend: true,
+        entryDate: savedEntryDate,
+      })
+      return
+    }
+
+    const toTs   = Math.floor(now/1000)
     const fromTs = Math.floor(new Date(dateStr+'T01:00:00Z').getTime()/1000)
 
     const raw = await fetchIntraday('RAJA', toTs, fromTs, 1)
@@ -874,7 +916,39 @@ function _renderBsjpMonitor(d) {
 
   const t=d.timeNow
 
-  // Step 1: Entry (setelah 16:00)
+  // ── Weekend dengan posisi terbuka ──
+  if (d.isWeekend && d.entryPrice) {
+    setStep('entry','done','✓')
+    $v('bsjp-entry-price', fmt(d.entryPrice))
+    if (d.kategori && d.foreignReady) {
+      setStep('foreign','done','✓')
+      const netSign = d.netForeign >= 0 ? '+' : ''
+      $v('bsjp-net-foreign', netSign+fmtM(d.netForeign))
+      $v('bsjp-magnitude', d.magnitude.toFixed(3)+'%'+(d.magnitude>=BSJP_P75_MAG?' (KUAT)':' (lemah)'))
+      $v('bsjp-kondisi', KONDISI_LABEL[d.kategori]||'–')
+      const fl=document.getElementById('bsjp-foreign-label')
+      if (fl) {
+        fl.textContent=KONDISI_LABEL[d.kategori]
+        fl.style.color=d.kategori==='buy_strong'?'var(--live)':d.kategori==='buy_weak'?'#86efac':d.kategori==='sell_strong'?'#f97316':'var(--ghost)'
+      }
+      setStep('exit','active','📅')
+      $v('bsjp-exit-label','Exit Senin jam '+d.exitTime)
+      $v('bsjp-exit-time', d.exitTime)
+      $v('bsjp-exit-stat', KONDISI_STAT[d.kategori]||'–')
+      setBanner('entry','🌙 POSISI TERBUKA (weekend) — Exit Senin jam '+d.exitTime+' · '+(KONDISI_STAT[d.kategori]||''))
+    } else {
+      setStep('foreign','active','⏳')
+      $v('bsjp-net-foreign', 'Data dari hari entry ('+d.entryDate+')')
+      $v('bsjp-magnitude', '–'); $v('bsjp-kondisi', '–')
+      setStep('exit','pending','○')
+      setBanner(null)
+    }
+    const ref=document.getElementById('bsjp-refresh')
+    if (ref) ref.textContent='Weekend — posisi dari '+d.entryDate
+    return
+  }
+
+  // ── Hari kerja biasa ──
   if (t >= '16:00' && d.entryPrice) {
     setStep('entry','done','✓')
     $v('bsjp-entry-price', fmt(d.entryPrice))
@@ -988,6 +1062,7 @@ function _startBsjp() {
 </script>
 </body>
 </html>
+
 
 
 
