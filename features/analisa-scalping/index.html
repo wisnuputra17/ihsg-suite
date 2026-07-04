@@ -324,11 +324,51 @@
           <input type="radio" name="entry-type" value="open" checked> Open 09:00
         </label>
         <label class="checkbox-row">
-          <input type="radio" name="entry-type" value="custom"> Jam custom
+          <input type="radio" name="entry-type" value="interval"> Interval 5 menit
         </label>
-        <div class="sub-config" id="entry-custom-config" style="display:none;">
-          <input class="input-sm" id="entry-from" value="09:00" style="width:55px"> –
-          <input class="input-sm" id="entry-to" value="09:30" style="width:55px">
+        <div class="sub-config" id="entry-interval-config" style="display:none;">
+          <select class="select-sm" id="entry-interval-from">
+            <option>09:00</option><option>09:05</option><option>09:10</option>
+            <option>09:15</option><option>09:20</option><option>09:25</option>
+            <option>09:30</option><option>09:35</option><option>09:40</option>
+            <option>09:45</option><option>09:50</option><option>09:55</option>
+            <option>10:00</option><option>10:05</option><option>10:10</option>
+            <option>10:15</option>
+          </select>
+          –
+          <select class="select-sm" id="entry-interval-to">
+            <option>09:05</option><option>09:10</option><option>09:15</option>
+            <option>09:20</option><option>09:25</option><option>09:30</option>
+            <option>09:35</option><option>09:40</option><option>09:45</option>
+            <option>09:50</option><option>09:55</option><option>10:00</option>
+            <option>10:05</option><option>10:10</option><option selected>10:15</option>
+          </select>
+        </div>
+        <label class="checkbox-row">
+          <input type="radio" name="entry-type" value="orb-up"> Saat ORB Up confirmed
+        </label>
+        <div class="sub-config" id="entry-orb-config" style="display:none; flex-direction:column; gap:4px;">
+          <span style="color:var(--ghost);font-size:10px">Entry di close candle pertama yang break ORB high</span>
+          <div style="display:flex;align-items:center;gap:4px;">
+            deadline <select class="select-sm" id="entry-orb-deadline">
+              <option>09:06</option><option>09:11</option>
+              <option selected>09:16</option><option>09:21</option><option>09:31</option>
+            </select>
+          </div>
+        </div>
+        <label class="checkbox-row">
+          <input type="radio" name="entry-type" value="vol-surge"> Saat Volume Surge
+        </label>
+        <div class="sub-config" id="entry-vol-config" style="display:none; flex-direction:column; gap:4px;">
+          <span style="color:var(--ghost);font-size:10px">Entry saat volume candle ≥ X× rata-rata candle sebelumnya</span>
+          <div style="display:flex;align-items:center;gap:4px;">
+            vol ≥ <input class="input-sm" id="entry-vol-mult" value="3" style="width:40px">x
+            dalam window
+            <select class="select-sm" id="entry-vol-window">
+              <option>09:00</option><option>09:05</option>
+              <option selected>09:15</option><option>09:30</option><option>10:00</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -447,11 +487,13 @@ Object.entries(toggleMap).forEach(([cbId, divId]) => {
   update()
 })
 
-// Entry custom
+// Entry type toggle
 document.querySelectorAll('input[name=entry-type]').forEach(r => {
   r.addEventListener('change', () => {
-    document.getElementById('entry-custom-config').style.display =
-      document.querySelector('input[name=entry-type]:checked').value === 'custom' ? 'flex' : 'none'
+    const val = document.querySelector('input[name=entry-type]:checked').value
+    document.getElementById('entry-interval-config').style.display = val === 'interval' ? 'flex' : 'none'
+    document.getElementById('entry-orb-config').style.display      = val === 'orb-up'   ? 'flex' : 'none'
+    document.getElementById('entry-vol-config').style.display      = val === 'vol-surge'? 'flex' : 'none'
   })
 })
 
@@ -628,9 +670,12 @@ async function runAnalisa() {
     const useTrend   = document.getElementById('filter-trend').checked
     const trendDir   = document.querySelector('input[name=trend-dir]:checked')?.value || 'above'
     const maPeriod   = parseInt(document.getElementById('ma-period').value) || 20
-    const entryType  = document.querySelector('input[name=entry-type]:checked').value
-    const entryFrom  = document.getElementById('entry-from').value || '09:00'
-    const entryTo    = document.getElementById('entry-to').value || '09:30'
+    const entryType      = document.querySelector('input[name=entry-type]:checked').value
+    const entryIntFrom   = document.getElementById('entry-interval-from').value || '09:00'
+    const entryIntTo     = document.getElementById('entry-interval-to').value   || '10:15'
+    const entryOrbDl     = document.getElementById('entry-orb-deadline').value  || '09:16'
+    const entryVolMult   = parseFloat(document.getElementById('entry-vol-mult').value) || 3
+    const entryVolWindow = document.getElementById('entry-vol-window').value    || '09:15'
     const useOrb     = document.getElementById('use-orb').checked
     const orbDeadline= document.getElementById('orb-deadline').value
     const exitOrbTime= document.getElementById('exit-orb').value
@@ -699,16 +744,46 @@ async function runAnalisa() {
         if (trendDir === 'below' && iepPrice >= maVal) continue
       }
 
-      // Entry price
+      // Entry price sesuai tipe
       let entryPrice = null
+
       if (entryType === 'open') {
+        // Open 09:00
         entryPrice = orbC[0].open
-      } else {
-        const entryCands = day.filter(c => {
+
+      } else if (entryType === 'interval') {
+        // Candle pertama dalam window interval
+        const cands = day.filter(c => {
           const t = c.datetime.slice(11,16)
-          return t >= entryFrom && t <= entryTo
+          return t >= entryIntFrom && t <= entryIntTo
         })
-        if (entryCands.length) entryPrice = entryCands[0].open
+        if (cands.length) entryPrice = cands[0].open
+
+      } else if (entryType === 'orb-up') {
+        // Close candle pertama yang break ORB high sebelum deadline
+        const postOrb2 = day.filter(c => {
+          const t = c.datetime.slice(11,16)
+          return t >= '09:05' && t < entryOrbDl
+        })
+        const breakC = postOrb2.find(c => c.close > orbHigh)
+        if (breakC) entryPrice = breakC.close
+
+      } else if (entryType === 'vol-surge') {
+        // Candle dengan volume ≥ X× rata-rata candle sebelumnya dalam window
+        const windowC = day.filter(c => {
+          const t = c.datetime.slice(11,16)
+          return t >= '09:00' && t <= entryVolWindow
+        })
+        if (windowC.length >= 3) {
+          // Rata-rata volume semua candle sebelum masing-masing
+          for (let ci = 1; ci < windowC.length; ci++) {
+            const prevAvg = windowC.slice(0, ci).reduce((s,c)=>s+c.volume,0) / ci
+            if (windowC[ci].volume >= prevAvg * entryVolMult) {
+              entryPrice = windowC[ci].close  // entry di close candle surge
+              break
+            }
+          }
+        }
       }
       if (!entryPrice) continue
 
@@ -861,5 +936,6 @@ onReady(() => {})
 </script>
 </body>
 </html>
+
 
 
