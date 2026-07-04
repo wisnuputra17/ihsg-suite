@@ -10,47 +10,45 @@
     .page { max-width: none; }
     .layout {
       display: grid;
-      grid-template-columns: 270px 1fr;
+      grid-template-columns: 260px 1fr;
       gap: 16px;
       align-items: start;
     }
-    @media (max-width: 800px) { .layout { grid-template-columns: 1fr; } }
+    @media (max-width:800px) { .layout { grid-template-columns:1fr; } }
 
-    .config-panel {
+    .panel {
       background: var(--raised);
       border: 1px solid var(--line);
       border-radius: 6px;
       padding: 14px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 11px;
       position: sticky;
       top: 16px;
     }
-    .section-title {
+    .sec {
       font-family: var(--f-mono);
       font-size: 10px;
       font-weight: 700;
       color: var(--ghost);
       text-transform: uppercase;
-      letter-spacing: 0.08em;
-      margin-bottom: 5px;
+      letter-spacing: .08em;
       padding-bottom: 4px;
       border-bottom: 1px solid var(--line);
+      margin-bottom: 5px;
     }
-    .field-row {
+    .row {
       display: flex;
       align-items: center;
       gap: 6px;
-      margin-bottom: 5px;
-    }
-    .field-label {
+      margin-bottom: 4px;
       font-family: var(--f-mono);
       font-size: 11px;
       color: var(--dim);
-      min-width: 72px;
     }
-    .input-sm {
+    .lbl { min-width: 68px; color: var(--dim); }
+    .inp {
       background: var(--sink);
       border: 1px solid var(--line);
       border-radius: 3px;
@@ -58,18 +56,18 @@
       font-family: var(--f-mono);
       font-size: 11px;
       padding: 3px 6px;
-      width: 70px;
+      width: 60px;
     }
-    .select-sm {
+    .sel {
       background: var(--sink);
       border: 1px solid var(--line);
       border-radius: 3px;
       color: var(--paper);
       font-family: var(--f-mono);
       font-size: 11px;
-      padding: 3px 6px;
+      padding: 3px 5px;
     }
-    .cb-row {
+    .cb {
       display: flex;
       align-items: center;
       gap: 6px;
@@ -79,11 +77,11 @@
       margin-bottom: 3px;
       cursor: pointer;
     }
-    .cb-row input { cursor: pointer; accent-color: var(--live); }
+    .cb input { cursor: pointer; accent-color: var(--live); }
     .sub {
       margin-left: 18px;
-      margin-top: 3px;
-      margin-bottom: 4px;
+      margin-top: 2px;
+      margin-bottom: 3px;
       display: flex;
       align-items: center;
       gap: 5px;
@@ -92,8 +90,12 @@
       color: var(--ghost);
       flex-wrap: wrap;
     }
-    .divider { border: none; border-top: 1px solid var(--line); margin: 2px 0; }
-
+    .hr { border: none; border-top: 1px solid var(--line); margin: 0; }
+    .times-grid {
+      display: grid;
+      grid-template-columns: repeat(3,1fr);
+      gap: 2px;
+    }
     .fetch-btn {
       background: var(--live);
       color: var(--bg);
@@ -106,29 +108,26 @@
       width: 100%;
       cursor: pointer;
     }
-    .fetch-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    .fetch-btn:hover:not(:disabled) { opacity: 0.85; }
-
-    .data-status {
+    .fetch-btn:disabled { opacity:.4; cursor:not-allowed; }
+    .fetch-btn:hover:not(:disabled) { opacity:.85; }
+    .status {
       font-family: var(--f-mono);
       font-size: 10px;
       color: var(--ghost);
       text-align: center;
-      padding: 4px 0;
     }
-    .data-status.ready { color: var(--live); }
-    .data-status.error { color: var(--down); }
+    .status.ok  { color: var(--live); }
+    .status.err { color: var(--down); }
 
-    /* Result panel */
-    .result-panel { min-height: 400px; }
-    .result-info {
+    /* Result */
+    .result { min-height: 400px; }
+    .rinfo {
       font-family: var(--f-mono);
       font-size: 11px;
       color: var(--ghost);
-      margin-bottom: 10px;
+      margin-bottom: 8px;
     }
-    .result-info b { color: var(--paper); }
-
+    .rinfo b { color: var(--paper); }
     table.rt {
       width: 100%;
       border-collapse: collapse;
@@ -145,229 +144,196 @@
       cursor: pointer;
       user-select: none;
     }
-    table.rt th:first-child { text-align: left; }
-    table.rt th:hover { color: var(--paper); }
+    table.rt th:first-child,
+    table.rt th:nth-child(2) { text-align: left; }
     table.rt td {
       text-align: right;
-      padding: 5px 8px;
+      padding: 4px 8px;
       border-bottom: 1px solid var(--line);
       color: var(--dim);
       white-space: nowrap;
     }
-    table.rt td:first-child { text-align: left; color: var(--paper); }
+    table.rt td:first-child,
+    table.rt td:nth-child(2) { text-align: left; color: var(--paper); }
     table.rt tr:hover td { background: var(--raised); }
     .up   { color: var(--live) !important; }
-    .down { color: var(--down) !important; }
-    .wstar{ color: var(--live) !important; font-weight: 700; }
-    .wdot { color: var(--warn) !important; }
+    .dn   { color: var(--down) !important; }
+    .ws   { color: var(--live) !important; font-weight:700; }
+    .wd   { color: var(--warn) !important; }
     .badge {
-      display: inline-block; font-size: 9px; padding: 1px 4px;
-      border-radius: 2px; margin-left: 3px;
+      display:inline-block; font-size:9px; padding:1px 4px;
+      border-radius:2px; margin-left:3px;
     }
-    .badge-orb  { background: rgba(74,222,128,.12); color: var(--live); }
-    .badge-av   { background: rgba(248,113,113,.12); color: var(--down); }
-
-    .progress-bar { height: 3px; background: var(--line); border-radius: 2px; overflow: hidden; margin-bottom: 10px; }
-    .progress-fill { height: 100%; background: var(--live); transition: width .2s; width: 0%; }
-
-    .empty-state {
-      display: flex; flex-direction: column; align-items: center;
-      justify-content: center; min-height: 300px;
-      color: var(--ghost); font-family: var(--f-mono); font-size: 12px; gap: 8px;
+    .borb { background:rgba(74,222,128,.12); color:var(--live); }
+    .bav  { background:rgba(248,113,113,.12); color:var(--down); }
+    .prog { height:3px; background:var(--line); border-radius:2px; overflow:hidden; margin-bottom:8px; }
+    .pfill { height:100%; background:var(--live); transition:width .2s; width:0%; }
+    .empty {
+      display:flex; flex-direction:column; align-items:center;
+      justify-content:center; min-height:300px;
+      color:var(--ghost); font-family:var(--f-mono); font-size:12px; gap:8px;
     }
-    .exit-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 3px; }
   </style>
 </head>
 <body>
 <div class="page">
   <header class="app-header" id="app-header"></header>
-
   <div class="layout">
-    <!-- ── PANEL KIRI ── -->
-    <div class="config-panel">
 
-      <!-- Emiten & Periode -->
+    <!-- ── KIRI ── -->
+    <div class="panel">
+
+      <!-- Data -->
       <div>
-        <div class="section-title">Data</div>
-        <div class="field-row">
-          <span class="field-label">Emiten</span>
-          <input class="input-sm" id="sym" value="RAJA" maxlength="10" style="width:80px;text-transform:uppercase">
+        <div class="sec">Data</div>
+        <div class="row"><span class="lbl">Emiten</span>
+          <input class="inp" id="sym" value="RAJA" maxlength="10" style="width:80px;text-transform:uppercase">
         </div>
-        <div class="field-row">
-          <span class="field-label">Dari</span>
-          <input class="input-sm" id="date-from" type="date" style="width:120px">
+        <div class="row"><span class="lbl">Dari</span>
+          <input class="inp" id="date-from" type="date" style="width:118px">
         </div>
-        <div class="field-row">
-          <span class="field-label">Sampai</span>
-          <input class="input-sm" id="date-to" type="date" style="width:120px">
+        <div class="row"><span class="lbl">Sampai</span>
+          <input class="inp" id="date-to" type="date" style="width:118px">
         </div>
         <button class="fetch-btn" id="fetch-btn">▶ FETCH DATA</button>
-        <div class="data-status" id="data-status">Belum ada data</div>
+        <div class="status" id="status">Belum ada data</div>
       </div>
 
-      <hr class="divider">
+      <hr class="hr">
 
-      <!-- Filter IEP -->
+      <!-- Entry Conditions -->
       <div>
-        <div class="section-title">Filter IEP Pre-Opening</div>
-        <div class="field-row">
-          <span class="field-label">Gap ±</span>
-          <input class="input-sm" id="gap-th" value="0.5" style="width:50px"> %
-        </div>
-        <label class="cb-row"><input type="checkbox" id="gap-up" checked> Gap UP</label>
-        <label class="cb-row"><input type="checkbox" id="gap-down" checked> Gap DOWN</label>
-        <label class="cb-row"><input type="checkbox" id="gap-stabil"> Stabil</label>
-        <hr class="divider" style="margin:5px 0">
-        <label class="cb-row"><input type="checkbox" id="use-vol-iep"> Volume IEP surge</label>
-        <div class="sub" id="vol-iep-sub" style="display:none">
-          ≥ <input class="input-sm" id="vol-iep-x" value="1.5" style="width:40px">× avg 5hr
-        </div>
-        <label class="cb-row"><input type="checkbox" id="use-iep-pct"> Volume IEP percentile</label>
-        <div class="sub" id="iep-pct-sub" style="display:none">
-          ≥ P<input class="input-sm" id="iep-pct" value="75" style="width:40px">
-        </div>
-      </div>
+        <div class="sec">Entry Conditions</div>
 
-      <hr class="divider">
-
-      <!-- Filter ORB -->
-      <div>
-        <div class="section-title">Filter Opening (ORB)</div>
-        <label class="cb-row"><input type="checkbox" id="use-vol-orb"> Volume ORB surge</label>
-        <div class="sub" id="vol-orb-sub" style="display:none">
-          ≥ <input class="input-sm" id="vol-orb-x" value="2.0" style="width:40px">× avg 5hr
+        <!-- Gap -->
+        <div class="row" style="gap:8px;flex-wrap:wrap">
+          <label class="cb" style="min-width:0"><input type="radio" name="gap" value="up" checked> Gap UP</label>
+          <label class="cb" style="min-width:0"><input type="radio" name="gap" value="down"> Gap DOWN</label>
+          <label class="cb" style="min-width:0"><input type="radio" name="gap" value="both"> Keduanya</label>
+          <label class="cb" style="min-width:0"><input type="radio" name="gap" value="all"> Semua</label>
         </div>
-        <label class="cb-row"><input type="checkbox" id="use-orb-range"> ORB Range</label>
-        <div class="sub" id="orb-range-sub" style="display:none">
-          ≥ <input class="input-sm" id="orb-range-pct" value="1.0" style="width:40px">% prev close
+        <div class="sub" id="gap-th-row">
+          Gap ± <input class="inp" id="gap-th" value="0.5" style="width:36px"> %
         </div>
-      </div>
 
-      <hr class="divider">
+        <hr class="hr" style="margin:5px 0">
 
-      <!-- Filter Daily -->
-      <div>
-        <div class="section-title">Filter Daily (kemarin)</div>
-        <label class="cb-row"><input type="checkbox" id="use-rsi"> RSI</label>
-        <div class="sub" id="rsi-sub" style="display:none; gap:4px;">
-          <label><input type="radio" name="rsi-dir" value="below" checked> ≤</label>
-          <input class="input-sm" id="rsi-lo" value="40" style="width:36px">
-          <label><input type="radio" name="rsi-dir" value="above"> ≥</label>
-          <input class="input-sm" id="rsi-hi" value="60" style="width:36px">
+        <!-- Additional conditions -->
+        <label class="cb"><input type="checkbox" id="c-vol-iep"> Vol IEP surge</label>
+        <div class="sub" id="s-vol-iep" style="display:none">
+          ≥ <input class="inp" id="vol-iep-x" value="1.5" style="width:36px">× avg 5hr
         </div>
-        <label class="cb-row"><input type="checkbox" id="use-trend"> Trend MA</label>
-        <div class="sub" id="trend-sub" style="display:none; gap:4px;">
+
+        <label class="cb"><input type="checkbox" id="c-rsi"> RSI kemarin</label>
+        <div class="sub" id="s-rsi" style="display:none; gap:4px">
+          <label><input type="radio" name="rsi-dir" value="le" checked> ≤</label>
+          <input class="inp" id="rsi-lo" value="40" style="width:36px">
+          <label><input type="radio" name="rsi-dir" value="ge"> ≥</label>
+          <input class="inp" id="rsi-hi" value="60" style="width:36px">
+        </div>
+
+        <label class="cb"><input type="checkbox" id="c-trend"> Trend MA</label>
+        <div class="sub" id="s-trend" style="display:none; gap:4px">
           IEP
-          <label><input type="radio" name="trend-dir" value="above" checked> atas</label>
-          <label><input type="radio" name="trend-dir" value="below"> bawah</label>
-          MA<input class="input-sm" id="ma-period" value="20" style="width:36px">
+          <label><input type="radio" name="tr-dir" value="above" checked> atas</label>
+          <label><input type="radio" name="tr-dir" value="below"> bawah</label>
+          MA<input class="inp" id="ma-n" value="20" style="width:36px">
+        </div>
+
+        <label class="cb"><input type="checkbox" id="c-orb-range"> ORB Range</label>
+        <div class="sub" id="s-orb-range" style="display:none">
+          ≥ <input class="inp" id="orb-range-pct" value="1.0" style="width:36px">% prev close
+        </div>
+
+        <label class="cb"><input type="checkbox" id="c-vol-orb"> Vol ORB surge</label>
+        <div class="sub" id="s-vol-orb" style="display:none">
+          ≥ <input class="inp" id="vol-orb-x" value="2.0" style="width:36px">× avg 5hr
         </div>
       </div>
 
-      <hr class="divider">
+      <hr class="hr">
 
-      <!-- Entry -->
+      <!-- Entry Times -->
       <div>
-        <div class="section-title">Entry</div>
-        <label class="cb-row"><input type="radio" name="entry" value="open" checked> Open 09:00</label>
-        <label class="cb-row"><input type="radio" name="entry" value="interval"> Interval 5 menit</label>
-        <div class="sub" id="entry-interval-sub" style="display:none">
-          <select class="select-sm" id="entry-int-from">
-            <option>09:00</option><option>09:05</option><option>09:10</option><option>09:15</option>
-            <option>09:20</option><option>09:25</option><option>09:30</option><option>09:35</option>
-            <option>09:40</option><option>09:45</option><option>09:50</option><option>09:55</option>
-            <option>10:00</option><option>10:05</option><option>10:10</option><option>10:15</option>
-          </select>–
-          <select class="select-sm" id="entry-int-to">
-            <option>09:05</option><option>09:10</option><option>09:15</option><option>09:20</option>
-            <option>09:25</option><option>09:30</option><option>09:35</option><option>09:40</option>
-            <option>09:45</option><option>09:50</option><option>09:55</option><option>10:00</option>
-            <option>10:05</option><option>10:10</option><option selected>10:15</option>
-          </select>
-        </div>
-        <label class="cb-row"><input type="radio" name="entry" value="orb-up"> ORB Up confirmed</label>
-        <div class="sub" id="entry-orb-sub" style="display:none; flex-direction:column; gap:3px">
-          <span>Entry di close candle break ORB high</span>
-          deadline <select class="select-sm" id="entry-orb-dl">
-            <option>09:06</option><option>09:11</option><option selected>09:16</option>
-            <option>09:21</option><option>09:31</option>
-          </select>
-        </div>
-        <label class="cb-row"><input type="radio" name="entry" value="vol-surge"> Volume Surge</label>
-        <div class="sub" id="entry-vol-sub" style="display:none; flex-direction:column; gap:3px">
-          <span>Entry saat vol candle ≥ Nx avg sebelumnya</span>
-          <div style="display:flex;gap:4px;align-items:center">
-            ≥ <input class="input-sm" id="entry-vol-x" value="3" style="width:36px">× dalam
-            <select class="select-sm" id="entry-vol-win">
-              <option>09:00</option><option>09:05</option><option selected>09:15</option>
-              <option>09:30</option><option>10:00</option>
-            </select>
-          </div>
+        <div class="sec">Entry Time (grid search)</div>
+        <div class="times-grid" id="entry-times-grid">
+          <label class="cb"><input type="checkbox" value="09:00" checked> 09:00</label>
+          <label class="cb"><input type="checkbox" value="09:05"> 09:05</label>
+          <label class="cb"><input type="checkbox" value="09:10"> 09:10</label>
+          <label class="cb"><input type="checkbox" value="09:15"> 09:15</label>
+          <label class="cb"><input type="checkbox" value="09:20"> 09:20</label>
+          <label class="cb"><input type="checkbox" value="09:25"> 09:25</label>
+          <label class="cb"><input type="checkbox" value="09:30"> 09:30</label>
+          <label class="cb"><input type="checkbox" value="09:45"> 09:45</label>
+          <label class="cb"><input type="checkbox" value="10:00"> 10:00</label>
+          <label class="cb"><input type="checkbox" value="10:15"> 10:15</label>
+          <label class="cb"><input type="checkbox" value="10:30"> 10:30</label>
         </div>
       </div>
 
-      <hr class="divider">
+      <hr class="hr">
 
       <!-- ORB Monitoring -->
       <div>
-        <div class="section-title">ORB Monitoring</div>
-        <label class="cb-row"><input type="checkbox" id="use-orb" checked> Aktifkan ORB</label>
+        <div class="sec">ORB Monitoring</div>
+        <label class="cb"><input type="checkbox" id="use-orb" checked> Aktifkan ORB</label>
         <div id="orb-cfg">
-          <div class="field-row" style="margin-top:5px">
-            <span class="field-label">Deadline</span>
-            <select class="select-sm" id="orb-dl">
+          <div class="row" style="margin-top:4px">
+            <span class="lbl">Deadline</span>
+            <select class="sel" id="orb-dl">
               <option>09:06</option><option>09:11</option>
               <option selected>09:16</option><option>09:21</option><option>09:31</option>
             </select>
           </div>
-          <div class="field-row">
-            <span class="field-label">Exit ORB</span>
-            <select class="select-sm" id="exit-orb">
+          <div class="row">
+            <span class="lbl">Exit ORB</span>
+            <select class="sel" id="exit-orb">
               <option>09:15</option><option>09:30</option><option selected>10:00</option>
               <option>10:30</option><option>11:00</option><option>11:30</option><option>15:50</option>
             </select>
           </div>
-          <div class="field-row">
-            <span class="field-label">Exit AVOID</span>
-            <select class="select-sm" id="exit-avoid">
+          <div class="row">
+            <span class="lbl">Exit AV</span>
+            <select class="sel" id="exit-av">
               <option selected>09:15</option><option>09:30</option><option>10:00</option>
             </select>
           </div>
         </div>
       </div>
 
-      <hr class="divider">
+      <hr class="hr">
 
       <!-- Exit Times -->
-      <div id="exit-times-section">
-        <div class="section-title">Exit Times (tanpa ORB)</div>
-        <div class="exit-grid">
-          <label class="cb-row"><input type="checkbox" value="09:15" checked> 09:15</label>
-          <label class="cb-row"><input type="checkbox" value="09:30" checked> 09:30</label>
-          <label class="cb-row"><input type="checkbox" value="10:00" checked> 10:00</label>
-          <label class="cb-row"><input type="checkbox" value="10:30" checked> 10:30</label>
-          <label class="cb-row"><input type="checkbox" value="11:00" checked> 11:00</label>
-          <label class="cb-row"><input type="checkbox" value="11:30" checked> 11:30</label>
-          <label class="cb-row"><input type="checkbox" value="12:00"> 12:00</label>
-          <label class="cb-row"><input type="checkbox" value="13:30"> 13:30</label>
-          <label class="cb-row"><input type="checkbox" value="15:50" checked> 15:50</label>
+      <div id="exit-sec">
+        <div class="sec">Exit Time (grid search)</div>
+        <div class="times-grid" id="exit-times-grid">
+          <label class="cb"><input type="checkbox" value="09:15" checked> 09:15</label>
+          <label class="cb"><input type="checkbox" value="09:30" checked> 09:30</label>
+          <label class="cb"><input type="checkbox" value="10:00" checked> 10:00</label>
+          <label class="cb"><input type="checkbox" value="10:30" checked> 10:30</label>
+          <label class="cb"><input type="checkbox" value="11:00" checked> 11:00</label>
+          <label class="cb"><input type="checkbox" value="11:30"> 11:30</label>
+          <label class="cb"><input type="checkbox" value="12:00"> 12:00</label>
+          <label class="cb"><input type="checkbox" value="13:30"> 13:30</label>
+          <label class="cb"><input type="checkbox" value="15:50" checked> 15:50</label>
         </div>
       </div>
 
     </div>
 
-    <!-- ── PANEL KANAN ── -->
-    <div class="result-panel">
-      <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
-      <div class="result-info" id="result-info"></div>
-      <div id="result-body">
-        <div class="empty-state">
+    <!-- ── KANAN ── -->
+    <div class="result">
+      <div class="prog"><div class="pfill" id="prog"></div></div>
+      <div class="rinfo" id="rinfo"></div>
+      <div id="rbody">
+        <div class="empty">
           <div style="font-size:32px;opacity:.4">📊</div>
           <div>Klik <b>FETCH DATA</b> untuk memuat data emiten</div>
           <div style="font-size:10px;margin-top:4px">Filter akan update tabel secara real-time</div>
         </div>
       </div>
     </div>
+
   </div>
 </div>
 
@@ -386,402 +352,343 @@ const yearAgo = new Date(today); yearAgo.setFullYear(today.getFullYear()-1)
 document.getElementById('date-to').value   = today.toISOString().slice(0,10)
 document.getElementById('date-from').value = yearAgo.toISOString().slice(0,10)
 
-// ── Toggle sub-configs ──
-const toggles = {
-  'use-vol-iep': 'vol-iep-sub', 'use-iep-pct': 'iep-pct-sub',
-  'use-vol-orb': 'vol-orb-sub', 'use-orb-range': 'orb-range-sub',
-  'use-rsi': 'rsi-sub', 'use-trend': 'trend-sub',
+// ── Toggle sub-conditions ──
+const subs = {
+  'c-vol-iep':'s-vol-iep','c-rsi':'s-rsi','c-trend':'s-trend',
+  'c-orb-range':'s-orb-range','c-vol-orb':'s-vol-orb',
 }
-Object.entries(toggles).forEach(([cbId, divId]) => {
-  const cb = document.getElementById(cbId)
-  const d  = document.getElementById(divId)
-  if (!cb||!d) return
-  cb.addEventListener('change', () => { d.style.display = cb.checked ? 'flex' : 'none'; recalc() })
+Object.entries(subs).forEach(([cb,sub]) => {
+  const el = document.getElementById(cb)
+  const sd = document.getElementById(sub)
+  el.addEventListener('change', () => { sd.style.display = el.checked?'flex':'none'; recalc() })
 })
+
+// gap threshold row visibility (hide when "all")
+document.querySelectorAll('input[name=gap]').forEach(r =>
+  r.addEventListener('change', () => {
+    document.getElementById('gap-th-row').style.display =
+      document.querySelector('input[name=gap]:checked').value==='all'?'none':'flex'
+    recalc()
+  })
+)
 
 // ORB toggle
 document.getElementById('use-orb').addEventListener('change', () => {
   const on = document.getElementById('use-orb').checked
-  document.getElementById('orb-cfg').style.display = on ? '' : 'none'
-  document.getElementById('exit-times-section').style.display = on ? 'none' : ''
+  document.getElementById('orb-cfg').style.display = on?'':'none'
+  document.getElementById('exit-sec').style.display = on?'none':''
   recalc()
 })
 
-// Entry type toggle
-document.querySelectorAll('input[name=entry]').forEach(r => {
-  r.addEventListener('change', () => {
-    const v = document.querySelector('input[name=entry]:checked').value
-    document.getElementById('entry-interval-sub').style.display = v==='interval'  ? 'flex' : 'none'
-    document.getElementById('entry-orb-sub').style.display      = v==='orb-up'    ? 'flex' : 'none'
-    document.getElementById('entry-vol-sub').style.display      = v==='vol-surge' ? 'flex' : 'none'
-    recalc()
-  })
-})
-
 // Uppercase sym
-document.getElementById('sym').addEventListener('input', e => e.target.value = e.target.value.toUpperCase())
+document.getElementById('sym').addEventListener('input', e =>
+  e.target.value = e.target.value.toUpperCase()
+)
 
-// Recalc on any filter change
-const filterIds = [
-  'gap-th','gap-up','gap-down','gap-stabil',
-  'vol-iep-x','iep-pct','vol-orb-x','orb-range-pct',
-  'rsi-lo','rsi-hi','ma-period',
-  'entry-int-from','entry-int-to','entry-orb-dl','entry-vol-x','entry-vol-win',
-  'orb-dl','exit-orb','exit-avoid',
+// Recalc on any change
+const watchIds = [
+  'gap-th','vol-iep-x','rsi-lo','rsi-hi','ma-n',
+  'orb-range-pct','vol-orb-x','orb-dl','exit-orb','exit-av',
 ]
-filterIds.forEach(id => {
-  const el = document.getElementById(id)
-  if (el) el.addEventListener('change', recalc)
-})
-document.querySelectorAll('input[name=rsi-dir], input[name=trend-dir]').forEach(r => r.addEventListener('change', recalc))
-document.querySelectorAll('#exit-times-section input[type=checkbox]').forEach(cb => cb.addEventListener('change', recalc))
+watchIds.forEach(id => document.getElementById(id)?.addEventListener('change', recalc))
+document.querySelectorAll('input[name=rsi-dir],input[name=tr-dir]').forEach(r=>r.addEventListener('change',recalc))
+document.querySelectorAll('#entry-times-grid input, #exit-times-grid input').forEach(cb=>cb.addEventListener('change',recalc))
 
-// ── App state ──
-let _state = null  // { dates, byDate, prevCloseMap, dailyMap, avgOrbVol5, avgIepVol5, iepPctArr, sym, dateFrom, dateTo }
+// ── State ──
+let _S = null  // { dates, byDate, prevCloseMap, dailyMap, avgOrb5, avgIep5, iepPcts, sym, dateFrom, dateTo }
 
 // ── Helpers ──
-function wlb(w, n, z=1.96) {
-  if (!n) return 0
-  const p=w/n, dd=1+z*z/n, cc=p+z*z/(2*n)
-  return (cc - z*Math.sqrt(p*(1-p)/n + z*z/(4*n*n))) / dd
+function wlb(w,n,z=1.96){
+  if(!n)return 0
+  const p=w/n,dd=1+z*z/n,cc=p+z*z/(2*n)
+  return(cc-z*Math.sqrt(p*(1-p)/n+z*z/(4*n*n)))/dd
 }
-function gp(cs, t) {
-  const ec = cs.filter(c => c.datetime.slice(11,16) <= t)
-  return ec.length ? ec[ec.length-1].close : null
+function gp(cs,t){
+  const ec=cs.filter(c=>c.datetime.slice(11,16)<=t)
+  return ec.length?ec[ec.length-1].close:null
 }
-function setP(v) { document.getElementById('progress').style.width = v+'%' }
-function fp(v, d=2) { return (v>=0?'+':'')+v.toFixed(d)+'%' }
+function sp(v){document.getElementById('prog').style.width=v+'%'}
+function fp(v,d=2){return(v>=0?'+':'')+v.toFixed(d)+'%'}
 
-// ── FETCH DATA ──
-async function fetchData() {
-  const sym      = document.getElementById('sym').value.trim().toUpperCase()
-  const dateFrom = document.getElementById('date-from').value
-  const dateTo   = document.getElementById('date-to').value
-  if (!sym||!dateFrom||!dateTo) { alert('Lengkapi emiten dan periode'); return }
-
+// ── FETCH ──
+async function fetchData(){
+  const sym=document.getElementById('sym').value.trim().toUpperCase()
+  const df=document.getElementById('date-from').value
+  const dt=document.getElementById('date-to').value
+  if(!sym||!df||!dt){alert('Lengkapi emiten dan periode');return}
   await whenTokenReady()
-  if (!TOKEN.isSet()) { openTokenPopover(); return }
+  if(!TOKEN.isSet()){openTokenPopover();return}
 
-  const btn = document.getElementById('fetch-btn')
-  const statusEl = document.getElementById('data-status')
-  btn.disabled = true
-  btn.textContent = '⏳ Fetching...'
-  statusEl.className = 'data-status'
-  statusEl.textContent = 'Mengambil data...'
-  setP(5)
-  _state = null
+  const btn=document.getElementById('fetch-btn')
+  const stEl=document.getElementById('status')
+  btn.disabled=true; btn.textContent='⏳ Fetching...'
+  stEl.className='status'; stEl.textContent='Mengambil data...'
+  sp(5); _S=null
+  document.getElementById('rbody').innerHTML=`<div class="empty"><div style="font-size:28px">⏳</div><div>Mengambil data ${sym}...</div></div>`
 
-  document.getElementById('result-body').innerHTML = `
-    <div class="empty-state"><div style="font-size:28px">⏳</div><div>Mengambil data ${sym}...</div></div>`
-
-  try {
-    // Fetch intraday 1m
-    const nowTs    = Math.floor(Date.now()/1000)
-    const dateToTs = Math.min(Math.floor(new Date(dateTo+'T09:00:00Z').getTime()/1000) + 7*3600, nowTs)
-    const fromTs   = Math.floor(new Date(dateFrom+'T02:00:00Z').getTime()/1000)
-    const batchMs  = 7*24*3600*1000
-    const numBatches = Math.ceil((dateToTs-fromTs)*1000/batchMs)
-
-    const allC = []; const seen = new Set()
-    for (let b=0; b<numBatches; b++) {
-      const bTo   = dateToTs - b*batchMs/1000
-      const bFrom = Math.max(fromTs, dateToTs-(b+1)*batchMs/1000)
-      if (bFrom >= bTo) break
-      setP(5+Math.round(b/numBatches*45))
-      btn.textContent = `⏳ Batch ${b+1}/${numBatches}...`
-      try {
-        const cs = await fetchIntraday(sym, bTo, bFrom, 1)
-        for (const c of cs) { if (!seen.has(c.unix)) { seen.add(c.unix); allC.push(c) } }
-      } catch(e) { if (e.code==='EMPTY_RESPONSE') break; throw e }
+  try{
+    const nowTs=Math.floor(Date.now()/1000)
+    const toTs=Math.min(Math.floor(new Date(dt+'T09:00:00Z').getTime()/1000)+7*3600,nowTs)
+    const fromTs=Math.floor(new Date(df+'T02:00:00Z').getTime()/1000)
+    const bMs=7*24*3600*1000
+    const nB=Math.ceil((toTs-fromTs)*1000/bMs)
+    const all=[]; const seen=new Set()
+    for(let b=0;b<nB;b++){
+      const bTo=toTs-b*bMs/1000
+      const bFrom=Math.max(fromTs,toTs-(b+1)*bMs/1000)
+      if(bFrom>=bTo)break
+      sp(5+Math.round(b/nB*45))
+      btn.textContent=`⏳ Batch ${b+1}/${nB}...`
+      try{
+        const cs=await fetchIntraday(sym,bTo,bFrom,1)
+        for(const c of cs){if(!seen.has(c.unix)){seen.add(c.unix);all.push(c)}}
+      }catch(e){if(e.code==='EMPTY_RESPONSE')break;throw e}
     }
-    allC.sort((a,b)=>a.unix-b.unix)
-    setP(55)
+    all.sort((a,b)=>a.unix-b.unix)
+    sp(55)
 
-    // Fetch daily
-    btn.textContent = '⏳ Fetch daily...'
-    const dailyAll = await fetchDaily(sym)
-    const dailySorted = [...dailyAll].sort((a,b)=>a.date<b.date?-1:1)
-    const closes = dailySorted.map(d=>d.close)
-    const rsiArr = calcRSI(closes,14)
-    const ma20Arr= calcSMA(closes,20)
-    const ma50Arr= calcSMA(closes,50)
-    dailySorted.forEach((d,i)=>{ d._rsi=rsiArr[i]; d._ma20=ma20Arr[i]; d._ma50=ma50Arr[i] })
-    const dailyMap = {}
-    dailySorted.forEach(d=>dailyMap[d.date]=d)
-    setP(70)
+    btn.textContent='⏳ Daily...'
+    const dAll=await fetchDaily(sym)
+    const dSorted=[...dAll].sort((a,b)=>a.date<b.date?-1:1)
+    const cls=dSorted.map(d=>d.close)
+    const rsiA=calcRSI(cls,14),ma20A=calcSMA(cls,20),ma50A=calcSMA(cls,50)
+    dSorted.forEach((d,i)=>{d._rsi=rsiA[i];d._ma20=ma20A[i];d._ma50=ma50A[i]})
+    const dMap={}; dSorted.forEach(d=>dMap[d.date]=d)
+    sp(70)
 
-    // Group by date
-    const byDate = {}
-    for (const c of allC) {
-      const dt = c.datetime.slice(0,10)
-      if (!byDate[dt]) byDate[dt]=[]
-      byDate[dt].push(c)
-    }
-    const dates = Object.keys(byDate).sort()
+    const byDate={}
+    for(const c of all){const dt2=c.datetime.slice(0,10);if(!byDate[dt2])byDate[dt2]=[];byDate[dt2].push(c)}
+    const dates=Object.keys(byDate).sort()
 
-    // Prev close map
-    const prevCloseMap = {}
-    for (let i=1;i<dates.length;i++) {
-      const d=dates[i], prev=dates[i-1]
-      const reg = byDate[prev].filter(c=>c.datetime.slice(11,16)>='09:00'&&c.datetime.slice(11,16)<='15:50')
-        .sort((a,b)=>a.unix-b.unix)
-      if (reg.length) prevCloseMap[d]=reg[reg.length-1].close
+    const prevCM={}
+    for(let i=1;i<dates.length;i++){
+      const d=dates[i],p=dates[i-1]
+      const reg=byDate[p].filter(c=>c.datetime.slice(11,16)>='09:00'&&c.datetime.slice(11,16)<='15:50').sort((a,b)=>a.unix-b.unix)
+      if(reg.length)prevCM[d]=reg[reg.length-1].close
     }
 
-    // Avg 5-day ORB & IEP vol
-    const avgOrbVol5={}, avgIepVol5={}
-    for (let i=5;i<dates.length;i++) {
-      const prev5=dates.slice(i-5,i)
-      const orbV=[], iepV=[]
-      for (const pd of prev5) {
-        const orb=byDate[pd].filter(c=>c.datetime.slice(11,16)>='09:00'&&c.datetime.slice(11,16)<='09:04')
-        const iep=byDate[pd].filter(c=>c.datetime.slice(11,16)>='08:45'&&c.datetime.slice(11,16)<='08:59')
-        if (orb.length) orbV.push(orb.reduce((s,c)=>s+c.volume,0))
-        if (iep.length) iepV.push(iep.reduce((s,c)=>s+c.volume,0))
+    const avgOrb5={},avgIep5={}
+    for(let i=5;i<dates.length;i++){
+      const p5=dates.slice(i-5,i),ov=[],iv=[]
+      for(const pd of p5){
+        const o=byDate[pd].filter(c=>c.datetime.slice(11,16)>='09:00'&&c.datetime.slice(11,16)<='09:04')
+        const ie=byDate[pd].filter(c=>c.datetime.slice(11,16)>='08:45'&&c.datetime.slice(11,16)<='08:59')
+        if(o.length)ov.push(o.reduce((s,c)=>s+c.volume,0))
+        if(ie.length)iv.push(ie.reduce((s,c)=>s+c.volume,0))
       }
-      if (orbV.length) avgOrbVol5[dates[i]]=orbV.reduce((s,v)=>s+v,0)/orbV.length
-      if (iepV.length) avgIepVol5[dates[i]]=iepV.reduce((s,v)=>s+v,0)/iepV.length
+      if(ov.length)avgOrb5[dates[i]]=ov.reduce((s,v)=>s+v,0)/ov.length
+      if(iv.length)avgIep5[dates[i]]=iv.reduce((s,v)=>s+v,0)/iv.length
     }
 
-    // IEP vol percentile array (untuk percentile filter)
-    const iepPctArr = dates.map(d=>{
-      const iep=byDate[d].filter(c=>c.datetime.slice(11,16)>='08:45'&&c.datetime.slice(11,16)<='08:59')
-      return iep.reduce((s,c)=>s+c.volume,0)
+    const iepPcts=dates.map(d=>{
+      const ie=byDate[d].filter(c=>c.datetime.slice(11,16)>='08:45'&&c.datetime.slice(11,16)<='08:59')
+      return ie.reduce((s,c)=>s+c.volume,0)
     }).filter(v=>v>0).sort((a,b)=>a-b)
 
-    setP(100)
-    _state = { dates, byDate, prevCloseMap, dailyMap, avgOrbVol5, avgIepVol5, iepPctArr, sym, dateFrom, dateTo }
-
-    const totalDays = dates.filter(d=>d>=dateFrom&&d<=dateTo&&prevCloseMap[d]).length
-    statusEl.className = 'data-status ready'
-    statusEl.textContent = `✓ ${sym} · ${totalDays} hari · ${allC.length.toLocaleString()} candle`
+    sp(100)
+    _S={dates,byDate,prevCM,dMap,avgOrb5,avgIep5,iepPcts,sym,dateFrom:df,dateTo:dt}
+    const totalDays=dates.filter(d=>d>=df&&d<=dt&&prevCM[d]).length
+    stEl.className='status ok'
+    stEl.textContent=`✓ ${sym} · ${totalDays} hari · ${all.length.toLocaleString()} candle`
     recalc()
-
-  } catch(e) {
-    statusEl.className = 'data-status error'
-    statusEl.textContent = '✗ ' + (e.message||'Gagal')
-    document.getElementById('result-body').innerHTML =
-      `<div class="empty-state"><div style="font-size:28px">❌</div><div>${e.message}</div></div>`
-    if (e.code==='TOKEN_EXPIRED') openTokenPopover()
-  } finally {
-    btn.disabled = false
-    btn.textContent = '▶ FETCH DATA'
-    setTimeout(()=>setP(0), 600)
+  }catch(e){
+    stEl.className='status err'; stEl.textContent='✗ '+(e.message||'Gagal')
+    document.getElementById('rbody').innerHTML=`<div class="empty"><div>❌</div><div>${e.message}</div></div>`
+    if(e.code==='TOKEN_EXPIRED')openTokenPopover()
+  }finally{
+    btn.disabled=false; btn.textContent='▶ FETCH DATA'
+    setTimeout(()=>sp(0),600)
   }
 }
 
-// ── RECALC (real-time, pakai _state) ──
-function recalc() {
-  if (!_state) return
-  const { dates, byDate, prevCloseMap, dailyMap, avgOrbVol5, avgIepVol5, iepPctArr, sym, dateFrom, dateTo } = _state
+// ── RECALC (real-time) ──
+function recalc(){
+  if(!_S)return
+  const{dates,byDate,prevCM,dMap,avgOrb5,avgIep5,iepPcts,sym,dateFrom,dateTo}=_S
 
-  // Baca konfigurasi
-  const gapTh       = parseFloat(document.getElementById('gap-th').value)||0.5
-  const useGapUp    = document.getElementById('gap-up').checked
-  const useGapDown  = document.getElementById('gap-down').checked
-  const useGapSt    = document.getElementById('gap-stabil').checked
-  const useVolIep   = document.getElementById('use-vol-iep').checked
-  const volIepX     = parseFloat(document.getElementById('vol-iep-x').value)||1.5
-  const useIepPct   = document.getElementById('use-iep-pct').checked
-  const iepPctVal   = parseFloat(document.getElementById('iep-pct').value)||75
-  const iepPctTh    = iepPctArr[Math.floor(iepPctArr.length*iepPctVal/100)]||0
-  const useVolOrb   = document.getElementById('use-vol-orb').checked
-  const volOrbX     = parseFloat(document.getElementById('vol-orb-x').value)||2.0
-  const useOrbRange = document.getElementById('use-orb-range').checked
-  const orbRangePct = parseFloat(document.getElementById('orb-range-pct').value)||1.0
-  const useRsi      = document.getElementById('use-rsi').checked
-  const rsiDir      = document.querySelector('input[name=rsi-dir]:checked')?.value||'below'
-  const rsiLo       = parseFloat(document.getElementById('rsi-lo').value)||40
-  const rsiHi       = parseFloat(document.getElementById('rsi-hi').value)||60
-  const useTrend    = document.getElementById('use-trend').checked
-  const trendDir    = document.querySelector('input[name=trend-dir]:checked')?.value||'above'
-  const maPeriod    = parseInt(document.getElementById('ma-period').value)||20
-  const entryType   = document.querySelector('input[name=entry]:checked').value
-  const entryIntFrom= document.getElementById('entry-int-from').value||'09:00'
-  const entryIntTo  = document.getElementById('entry-int-to').value||'10:15'
-  const entryOrbDl  = document.getElementById('entry-orb-dl').value||'09:16'
-  const entryVolX   = parseFloat(document.getElementById('entry-vol-x').value)||3
-  const entryVolWin = document.getElementById('entry-vol-win').value||'09:15'
-  const useOrb      = document.getElementById('use-orb').checked
-  const orbDl       = document.getElementById('orb-dl').value
-  const exitOrbT    = document.getElementById('exit-orb').value
-  const exitAvoidT  = document.getElementById('exit-avoid').value
-  const exitTimes   = useOrb ? [] :
-    [...document.querySelectorAll('#exit-times-section input[type=checkbox]:checked')].map(c=>c.value)
+  // Baca config
+  const gapMode  = document.querySelector('input[name=gap]:checked').value
+  const gapTh    = parseFloat(document.getElementById('gap-th').value)||0.5
+  const cVolIep  = document.getElementById('c-vol-iep').checked
+  const volIepX  = parseFloat(document.getElementById('vol-iep-x').value)||1.5
+  const cRsi     = document.getElementById('c-rsi').checked
+  const rsiDir   = document.querySelector('input[name=rsi-dir]:checked')?.value||'le'
+  const rsiLo    = parseFloat(document.getElementById('rsi-lo').value)||40
+  const rsiHi    = parseFloat(document.getElementById('rsi-hi').value)||60
+  const cTrend   = document.getElementById('c-trend').checked
+  const trDir    = document.querySelector('input[name=tr-dir]:checked')?.value||'above'
+  const maN      = parseInt(document.getElementById('ma-n').value)||20
+  const cOrbR    = document.getElementById('c-orb-range').checked
+  const orbRPct  = parseFloat(document.getElementById('orb-range-pct').value)||1.0
+  const cVolOrb  = document.getElementById('c-vol-orb').checked
+  const volOrbX  = parseFloat(document.getElementById('vol-orb-x').value)||2.0
+  const useOrb   = document.getElementById('use-orb').checked
+  const orbDl    = document.getElementById('orb-dl').value
+  const exitOrbT = document.getElementById('exit-orb').value
+  const exitAvT  = document.getElementById('exit-av').value
 
-  const results = []
-  const totalDays = dates.filter(d=>d>=dateFrom&&d<=dateTo&&prevCloseMap[d]).length
+  const entryTimes=[...(document.querySelectorAll('#entry-times-grid input:checked'))].map(c=>c.value)
+  const exitTimes =useOrb?[]:
+    [...(document.querySelectorAll('#exit-times-grid input:checked'))].map(c=>c.value)
 
-  for (const date of dates) {
-    if (date<dateFrom||date>dateTo) continue
-    if (!prevCloseMap[date]) continue
+  if(!entryTimes.length||((!useOrb)&&!exitTimes.length)){
+    document.getElementById('rbody').innerHTML=
+      `<div class="empty"><div>⚠️</div><div>Pilih minimal 1 entry time dan 1 exit time</div></div>`
+    return
+  }
 
-    const day = byDate[date].sort((a,b)=>a.unix-b.unix)
+  // Hasil: key = "entry|exit"
+  const buckets={}
 
-    // IEP
-    const iepC = day.filter(c=>c.datetime.slice(11,16)>='08:45'&&c.datetime.slice(11,16)<='08:59')
-    if (!iepC.length) continue
-    const iepPrice = iepC[iepC.length-1].close
-    const iepVol   = iepC.reduce((s,c)=>s+c.volume,0)
-    const prevClose = prevCloseMap[date]
-    const gapPct   = (iepPrice-prevClose)/prevClose*100
-    const cat      = gapPct>gapTh?'UP':gapPct<-gapTh?'DOWN':'STABIL'
+  for(const date of dates){
+    if(date<dateFrom||date>dateTo)continue
+    if(!prevCM[date])continue
 
-    if (cat==='UP'    &&!useGapUp)   continue
-    if (cat==='DOWN'  &&!useGapDown) continue
-    if (cat==='STABIL'&&!useGapSt)   continue
+    const day=byDate[date].sort((a,b)=>a.unix-b.unix)
+    const iepC=day.filter(c=>c.datetime.slice(11,16)>='08:45'&&c.datetime.slice(11,16)<='08:59')
+    if(!iepC.length)continue
 
-    // Volume IEP filters
-    if (useVolIep&&avgIepVol5[date]&&iepVol/avgIepVol5[date]<volIepX) continue
-    if (useIepPct&&iepVol<iepPctTh) continue
+    const iepPrice=iepC[iepC.length-1].close
+    const iepVol  =iepC.reduce((s,c)=>s+c.volume,0)
+    const prevClose=prevCM[date]
+    const gapPct=(iepPrice-prevClose)/prevClose*100
 
-    // ORB candles
-    const orbC = day.filter(c=>c.datetime.slice(11,16)>='09:00'&&c.datetime.slice(11,16)<='09:04')
-    if (!orbC.length) continue
-    const orbHigh = Math.max(...orbC.map(c=>c.high))
-    const orbLow  = Math.min(...orbC.map(c=>c.low))
-    const orbVol  = orbC.reduce((s,c)=>s+c.volume,0)
+    // Gap condition
+    if(gapMode==='up'   &&gapPct<= gapTh)continue
+    if(gapMode==='down' &&gapPct>=-gapTh)continue
+    if(gapMode==='both' &&Math.abs(gapPct)<=gapTh)continue
+    // 'all' = tidak filter gap
 
-    // ORB filters
-    if (useVolOrb&&avgOrbVol5[date]&&orbVol/avgOrbVol5[date]<volOrbX) continue
-    if (useOrbRange&&(orbHigh-orbLow)/prevClose*100<orbRangePct) continue
+    // Additional conditions
+    if(cVolIep&&avgIep5[date]&&iepVol/avgIep5[date]<volIepX)continue
 
-    // Daily filters
-    const prevDateIdx = dates.indexOf(date)-1
-    const prevDate = prevDateIdx>=0?dates[prevDateIdx]:null
-    const pd = prevDate?dailyMap[prevDate]:null
-    if (useRsi&&pd?._rsi!=null) {
-      if (rsiDir==='below'&&pd._rsi>rsiLo) continue
-      if (rsiDir==='above'&&pd._rsi<rsiHi) continue
+    const orbC=day.filter(c=>c.datetime.slice(11,16)>='09:00'&&c.datetime.slice(11,16)<='09:04')
+    if(!orbC.length)continue
+    const orbHigh=Math.max(...orbC.map(c=>c.high))
+    const orbLow =Math.min(...orbC.map(c=>c.low))
+    const orbVol =orbC.reduce((s,c)=>s+c.volume,0)
+
+    if(cOrbR&&(orbHigh-orbLow)/prevClose*100<orbRPct)continue
+    if(cVolOrb&&avgOrb5[date]&&orbVol/avgOrb5[date]<volOrbX)continue
+
+    const prevIdx=dates.indexOf(date)-1
+    const pd=prevIdx>=0?dMap[dates[prevIdx]]:null
+    if(cRsi&&pd?._rsi!=null){
+      if(rsiDir==='le'&&pd._rsi>rsiLo)continue
+      if(rsiDir==='ge'&&pd._rsi<rsiHi)continue
     }
-    if (useTrend&&pd) {
-      const maV = maPeriod===20?pd._ma20:pd._ma50
-      if (maV==null) continue
-      if (trendDir==='above'&&iepPrice<=maV) continue
-      if (trendDir==='below'&&iepPrice>=maV) continue
+    if(cTrend&&pd){
+      const maV=maN===20?pd._ma20:pd._ma50
+      if(maV==null)continue
+      if(trDir==='above'&&iepPrice<=maV)continue
+      if(trDir==='below'&&iepPrice>=maV)continue
     }
 
-    // Entry price
-    let entryPrice = null
-    if (entryType==='open') {
-      entryPrice = orbC[0].open
-    } else if (entryType==='interval') {
-      const cs = day.filter(c=>{ const t=c.datetime.slice(11,16); return t>=entryIntFrom&&t<=entryIntTo })
-      if (cs.length) entryPrice=cs[0].open
-    } else if (entryType==='orb-up') {
-      const post = day.filter(c=>{ const t=c.datetime.slice(11,16); return t>='09:05'&&t<entryOrbDl })
-      const bc = post.find(c=>c.close>orbHigh)
-      if (bc) entryPrice=bc.close
-    } else if (entryType==='vol-surge') {
-      const wc = day.filter(c=>{ const t=c.datetime.slice(11,16); return t>='09:00'&&t<=entryVolWin })
-      for (let ci=1;ci<wc.length;ci++) {
-        const avg = wc.slice(0,ci).reduce((s,c)=>s+c.volume,0)/ci
-        if (wc[ci].volume>=avg*entryVolX) { entryPrice=wc[ci].close; break }
-      }
-    }
-    if (!entryPrice) continue
+    // ORB breakout check (shared)
+    const postOrb=day.filter(c=>{const t=c.datetime.slice(11,16);return t>='09:05'&&t<orbDl})
+    const orbBroken=postOrb.some(c=>c.close>orbHigh)
 
-    // Simulasi
-    if (useOrb) {
-      const post = day.filter(c=>{ const t=c.datetime.slice(11,16); return t>='09:05'&&t<orbDl })
-      const broken = post.some(c=>c.close>orbHigh)
-      if (broken) {
-        const xp=gp(day,exitOrbT)
-        if (xp) results.push({date,ret:(xp-entryPrice)/entryPrice*100,exit:`ORB→${exitOrbT}`,cat,type:'orb'})
+    // Loop entry times
+    for(const et of entryTimes){
+      // Entry price = open candle pada jam entry
+      const ec=day.filter(c=>c.datetime.slice(11,16)===et)
+      const entryPrice=ec.length?ec[0].open:gp(day,et)
+      if(!entryPrice)continue
+
+      if(useOrb){
+        const key=`${et}|${orbBroken?`ORB→${exitOrbT}`:`AV→${exitAvT}`}`
+        if(!buckets[key])buckets[key]=[]
+        const xp=gp(day,orbBroken?exitOrbT:exitAvT)
+        if(xp)buckets[key].push({ret:(xp-entryPrice)/entryPrice*100,type:orbBroken?'orb':'av',date})
       } else {
-        const xp=gp(day,exitAvoidT)
-        if (xp) results.push({date,ret:(xp-entryPrice)/entryPrice*100,exit:`AV→${exitAvoidT}`,cat,type:'av'})
-      }
-    } else {
-      for (const xt of exitTimes) {
-        const xp=gp(day,xt)
-        if (xp) results.push({date,ret:(xp-entryPrice)/entryPrice*100,exit:xt,cat,type:'fixed'})
+        for(const xt of exitTimes){
+          if(xt<=et)continue  // exit harus setelah entry
+          const key=`${et}|${xt}`
+          if(!buckets[key])buckets[key]=[]
+          const xp=gp(day,xt)
+          if(xp)buckets[key].push({ret:(xp-entryPrice)/entryPrice*100,type:'fixed',date})
+        }
       }
     }
   }
 
-  // Group by exit
-  const grouped = {}
-  for (const r of results) {
-    if (!grouped[r.exit]) grouped[r.exit]=[]
-    grouped[r.exit].push(r)
-  }
+  const totalDays=dates.filter(d=>d>=dateFrom&&d<=dateTo&&prevCM[d]).length
 
-  // Stats per group
-  const rows = []
-  for (const [exit, trades] of Object.entries(grouped)) {
-    const rets = trades.map(t=>t.ret)
-    const w = rets.filter(r=>r>0).length
-    const wins = rets.filter(r=>r>0), loss = rets.filter(r=>r<=0)
-    const wlbV = wlb(w,rets.length)
-    const avgG = rets.reduce((s,r)=>s+r,0)/rets.length
-    const avgW = wins.length?wins.reduce((s,r)=>s+r,0)/wins.length:0
-    const avgL = loss.length?loss.reduce((s,r)=>s+r,0)/loss.length:0
-    const rr   = loss.length&&avgL?Math.abs(avgW/avgL):null
+  // Stats
+  const rows=[]
+  for(const[key,trades]of Object.entries(buckets)){
+    const[et,xt]=key.split('|')
+    const rets=trades.map(t=>t.ret)
+    const w=rets.filter(r=>r>0).length
+    const wins=rets.filter(r=>r>0),loss=rets.filter(r=>r<=0)
+    const wlbV=wlb(w,rets.length)
+    const avgG=rets.reduce((s,r)=>s+r,0)/rets.length
+    const avgW=wins.length?wins.reduce((s,r)=>s+r,0)/wins.length:0
+    const avgL=loss.length?loss.reduce((s,r)=>s+r,0)/loss.length:0
+    const rr=loss.length&&avgL?Math.abs(avgW/avgL):null
     let eq=100,peak=100,mdd=0
-    for (const r of rets) { eq*=(1+(r-FEE)/100); peak=Math.max(peak,eq); mdd=Math.max(mdd,(peak-eq)/peak*100) }
+    for(const r of rets){eq*=(1+(r-FEE)/100);peak=Math.max(peak,eq);mdd=Math.max(mdd,(peak-eq)/peak*100)}
     rows.push({
-      exit, n:rets.length, totalDays, winPct:w/rets.length*100,
-      wlbV:wlbV*100, avgG, avgW, avgL, rr, ret:eq-100, mdd,
+      et,xt,n:rets.length,totalDays,
+      winPct:w/rets.length*100,wlbV:wlbV*100,
+      avgG,avgW,avgL,rr,ret:eq-100,mdd,
       type:trades[0].type,
       nOrb:trades.filter(t=>t.type==='orb').length,
-      nAv: trades.filter(t=>t.type==='av').length,
+      nAv:trades.filter(t=>t.type==='av').length,
     })
   }
   rows.sort((a,b)=>b.ret-a.ret)
 
-  // Render
-  const infoEl = document.getElementById('result-info')
-  const bodyEl = document.getElementById('result-body')
+  const infoEl=document.getElementById('rinfo')
+  const bodyEl=document.getElementById('rbody')
 
-  if (!rows.length) {
-    infoEl.innerHTML = ''
-    bodyEl.innerHTML = `<div class="empty-state"><div style="font-size:28px">⚠️</div><div>Tidak ada trade dengan filter ini</div></div>`
+  if(!rows.length){
+    infoEl.innerHTML=''
+    bodyEl.innerHTML=`<div class="empty"><div>⚠️</div><div>Tidak ada trade dengan kondisi ini</div></div>`
     return
   }
 
-  infoEl.innerHTML = `<b>${sym}</b> · ${dateFrom} – ${dateTo} · <b>${totalDays}</b> hari · fee <b>${FEE}%</b>/RT · <b>${rows.length}</b> exit kombinasi`
+  infoEl.innerHTML=`<b>${sym}</b> · ${dateFrom}–${dateTo} · <b>${totalDays}</b> hari · fee <b>${FEE}%</b>/RT · <b>${rows.length}</b> kombinasi`
 
-  const isOrb = useOrb
-  let html = `<table class="rt"><thead><tr>`
-  html += `<th>Exit</th><th>n/hari</th>`
-  if (isOrb) html += `<th>ORB</th><th>AV</th>`
-  html += `<th>Win%</th><th>WLB%</th><th>Avg</th><th>AvgWIN</th><th>AvgLOS</th><th>R/R</th><th>MDD</th><th>Return/thn</th>`
-  html += `</tr></thead><tbody>`
+  const isOrb=useOrb
+  let html=`<table class="rt"><thead><tr>`
+  html+=`<th>Entry</th><th>Exit</th><th>n/hari</th>`
+  if(isOrb)html+=`<th>ORB</th><th>AV</th>`
+  html+=`<th>Win%</th><th>WLB%</th><th>Avg</th><th>AvgWIN</th><th>AvgLOS</th><th>R/R</th><th>MDD</th><th>Return/thn</th>`
+  html+=`</tr></thead><tbody>`
 
-  for (const r of rows) {
-    const rc = r.ret>=0?'up':'down'
-    const ac = r.avgG>=0?'up':'down'
-    const wc = r.wlbV>=65?'wstar':r.wlbV>=55?'wdot':''
-    const wm = r.wlbV>=65?'★':r.wlbV>=55?'·':''
-    let exitCell = r.exit
-    if (r.type==='orb') exitCell+=`<span class="badge badge-orb">ORB</span>`
-    if (r.type==='av')  exitCell+=`<span class="badge badge-av">AV</span>`
-    html += `<tr>`
-    html += `<td>${exitCell}</td><td>${r.n}/${r.totalDays}</td>`
-    if (isOrb) html += `<td>${r.nOrb||'–'}</td><td>${r.nAv||'–'}</td>`
-    html += `<td>${r.winPct.toFixed(1)}%</td>`
-    html += `<td class="${wc}">${r.wlbV.toFixed(1)}%${wm}</td>`
-    html += `<td class="${ac}">${fp(r.avgG)}</td>`
-    html += `<td class="up">${fp(r.avgW)}</td>`
-    html += `<td class="down">${fp(r.avgL)}</td>`
-    html += `<td>${r.rr!=null?r.rr.toFixed(2)+'x':'–'}</td>`
-    html += `<td class="down">${r.mdd.toFixed(1)}%</td>`
-    html += `<td class="${rc}" style="font-weight:700">${fp(r.ret,1)}</td>`
-    html += `</tr>`
+  for(const r of rows){
+    const rc=r.ret>=0?'up':'dn'
+    const ac=r.avgG>=0?'up':'dn'
+    const wc=r.wlbV>=65?'ws':r.wlbV>=55?'wd':''
+    const wm=r.wlbV>=65?'★':r.wlbV>=55?'·':''
+    let xtCell=r.xt
+    if(r.type==='orb')xtCell+=`<span class="badge borb">ORB</span>`
+    if(r.type==='av') xtCell+=`<span class="badge bav">AV</span>`
+    html+=`<tr>`
+    html+=`<td>${r.et}</td><td>${xtCell}</td><td>${r.n}/${r.totalDays}</td>`
+    if(isOrb)html+=`<td>${r.nOrb||'–'}</td><td>${r.nAv||'–'}</td>`
+    html+=`<td>${r.winPct.toFixed(1)}%</td>`
+    html+=`<td class="${wc}">${r.wlbV.toFixed(1)}%${wm}</td>`
+    html+=`<td class="${ac}">${fp(r.avgG)}</td>`
+    html+=`<td class="up">${fp(r.avgW)}</td>`
+    html+=`<td class="dn">${fp(r.avgL)}</td>`
+    html+=`<td>${r.rr!=null?r.rr.toFixed(2)+'x':'–'}</td>`
+    html+=`<td class="dn">${r.mdd.toFixed(1)}%</td>`
+    html+=`<td class="${rc}" style="font-weight:700">${fp(r.ret,1)}</td>`
+    html+=`</tr>`
   }
-  html += `</tbody></table>`
-  bodyEl.innerHTML = html
+  html+=`</tbody></table>`
+  bodyEl.innerHTML=html
 }
 
 document.getElementById('fetch-btn').addEventListener('click', fetchData)
 
-// Init
 renderHeader(document.getElementById('app-header'), [
   { label: 'IHSG Suite', href: '../../index.html' },
   { label: 'Analisa Scalping' }
 ])
-onReady(() => {})
+onReady(()=>{})
 </script>
 </body>
 </html>
