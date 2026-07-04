@@ -87,4 +87,8 @@ export function whenReady() {
 // Listen event lama 'ihsg:token-saved' untuk backward compatibility
 // Fitur yang sudah pakai event ini tetap bekerja, tapi secara bertahap
 // akan dimigrasikan ke onReady()
-window.addEventListener('ihsg:token-saved', dispatchReady)
+// Backward compat — event lama tetap bekerja (browser only)
+if (typeof window !== 'undefined') {
+  window.addEventListener('ihsg:token-saved', dispatchReady)
+}
+
