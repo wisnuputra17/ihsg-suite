@@ -618,16 +618,28 @@ function _showResult(id, d, isWin) {
 // ============================================================
 let _timer=null
 async function _refresh() {
-  const ms=document.getElementById('market-status')
-  const ri=document.getElementById('refresh-info')
+  const ms = document.getElementById('market-status')
+  const ri = document.getElementById('refresh-info')
+  const wib = new Date(Date.now() + 7*3600*1000)
+  const day = wib.getUTCDay()
+  const tot = wib.getUTCHours()*60 + wib.getUTCMinutes()
+  const isWeekday = day !== 0 && day !== 6
+
   if (_isMarketHours()) {
     if (ms) { ms.textContent='● Pasar buka'; ms.className='market-status live' }
-    await Promise.all(EMITEN_CONFIG.map(cfg=>_fetchEmiten(cfg)))
+    await Promise.all(EMITEN_CONFIG.map(cfg => _fetchEmiten(cfg)))
     if (ri) ri.textContent='Refresh otomatis tiap 1 menit'
-  } else {
+  } else if (isWeekday && tot >= 9*60+15) {
+    // Hari kerja setelah deadline ORB terpendek (09:15)
+    // Fetch untuk tampilkan hasil trade hari ini
     if (ms) { ms.textContent='Pasar tutup'; ms.className='market-status' }
-    if (ri) ri.textContent='Auto-refresh aktif jam 08:45–16:00 WIB'
-    EMITEN_CONFIG.forEach(cfg=>_renderEmiten(cfg,null))
+    await Promise.all(EMITEN_CONFIG.map(cfg => _fetchEmiten(cfg)))
+    if (ri) ri.textContent='Data hari ini — refresh manual bila perlu'
+  } else {
+    // Weekend atau sebelum jam buka
+    if (ms) { ms.textContent='Pasar tutup'; ms.className='market-status' }
+    if (ri) ri.textContent = isWeekday ? 'Aktif jam 08:45 WIB' : 'Weekend — pasar buka Senin'
+    EMITEN_CONFIG.forEach(cfg => _renderEmiten(cfg, null))
   }
 }
 
@@ -1072,6 +1084,7 @@ function _startBsjp() {
 </script>
 </body>
 </html>
+
 
 
 
