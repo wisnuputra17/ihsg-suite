@@ -307,6 +307,7 @@
   import { TOKEN, has, setEmitenInfo } from '../../shared/store.js'
   import { fetchDaily, fetchAbsorption, fetchMarketStatus, fetchEmitenJson, fetchIntraday } from '../../shared/api.js'
   import { renderHeader, refreshTokenStatus, openTokenPopover, whenTokenReady } from '../../shared/header.js'
+import { onReady } from '../../shared/token.js'
   import { bindSymSearch } from '../../shared/symsearch.js'
   import { fmtRp, fmtVol } from '../../shared/format.js'
   import { fetchWithConfirm } from '../../shared/expensive-fetch.js'
@@ -433,7 +434,7 @@
       { label: 'IHSG Suite', href: '../../index.html' },
       { label: 'Chart' }
     ])
-    window.addEventListener('ihsg:token-saved', () => {
+    onReady(() => {
       if (!DB.sym) { document.getElementById('sym-input').value = 'IHSG'; _loadSym() }
     })
 
@@ -459,11 +460,7 @@
     _loadEmitenInfo()
     loadDrawings().then(() => { if (DB.sym) _renderDrawingsForSym() })
 
-    // Tampilkan IHSG sebagai default, supaya chart tidak kosong sebelum pilih saham
-    if (TOKEN.isSet()) {
-      document.getElementById('sym-input').value = 'IHSG'
-      _loadSym()
-    }
+    // Default IHSG ditangani oleh onReady di atas
   }
 
   async function _loadEmitenInfo() {
