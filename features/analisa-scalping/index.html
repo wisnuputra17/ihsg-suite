@@ -527,6 +527,7 @@ async function runAnalisa() {
     for (let b = 0; b < numBatches; b++) {
       const bTo   = toTs - b * batchMs / 1000
       const bFrom = Math.max(fromTs, toTs - (b+1) * batchMs / 1000)
+      if (bFrom >= bTo) break  // jangan kirim request invalid
       setProgress(5 + Math.round(b/numBatches * 40))
       runBtn.textContent = `⏳ Batch ${b+1}/${numBatches}...`
       try {
@@ -856,3 +857,4 @@ onReady(() => {})
 </script>
 </body>
 </html>
+
