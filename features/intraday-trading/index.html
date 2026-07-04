@@ -164,10 +164,7 @@ import { onReady }     from '../../shared/token.js'
 import { fetchIntraday, fetchDaily } from '../../shared/api.js'
 import { TOKEN } from '../../shared/store.js'
 
-renderHeader(document.getElementById('app-header'), [
-    { label: 'IHSG Suite', href: '../../index.html' },
-    { label: 'Intraday Trading' }
-  ])
+// renderHeader dan onReady dipanggil di bawah setelah semua fungsi terdefinisi
 
 // ============================================================
 // KONFIGURASI PER EMITEN — parameter tervalidasi dari backtest
@@ -644,6 +641,11 @@ function _start() {
   }, 60*1000)
 }
 
+// ── Init — semua fungsi sudah terdefinisi di sini ──
+renderHeader(document.getElementById('app-header'), [
+  { label: 'IHSG Suite', href: '../../index.html' },
+  { label: 'Intraday Trading' }
+])
 onReady(() => { _start(); _startBsjp() })
 function _buildBsjpCards() {
   const grid = document.getElementById('bsjp-cards-grid')
@@ -1062,6 +1064,7 @@ function _startBsjp() {
 </script>
 </body>
 </html>
+
 
 
 
