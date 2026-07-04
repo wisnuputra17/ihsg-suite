@@ -3,25 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv="Pragma" content="no-cache">
-  <meta http-equiv="Expires" content="0">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Analisa Scalping · IHSG Suite</title>
   <link rel="stylesheet" href="../../shared/ui.css">
   <style>
     .page { max-width: none; }
-
     .layout {
       display: grid;
-      grid-template-columns: 280px 1fr;
+      grid-template-columns: 270px 1fr;
       gap: 16px;
       align-items: start;
     }
-    @media (max-width: 800px) {
-      .layout { grid-template-columns: 1fr; }
-    }
+    @media (max-width: 800px) { .layout { grid-template-columns: 1fr; } }
 
-    /* ── Panel Kiri ── */
     .config-panel {
       background: var(--raised);
       border: 1px solid var(--line);
@@ -29,7 +23,7 @@
       padding: 14px;
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 12px;
       position: sticky;
       top: 16px;
     }
@@ -40,7 +34,7 @@
       color: var(--ghost);
       text-transform: uppercase;
       letter-spacing: 0.08em;
-      margin-bottom: 6px;
+      margin-bottom: 5px;
       padding-bottom: 4px;
       border-bottom: 1px solid var(--line);
     }
@@ -48,13 +42,13 @@
       display: flex;
       align-items: center;
       gap: 6px;
-      margin-bottom: 6px;
+      margin-bottom: 5px;
     }
     .field-label {
       font-family: var(--f-mono);
       font-size: 11px;
       color: var(--dim);
-      min-width: 80px;
+      min-width: 72px;
     }
     .input-sm {
       background: var(--sink);
@@ -66,32 +60,6 @@
       padding: 3px 6px;
       width: 70px;
     }
-    .input-sym {
-      width: 120px;
-      text-transform: uppercase;
-    }
-    .checkbox-row {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-family: var(--f-mono);
-      font-size: 11px;
-      color: var(--dim);
-      margin-bottom: 4px;
-      cursor: pointer;
-    }
-    .checkbox-row input[type=checkbox] { cursor: pointer; accent-color: var(--live); }
-    .checkbox-row input[type=radio]    { cursor: pointer; accent-color: var(--live); }
-    .sub-config {
-      margin-left: 20px;
-      margin-top: 4px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-family: var(--f-mono);
-      font-size: 10px;
-      color: var(--ghost);
-    }
     .select-sm {
       background: var(--sink);
       border: 1px solid var(--line);
@@ -101,7 +69,32 @@
       font-size: 11px;
       padding: 3px 6px;
     }
-    .run-btn {
+    .cb-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--f-mono);
+      font-size: 11px;
+      color: var(--dim);
+      margin-bottom: 3px;
+      cursor: pointer;
+    }
+    .cb-row input { cursor: pointer; accent-color: var(--live); }
+    .sub {
+      margin-left: 18px;
+      margin-top: 3px;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-family: var(--f-mono);
+      font-size: 10px;
+      color: var(--ghost);
+      flex-wrap: wrap;
+    }
+    .divider { border: none; border-top: 1px solid var(--line); margin: 2px 0; }
+
+    .fetch-btn {
       background: var(--live);
       color: var(--bg);
       border: none;
@@ -112,104 +105,77 @@
       padding: 8px 0;
       width: 100%;
       cursor: pointer;
-      margin-top: 4px;
     }
-    .run-btn:hover { opacity: 0.85; }
-    .run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .fetch-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .fetch-btn:hover:not(:disabled) { opacity: 0.85; }
 
-    /* ── Panel Kanan ── */
+    .data-status {
+      font-family: var(--f-mono);
+      font-size: 10px;
+      color: var(--ghost);
+      text-align: center;
+      padding: 4px 0;
+    }
+    .data-status.ready { color: var(--live); }
+    .data-status.error { color: var(--down); }
+
+    /* Result panel */
     .result-panel { min-height: 400px; }
-    .result-header {
+    .result-info {
       font-family: var(--f-mono);
       font-size: 11px;
       color: var(--ghost);
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
-    .result-header b { color: var(--paper); }
+    .result-info b { color: var(--paper); }
 
-    .result-table {
+    table.rt {
       width: 100%;
       border-collapse: collapse;
       font-family: var(--f-mono);
       font-size: 11px;
     }
-    .result-table th {
+    table.rt th {
       text-align: right;
       color: var(--ghost);
       font-weight: 700;
       padding: 4px 8px;
       border-bottom: 1px solid var(--line);
       white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
     }
-    .result-table th:first-child { text-align: left; }
-    .result-table td {
+    table.rt th:first-child { text-align: left; }
+    table.rt th:hover { color: var(--paper); }
+    table.rt td {
       text-align: right;
       padding: 5px 8px;
       border-bottom: 1px solid var(--line);
       color: var(--dim);
       white-space: nowrap;
     }
-    .result-table td:first-child { text-align: left; color: var(--paper); }
-    .result-table tr:hover td { background: var(--raised); }
+    table.rt td:first-child { text-align: left; color: var(--paper); }
+    table.rt tr:hover td { background: var(--raised); }
+    .up   { color: var(--live) !important; }
+    .down { color: var(--down) !important; }
+    .wstar{ color: var(--live) !important; font-weight: 700; }
+    .wdot { color: var(--warn) !important; }
+    .badge {
+      display: inline-block; font-size: 9px; padding: 1px 4px;
+      border-radius: 2px; margin-left: 3px;
+    }
+    .badge-orb  { background: rgba(74,222,128,.12); color: var(--live); }
+    .badge-av   { background: rgba(248,113,113,.12); color: var(--down); }
 
-    .val-up   { color: var(--live) !important; }
-    .val-down { color: var(--down) !important; }
-    .val-warn { color: var(--warn) !important; }
-    .wlb-star { color: var(--live) !important; font-weight: 700; }
-    .wlb-dot  { color: var(--warn) !important; }
-
-    .badge-avoid {
-      display: inline-block;
-      font-size: 9px;
-      padding: 1px 4px;
-      border-radius: 2px;
-      background: rgba(248,113,113,.15);
-      color: var(--down);
-      margin-left: 4px;
-    }
-    .badge-orb {
-      display: inline-block;
-      font-size: 9px;
-      padding: 1px 4px;
-      border-radius: 2px;
-      background: rgba(74,222,128,.12);
-      color: var(--live);
-      margin-left: 4px;
-    }
-
-    .progress-bar {
-      height: 3px;
-      background: var(--line);
-      border-radius: 2px;
-      overflow: hidden;
-      margin-bottom: 12px;
-    }
-    .progress-fill {
-      height: 100%;
-      background: var(--live);
-      transition: width 0.2s;
-      width: 0%;
-    }
+    .progress-bar { height: 3px; background: var(--line); border-radius: 2px; overflow: hidden; margin-bottom: 10px; }
+    .progress-fill { height: 100%; background: var(--live); transition: width .2s; width: 0%; }
 
     .empty-state {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 300px;
-      color: var(--ghost);
-      font-family: var(--f-mono);
-      font-size: 12px;
-      gap: 8px;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; min-height: 300px;
+      color: var(--ghost); font-family: var(--f-mono); font-size: 12px; gap: 8px;
     }
-    .empty-icon { font-size: 32px; opacity: 0.4; }
-
-    .exit-times-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 4px;
-    }
-    .divider { border: none; border-top: 1px solid var(--line); margin: 2px 0; }
+    .exit-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 3px; }
   </style>
 </head>
 <body>
@@ -222,96 +188,79 @@
 
       <!-- Emiten & Periode -->
       <div>
-        <div class="section-title">Emiten & Periode</div>
+        <div class="section-title">Data</div>
         <div class="field-row">
           <span class="field-label">Emiten</span>
-          <input class="input-sm input-sym" id="sym-input" value="RAJA" maxlength="10"
-                 placeholder="RAJA" autocomplete="off" spellcheck="false">
+          <input class="input-sm" id="sym" value="RAJA" maxlength="10" style="width:80px;text-transform:uppercase">
         </div>
         <div class="field-row">
           <span class="field-label">Dari</span>
-          <input class="input-sm" id="date-from" type="date" style="width:115px">
+          <input class="input-sm" id="date-from" type="date" style="width:120px">
         </div>
         <div class="field-row">
           <span class="field-label">Sampai</span>
-          <input class="input-sm" id="date-to" type="date" style="width:115px">
+          <input class="input-sm" id="date-to" type="date" style="width:120px">
         </div>
+        <button class="fetch-btn" id="fetch-btn">▶ FETCH DATA</button>
+        <div class="data-status" id="data-status">Belum ada data</div>
       </div>
 
       <hr class="divider">
 
-      <!-- Filter Pre-Opening -->
+      <!-- Filter IEP -->
       <div>
-        <div class="section-title">Filter Pre-Opening (IEP)</div>
+        <div class="section-title">Filter IEP Pre-Opening</div>
         <div class="field-row">
-          <span class="field-label">Gap threshold</span>
-          <input class="input-sm" id="gap-threshold" value="0.5" style="width:50px"> %
+          <span class="field-label">Gap ±</span>
+          <input class="input-sm" id="gap-th" value="0.5" style="width:50px"> %
         </div>
-        <label class="checkbox-row">
-          <input type="checkbox" id="filter-gap-up" checked> Gap UP
-        </label>
-        <label class="checkbox-row">
-          <input type="checkbox" id="filter-gap-down" checked> Gap DOWN
-        </label>
-        <label class="checkbox-row">
-          <input type="checkbox" id="filter-stabil"> Stabil (±threshold)
-        </label>
-        <hr class="divider" style="margin:6px 0">
-        <label class="checkbox-row">
-          <input type="checkbox" id="filter-vol-iep"> Volume IEP
-        </label>
-        <div class="sub-config" id="vol-iep-config" style="display:none">
-          ratio ≥ <input class="input-sm" id="vol-iep-ratio" value="1.5" style="width:40px">x avg 5hr
+        <label class="cb-row"><input type="checkbox" id="gap-up" checked> Gap UP</label>
+        <label class="cb-row"><input type="checkbox" id="gap-down" checked> Gap DOWN</label>
+        <label class="cb-row"><input type="checkbox" id="gap-stabil"> Stabil</label>
+        <hr class="divider" style="margin:5px 0">
+        <label class="cb-row"><input type="checkbox" id="use-vol-iep"> Volume IEP surge</label>
+        <div class="sub" id="vol-iep-sub" style="display:none">
+          ≥ <input class="input-sm" id="vol-iep-x" value="1.5" style="width:40px">× avg 5hr
         </div>
-        <label class="checkbox-row">
-          <input type="checkbox" id="filter-iep-surge"> IEP Surge (vol IEP ≥ P)
-        </label>
-        <div class="sub-config" id="iep-surge-config" style="display:none">
-          percentile ≥ <input class="input-sm" id="iep-surge-pct" value="75" style="width:40px">%
+        <label class="cb-row"><input type="checkbox" id="use-iep-pct"> Volume IEP percentile</label>
+        <div class="sub" id="iep-pct-sub" style="display:none">
+          ≥ P<input class="input-sm" id="iep-pct" value="75" style="width:40px">
         </div>
       </div>
 
       <hr class="divider">
 
-      <!-- Filter Opening -->
+      <!-- Filter ORB -->
       <div>
         <div class="section-title">Filter Opening (ORB)</div>
-        <label class="checkbox-row">
-          <input type="checkbox" id="filter-vol-orb"> Volume ORB
-        </label>
-        <div class="sub-config" id="vol-orb-config" style="display:none">
-          ratio ≥ <input class="input-sm" id="vol-orb-ratio" value="2.0" style="width:40px">x avg 5hr
+        <label class="cb-row"><input type="checkbox" id="use-vol-orb"> Volume ORB surge</label>
+        <div class="sub" id="vol-orb-sub" style="display:none">
+          ≥ <input class="input-sm" id="vol-orb-x" value="2.0" style="width:40px">× avg 5hr
         </div>
-        <label class="checkbox-row">
-          <input type="checkbox" id="filter-orb-range"> ORB Range
-        </label>
-        <div class="sub-config" id="orb-range-config" style="display:none">
-          range ≥ <input class="input-sm" id="orb-range-pct" value="1.0" style="width:40px">% prev close
+        <label class="cb-row"><input type="checkbox" id="use-orb-range"> ORB Range</label>
+        <div class="sub" id="orb-range-sub" style="display:none">
+          ≥ <input class="input-sm" id="orb-range-pct" value="1.0" style="width:40px">% prev close
         </div>
       </div>
 
       <hr class="divider">
 
-      <!-- Filter Daily Kemarin -->
+      <!-- Filter Daily -->
       <div>
         <div class="section-title">Filter Daily (kemarin)</div>
-        <label class="checkbox-row">
-          <input type="checkbox" id="filter-rsi"> RSI kemarin
-        </label>
-        <div class="sub-config" id="rsi-config" style="display:none; gap:4px; flex-wrap:wrap;">
+        <label class="cb-row"><input type="checkbox" id="use-rsi"> RSI</label>
+        <div class="sub" id="rsi-sub" style="display:none; gap:4px;">
           <label><input type="radio" name="rsi-dir" value="below" checked> ≤</label>
-          <input class="input-sm" id="rsi-val" value="40" style="width:40px">
+          <input class="input-sm" id="rsi-lo" value="40" style="width:36px">
           <label><input type="radio" name="rsi-dir" value="above"> ≥</label>
-          <input class="input-sm" id="rsi-val2" value="60" style="width:40px">
+          <input class="input-sm" id="rsi-hi" value="60" style="width:36px">
         </div>
-        <label class="checkbox-row">
-          <input type="checkbox" id="filter-trend"> Trend MA
-        </label>
-        <div class="sub-config" id="trend-config" style="display:none; gap:4px;">
+        <label class="cb-row"><input type="checkbox" id="use-trend"> Trend MA</label>
+        <div class="sub" id="trend-sub" style="display:none; gap:4px;">
           IEP
-          <label><input type="radio" name="trend-dir" value="above" checked> di atas</label>
-          <label><input type="radio" name="trend-dir" value="below"> di bawah</label>
-          MA<input class="input-sm" id="ma-period" value="20" style="width:40px">
+          <label><input type="radio" name="trend-dir" value="above" checked> atas</label>
+          <label><input type="radio" name="trend-dir" value="below"> bawah</label>
+          MA<input class="input-sm" id="ma-period" value="20" style="width:36px">
         </div>
       </div>
 
@@ -320,53 +269,38 @@
       <!-- Entry -->
       <div>
         <div class="section-title">Entry</div>
-        <label class="checkbox-row">
-          <input type="radio" name="entry-type" value="open" checked> Open 09:00
-        </label>
-        <label class="checkbox-row">
-          <input type="radio" name="entry-type" value="interval"> Interval 5 menit
-        </label>
-        <div class="sub-config" id="entry-interval-config" style="display:none;">
-          <select class="select-sm" id="entry-interval-from">
-            <option>09:00</option><option>09:05</option><option>09:10</option>
-            <option>09:15</option><option>09:20</option><option>09:25</option>
-            <option>09:30</option><option>09:35</option><option>09:40</option>
-            <option>09:45</option><option>09:50</option><option>09:55</option>
-            <option>10:00</option><option>10:05</option><option>10:10</option>
-            <option>10:15</option>
-          </select>
-          –
-          <select class="select-sm" id="entry-interval-to">
-            <option>09:05</option><option>09:10</option><option>09:15</option>
-            <option>09:20</option><option>09:25</option><option>09:30</option>
-            <option>09:35</option><option>09:40</option><option>09:45</option>
-            <option>09:50</option><option>09:55</option><option>10:00</option>
+        <label class="cb-row"><input type="radio" name="entry" value="open" checked> Open 09:00</label>
+        <label class="cb-row"><input type="radio" name="entry" value="interval"> Interval 5 menit</label>
+        <div class="sub" id="entry-interval-sub" style="display:none">
+          <select class="select-sm" id="entry-int-from">
+            <option>09:00</option><option>09:05</option><option>09:10</option><option>09:15</option>
+            <option>09:20</option><option>09:25</option><option>09:30</option><option>09:35</option>
+            <option>09:40</option><option>09:45</option><option>09:50</option><option>09:55</option>
+            <option>10:00</option><option>10:05</option><option>10:10</option><option>10:15</option>
+          </select>–
+          <select class="select-sm" id="entry-int-to">
+            <option>09:05</option><option>09:10</option><option>09:15</option><option>09:20</option>
+            <option>09:25</option><option>09:30</option><option>09:35</option><option>09:40</option>
+            <option>09:45</option><option>09:50</option><option>09:55</option><option>10:00</option>
             <option>10:05</option><option>10:10</option><option selected>10:15</option>
           </select>
         </div>
-        <label class="checkbox-row">
-          <input type="radio" name="entry-type" value="orb-up"> Saat ORB Up confirmed
-        </label>
-        <div class="sub-config" id="entry-orb-config" style="display:none; flex-direction:column; gap:4px;">
-          <span style="color:var(--ghost);font-size:10px">Entry di close candle pertama yang break ORB high</span>
-          <div style="display:flex;align-items:center;gap:4px;">
-            deadline <select class="select-sm" id="entry-orb-deadline">
-              <option>09:06</option><option>09:11</option>
-              <option selected>09:16</option><option>09:21</option><option>09:31</option>
-            </select>
-          </div>
+        <label class="cb-row"><input type="radio" name="entry" value="orb-up"> ORB Up confirmed</label>
+        <div class="sub" id="entry-orb-sub" style="display:none; flex-direction:column; gap:3px">
+          <span>Entry di close candle break ORB high</span>
+          deadline <select class="select-sm" id="entry-orb-dl">
+            <option>09:06</option><option>09:11</option><option selected>09:16</option>
+            <option>09:21</option><option>09:31</option>
+          </select>
         </div>
-        <label class="checkbox-row">
-          <input type="radio" name="entry-type" value="vol-surge"> Saat Volume Surge
-        </label>
-        <div class="sub-config" id="entry-vol-config" style="display:none; flex-direction:column; gap:4px;">
-          <span style="color:var(--ghost);font-size:10px">Entry saat volume candle ≥ X× rata-rata candle sebelumnya</span>
-          <div style="display:flex;align-items:center;gap:4px;">
-            vol ≥ <input class="input-sm" id="entry-vol-mult" value="3" style="width:40px">x
-            dalam window
-            <select class="select-sm" id="entry-vol-window">
-              <option>09:00</option><option>09:05</option>
-              <option selected>09:15</option><option>09:30</option><option>10:00</option>
+        <label class="cb-row"><input type="radio" name="entry" value="vol-surge"> Volume Surge</label>
+        <div class="sub" id="entry-vol-sub" style="display:none; flex-direction:column; gap:3px">
+          <span>Entry saat vol candle ≥ Nx avg sebelumnya</span>
+          <div style="display:flex;gap:4px;align-items:center">
+            ≥ <input class="input-sm" id="entry-vol-x" value="3" style="width:36px">× dalam
+            <select class="select-sm" id="entry-vol-win">
+              <option>09:00</option><option>09:05</option><option selected>09:15</option>
+              <option>09:30</option><option>10:00</option>
             </select>
           </div>
         </div>
@@ -377,13 +311,11 @@
       <!-- ORB Monitoring -->
       <div>
         <div class="section-title">ORB Monitoring</div>
-        <label class="checkbox-row">
-          <input type="checkbox" id="use-orb" checked> Aktifkan ORB
-        </label>
-        <div id="orb-config">
-          <div class="field-row" style="margin-top:6px">
+        <label class="cb-row"><input type="checkbox" id="use-orb" checked> Aktifkan ORB</label>
+        <div id="orb-cfg">
+          <div class="field-row" style="margin-top:5px">
             <span class="field-label">Deadline</span>
-            <select class="select-sm" id="orb-deadline">
+            <select class="select-sm" id="orb-dl">
               <option>09:06</option><option>09:11</option>
               <option selected>09:16</option><option>09:21</option><option>09:31</option>
             </select>
@@ -391,16 +323,14 @@
           <div class="field-row">
             <span class="field-label">Exit ORB</span>
             <select class="select-sm" id="exit-orb">
-              <option>09:15</option><option>09:30</option>
-              <option selected>10:00</option><option>10:30</option>
-              <option>11:00</option><option>11:30</option><option>15:50</option>
+              <option>09:15</option><option>09:30</option><option selected>10:00</option>
+              <option>10:30</option><option>11:00</option><option>11:30</option><option>15:50</option>
             </select>
           </div>
           <div class="field-row">
             <span class="field-label">Exit AVOID</span>
             <select class="select-sm" id="exit-avoid">
-              <option selected>09:15</option><option>09:30</option>
-              <option>10:00</option>
+              <option selected>09:15</option><option>09:30</option><option>10:00</option>
             </select>
           </div>
         </div>
@@ -408,38 +338,33 @@
 
       <hr class="divider">
 
-      <!-- Exit Times (tanpa ORB) -->
+      <!-- Exit Times -->
       <div id="exit-times-section">
         <div class="section-title">Exit Times (tanpa ORB)</div>
-        <div class="exit-times-grid">
-          <label class="checkbox-row"><input type="checkbox" value="09:15" checked> 09:15</label>
-          <label class="checkbox-row"><input type="checkbox" value="09:30" checked> 09:30</label>
-          <label class="checkbox-row"><input type="checkbox" value="10:00" checked> 10:00</label>
-          <label class="checkbox-row"><input type="checkbox" value="10:30" checked> 10:30</label>
-          <label class="checkbox-row"><input type="checkbox" value="11:00" checked> 11:00</label>
-          <label class="checkbox-row"><input type="checkbox" value="11:30" checked> 11:30</label>
-          <label class="checkbox-row"><input type="checkbox" value="12:00"> 12:00</label>
-          <label class="checkbox-row"><input type="checkbox" value="13:30"> 13:30</label>
-          <label class="checkbox-row"><input type="checkbox" value="14:00"> 14:00</label>
-          <label class="checkbox-row"><input type="checkbox" value="15:00"> 15:00</label>
-          <label class="checkbox-row"><input type="checkbox" value="15:50" checked> 15:50</label>
+        <div class="exit-grid">
+          <label class="cb-row"><input type="checkbox" value="09:15" checked> 09:15</label>
+          <label class="cb-row"><input type="checkbox" value="09:30" checked> 09:30</label>
+          <label class="cb-row"><input type="checkbox" value="10:00" checked> 10:00</label>
+          <label class="cb-row"><input type="checkbox" value="10:30" checked> 10:30</label>
+          <label class="cb-row"><input type="checkbox" value="11:00" checked> 11:00</label>
+          <label class="cb-row"><input type="checkbox" value="11:30" checked> 11:30</label>
+          <label class="cb-row"><input type="checkbox" value="12:00"> 12:00</label>
+          <label class="cb-row"><input type="checkbox" value="13:30"> 13:30</label>
+          <label class="cb-row"><input type="checkbox" value="15:50" checked> 15:50</label>
         </div>
       </div>
 
-      <button class="run-btn" id="run-btn">▶ ANALISA</button>
     </div>
 
     <!-- ── PANEL KANAN ── -->
     <div class="result-panel">
-      <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
-      <div id="result-header" class="result-header"></div>
+      <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+      <div class="result-info" id="result-info"></div>
       <div id="result-body">
         <div class="empty-state">
-          <div class="empty-icon">📊</div>
-          <div>Konfigurasi filter dan klik <b>ANALISA</b></div>
-          <div style="color:var(--ghost);font-size:10px;margin-top:4px">
-            Fetch data otomatis dari Stockbit API
-          </div>
+          <div style="font-size:32px;opacity:.4">📊</div>
+          <div>Klik <b>FETCH DATA</b> untuk memuat data emiten</div>
+          <div style="font-size:10px;margin-top:4px">Filter akan update tabel secara real-time</div>
         </div>
       </div>
     </div>
@@ -453,481 +378,405 @@ import { TOKEN }          from '../../shared/store.js'
 import { fetchIntraday, fetchDaily } from '../../shared/api.js'
 import { calcRSI, calcSMA }          from '../../shared/indicators.js'
 
-const FEE = 0.26  // % per round-trip
+const FEE = 0.26
 
-// ── Default periode: 1 tahun terakhir ──
+// Default periode 1 tahun terakhir
 const today = new Date()
-const oneYearAgo = new Date(today); oneYearAgo.setFullYear(today.getFullYear() - 1)
+const yearAgo = new Date(today); yearAgo.setFullYear(today.getFullYear()-1)
 document.getElementById('date-to').value   = today.toISOString().slice(0,10)
-document.getElementById('date-from').value = oneYearAgo.toISOString().slice(0,10)
+document.getElementById('date-from').value = yearAgo.toISOString().slice(0,10)
 
 // ── Toggle sub-configs ──
-const toggleMap = {
-  'filter-vol-iep':   'vol-iep-config',
-  'filter-iep-surge': 'iep-surge-config',
-  'filter-vol-orb':   'vol-orb-config',
-  'filter-orb-range': 'orb-range-config',
-  'filter-rsi':       'rsi-config',
-  'filter-trend':     'trend-config',
-  'use-orb':          'orb-config',
+const toggles = {
+  'use-vol-iep': 'vol-iep-sub', 'use-iep-pct': 'iep-pct-sub',
+  'use-vol-orb': 'vol-orb-sub', 'use-orb-range': 'orb-range-sub',
+  'use-rsi': 'rsi-sub', 'use-trend': 'trend-sub',
 }
-Object.entries(toggleMap).forEach(([cbId, divId]) => {
+Object.entries(toggles).forEach(([cbId, divId]) => {
   const cb = document.getElementById(cbId)
-  const div = document.getElementById(divId)
-  if (!cb || !div) return
-  const update = () => {
-    if (cbId === 'use-orb') {
-      div.style.display = cb.checked ? '' : 'none'
-      document.getElementById('exit-times-section').style.display = cb.checked ? 'none' : ''
-    } else {
-      div.style.display = cb.checked ? 'flex' : 'none'
-    }
-  }
-  cb.addEventListener('change', update)
-  update()
+  const d  = document.getElementById(divId)
+  if (!cb||!d) return
+  cb.addEventListener('change', () => { d.style.display = cb.checked ? 'flex' : 'none'; recalc() })
+})
+
+// ORB toggle
+document.getElementById('use-orb').addEventListener('change', () => {
+  const on = document.getElementById('use-orb').checked
+  document.getElementById('orb-cfg').style.display = on ? '' : 'none'
+  document.getElementById('exit-times-section').style.display = on ? 'none' : ''
+  recalc()
 })
 
 // Entry type toggle
-document.querySelectorAll('input[name=entry-type]').forEach(r => {
+document.querySelectorAll('input[name=entry]').forEach(r => {
   r.addEventListener('change', () => {
-    const val = document.querySelector('input[name=entry-type]:checked').value
-    document.getElementById('entry-interval-config').style.display = val === 'interval' ? 'flex' : 'none'
-    document.getElementById('entry-orb-config').style.display      = val === 'orb-up'   ? 'flex' : 'none'
-    document.getElementById('entry-vol-config').style.display      = val === 'vol-surge'? 'flex' : 'none'
+    const v = document.querySelector('input[name=entry]:checked').value
+    document.getElementById('entry-interval-sub').style.display = v==='interval'  ? 'flex' : 'none'
+    document.getElementById('entry-orb-sub').style.display      = v==='orb-up'    ? 'flex' : 'none'
+    document.getElementById('entry-vol-sub').style.display      = v==='vol-surge' ? 'flex' : 'none'
+    recalc()
   })
 })
 
-// ── Uppercase emiten ──
-document.getElementById('sym-input').addEventListener('input', e => {
-  e.target.value = e.target.value.toUpperCase()
-})
+// Uppercase sym
+document.getElementById('sym').addEventListener('input', e => e.target.value = e.target.value.toUpperCase())
 
-// ── Helper functions ──
+// Recalc on any filter change
+const filterIds = [
+  'gap-th','gap-up','gap-down','gap-stabil',
+  'vol-iep-x','iep-pct','vol-orb-x','orb-range-pct',
+  'rsi-lo','rsi-hi','ma-period',
+  'entry-int-from','entry-int-to','entry-orb-dl','entry-vol-x','entry-vol-win',
+  'orb-dl','exit-orb','exit-avoid',
+]
+filterIds.forEach(id => {
+  const el = document.getElementById(id)
+  if (el) el.addEventListener('change', recalc)
+})
+document.querySelectorAll('input[name=rsi-dir], input[name=trend-dir]').forEach(r => r.addEventListener('change', recalc))
+document.querySelectorAll('#exit-times-section input[type=checkbox]').forEach(cb => cb.addEventListener('change', recalc))
+
+// ── App state ──
+let _state = null  // { dates, byDate, prevCloseMap, dailyMap, avgOrbVol5, avgIepVol5, iepPctArr, sym, dateFrom, dateTo }
+
+// ── Helpers ──
 function wlb(w, n, z=1.96) {
-  if (n === 0) return 0
+  if (!n) return 0
   const p=w/n, dd=1+z*z/n, cc=p+z*z/(2*n)
   return (cc - z*Math.sqrt(p*(1-p)/n + z*z/(4*n*n))) / dd
 }
-
 function gp(cs, t) {
   const ec = cs.filter(c => c.datetime.slice(11,16) <= t)
   return ec.length ? ec[ec.length-1].close : null
 }
+function setP(v) { document.getElementById('progress').style.width = v+'%' }
+function fp(v, d=2) { return (v>=0?'+':'')+v.toFixed(d)+'%' }
 
-function setProgress(pct) {
-  document.getElementById('progress-fill').style.width = pct + '%'
-}
-
-function fmtPct(v, decimals=1) {
-  if (v == null) return '–'
-  const s = (v >= 0 ? '+' : '') + v.toFixed(decimals) + '%'
-  return s
-}
-
-function wlbClass(v) {
-  if (v >= 65) return 'wlb-star'
-  if (v >= 55) return 'wlb-dot'
-  return ''
-}
-
-function wlbMark(v) {
-  if (v >= 65) return '★'
-  if (v >= 55) return '·'
-  return ''
-}
-
-// ── Main analisa function ──
-async function runAnalisa() {
-  const sym = document.getElementById('sym-input').value.trim().toUpperCase()
+// ── FETCH DATA ──
+async function fetchData() {
+  const sym      = document.getElementById('sym').value.trim().toUpperCase()
   const dateFrom = document.getElementById('date-from').value
   const dateTo   = document.getElementById('date-to').value
-  if (!sym || !dateFrom || !dateTo) { alert('Lengkapi emiten dan periode'); return }
+  if (!sym||!dateFrom||!dateTo) { alert('Lengkapi emiten dan periode'); return }
 
   await whenTokenReady()
   if (!TOKEN.isSet()) { openTokenPopover(); return }
 
-  const runBtn = document.getElementById('run-btn')
-  runBtn.disabled = true
-  runBtn.textContent = '⏳ Mengambil data...'
-  setProgress(5)
-  document.getElementById('result-header').textContent = ''
+  const btn = document.getElementById('fetch-btn')
+  const statusEl = document.getElementById('data-status')
+  btn.disabled = true
+  btn.textContent = '⏳ Fetching...'
+  statusEl.className = 'data-status'
+  statusEl.textContent = 'Mengambil data...'
+  setP(5)
+  _state = null
+
   document.getElementById('result-body').innerHTML = `
-    <div class="empty-state">
-      <div class="empty-icon" style="animation:spin 1s linear infinite">⏳</div>
-      <div>Mengambil data ${sym}...</div>
-    </div>`
+    <div class="empty-state"><div style="font-size:28px">⏳</div><div>Mengambil data ${sym}...</div></div>`
 
   try {
-    // ── 1. Fetch intraday 1m ──
-    // Timestamp: fromTs = akhir periode, toTs = awal periode (API konvensi terbalik)
-    // Kalau dateTo = hari ini, pakai now() agar tidak future timestamp
-    const nowTs = Math.floor(Date.now() / 1000)
-    const dateToTs = Math.floor(new Date(dateTo + 'T09:00:00Z').getTime() / 1000) + 7 * 3600 // jam 16:00 WIB
-    const fromTs = Math.min(dateToTs, nowTs)  // tidak boleh future
-    const toTs   = Math.floor(new Date(dateFrom + 'T02:00:00Z').getTime() / 1000) // jam 09:00 WIB
-    const batchMs = 7 * 24 * 3600 * 1000
-    const totalMs = (fromTs - toTs) * 1000
-    const numBatches = Math.ceil(totalMs / batchMs)
+    // Fetch intraday 1m
+    const nowTs    = Math.floor(Date.now()/1000)
+    const dateToTs = Math.min(Math.floor(new Date(dateTo+'T09:00:00Z').getTime()/1000) + 7*3600, nowTs)
+    const fromTs   = Math.floor(new Date(dateFrom+'T02:00:00Z').getTime()/1000)
+    const batchMs  = 7*24*3600*1000
+    const numBatches = Math.ceil((dateToTs-fromTs)*1000/batchMs)
 
-    const allCandles = []; const seen = new Set()
-    for (let b = 0; b < numBatches; b++) {
-      const batchTo   = fromTs - b * batchMs / 1000          // lebih baru
-      const batchFrom = Math.max(toTs, fromTs - (b+1) * batchMs / 1000)  // lebih lama
-      if (batchFrom >= batchTo) break
-      setProgress(5 + Math.round(b/numBatches * 40))
-      runBtn.textContent = `⏳ Batch ${b+1}/${numBatches}...`
+    const allC = []; const seen = new Set()
+    for (let b=0; b<numBatches; b++) {
+      const bTo   = dateToTs - b*batchMs/1000
+      const bFrom = Math.max(fromTs, dateToTs-(b+1)*batchMs/1000)
+      if (bFrom >= bTo) break
+      setP(5+Math.round(b/numBatches*45))
+      btn.textContent = `⏳ Batch ${b+1}/${numBatches}...`
       try {
-        const cs = await fetchIntraday(sym, batchTo, batchFrom, 1)
-        for (const c of cs) { if (!seen.has(c.unix)) { seen.add(c.unix); allCandles.push(c) } }
-      } catch(e) { if (e.code === 'EMPTY_RESPONSE') break; throw e }
+        const cs = await fetchIntraday(sym, bTo, bFrom, 1)
+        for (const c of cs) { if (!seen.has(c.unix)) { seen.add(c.unix); allC.push(c) } }
+      } catch(e) { if (e.code==='EMPTY_RESPONSE') break; throw e }
     }
-    allCandles.sort((a,b) => a.unix - b.unix)
-    setProgress(50)
+    allC.sort((a,b)=>a.unix-b.unix)
+    setP(55)
 
-    // ── 2. Fetch daily untuk RSI/MA filter ──
-    runBtn.textContent = '⏳ Fetch daily...'
+    // Fetch daily
+    btn.textContent = '⏳ Fetch daily...'
     const dailyAll = await fetchDaily(sym)
-    const dailySorted = [...dailyAll].sort((a,b) => a.date < b.date ? -1 : 1)
-    setProgress(60)
-
-    // Hitung MA dan RSI dari daily
-    const dailyCloses = dailySorted.map(d => d.close)
-    const rsiDaily    = calcRSI(dailyCloses, 14)
-    const ma20Daily   = calcSMA(dailyCloses, 20)
-    const ma50Daily   = calcSMA(dailyCloses, 50)
-    dailySorted.forEach((d, i) => {
-      d._rsi  = rsiDaily[i]
-      d._ma20 = ma20Daily[i]
-      d._ma50 = ma50Daily[i]
-    })
+    const dailySorted = [...dailyAll].sort((a,b)=>a.date<b.date?-1:1)
+    const closes = dailySorted.map(d=>d.close)
+    const rsiArr = calcRSI(closes,14)
+    const ma20Arr= calcSMA(closes,20)
+    const ma50Arr= calcSMA(closes,50)
+    dailySorted.forEach((d,i)=>{ d._rsi=rsiArr[i]; d._ma20=ma20Arr[i]; d._ma50=ma50Arr[i] })
     const dailyMap = {}
-    dailySorted.forEach(d => dailyMap[d.date] = d)
+    dailySorted.forEach(d=>dailyMap[d.date]=d)
+    setP(70)
 
-    // ── 3. Group candles by date ──
+    // Group by date
     const byDate = {}
-    for (const c of allCandles) {
-      const date = c.datetime.slice(0,10)
-      if (!byDate[date]) byDate[date] = []
-      byDate[date].push(c)
+    for (const c of allC) {
+      const dt = c.datetime.slice(0,10)
+      if (!byDate[dt]) byDate[dt]=[]
+      byDate[dt].push(c)
     }
     const dates = Object.keys(byDate).sort()
 
-    // Build prev close map
+    // Prev close map
     const prevCloseMap = {}
-    for (let i = 1; i < dates.length; i++) {
-      const d = dates[i], prev = dates[i-1]
-      const reg = byDate[prev].filter(c => c.datetime.slice(11,16) >= '09:00' && c.datetime.slice(11,16) <= '15:50')
-        .sort((a,b) => a.unix - b.unix)
-      if (reg.length) prevCloseMap[d] = reg[reg.length-1].close
+    for (let i=1;i<dates.length;i++) {
+      const d=dates[i], prev=dates[i-1]
+      const reg = byDate[prev].filter(c=>c.datetime.slice(11,16)>='09:00'&&c.datetime.slice(11,16)<='15:50')
+        .sort((a,b)=>a.unix-b.unix)
+      if (reg.length) prevCloseMap[d]=reg[reg.length-1].close
     }
 
-    // Build avg 5-day ORB vol & IEP vol
-    const avgOrbVol5 = {}
-    const avgIepVol5 = {}
-    for (let i = 5; i < dates.length; i++) {
-      const prevDays = dates.slice(i-5, i)
-      let orbVols = [], iepVols = []
-      for (const pd of prevDays) {
-        const orb = byDate[pd].filter(c => c.datetime.slice(11,16) >= '09:00' && c.datetime.slice(11,16) <= '09:04')
-        const iep = byDate[pd].filter(c => c.datetime.slice(11,16) >= '08:45' && c.datetime.slice(11,16) <= '08:59')
-        if (orb.length) orbVols.push(orb.reduce((s,c) => s+c.volume, 0))
-        if (iep.length) iepVols.push(iep.reduce((s,c) => s+c.volume, 0))
+    // Avg 5-day ORB & IEP vol
+    const avgOrbVol5={}, avgIepVol5={}
+    for (let i=5;i<dates.length;i++) {
+      const prev5=dates.slice(i-5,i)
+      const orbV=[], iepV=[]
+      for (const pd of prev5) {
+        const orb=byDate[pd].filter(c=>c.datetime.slice(11,16)>='09:00'&&c.datetime.slice(11,16)<='09:04')
+        const iep=byDate[pd].filter(c=>c.datetime.slice(11,16)>='08:45'&&c.datetime.slice(11,16)<='08:59')
+        if (orb.length) orbV.push(orb.reduce((s,c)=>s+c.volume,0))
+        if (iep.length) iepV.push(iep.reduce((s,c)=>s+c.volume,0))
       }
-      if (orbVols.length) avgOrbVol5[dates[i]] = orbVols.reduce((s,v)=>s+v,0)/orbVols.length
-      if (iepVols.length) avgIepVol5[dates[i]] = iepVols.reduce((s,v)=>s+v,0)/iepVols.length
+      if (orbV.length) avgOrbVol5[dates[i]]=orbV.reduce((s,v)=>s+v,0)/orbV.length
+      if (iepV.length) avgIepVol5[dates[i]]=iepV.reduce((s,v)=>s+v,0)/iepV.length
     }
 
-    // IEP surge percentile
-    const allIepVols = dates.map(d => {
-      const iep = byDate[d].filter(c => c.datetime.slice(11,16) >= '08:45' && c.datetime.slice(11,16) <= '08:59')
-      return iep.reduce((s,c) => s+c.volume, 0)
-    }).filter(v => v > 0).sort((a,b) => a-b)
-    function getIepPct(pct) {
-      return allIepVols[Math.floor(allIepVols.length * pct / 100)] || 0
-    }
+    // IEP vol percentile array (untuk percentile filter)
+    const iepPctArr = dates.map(d=>{
+      const iep=byDate[d].filter(c=>c.datetime.slice(11,16)>='08:45'&&c.datetime.slice(11,16)<='08:59')
+      return iep.reduce((s,c)=>s+c.volume,0)
+    }).filter(v=>v>0).sort((a,b)=>a-b)
 
-    setProgress(70)
-    runBtn.textContent = '⏳ Menghitung...'
+    setP(100)
+    _state = { dates, byDate, prevCloseMap, dailyMap, avgOrbVol5, avgIepVol5, iepPctArr, sym, dateFrom, dateTo }
 
-    // ── 4. Baca konfigurasi ──
-    const gapTh      = parseFloat(document.getElementById('gap-threshold').value) || 0.5
-    const useGapUp   = document.getElementById('filter-gap-up').checked
-    const useGapDown = document.getElementById('filter-gap-down').checked
-    const useStabil  = document.getElementById('filter-stabil').checked
-    const useVolIep  = document.getElementById('filter-vol-iep').checked
-    const volIepRatio= parseFloat(document.getElementById('vol-iep-ratio').value) || 1.5
-    const useIepSurge= document.getElementById('filter-iep-surge').checked
-    const iepSurgePct= parseFloat(document.getElementById('iep-surge-pct').value) || 75
-    const iepSurgeVol= getIepPct(iepSurgePct)
-    const useVolOrb  = document.getElementById('filter-vol-orb').checked
-    const volOrbRatio= parseFloat(document.getElementById('vol-orb-ratio').value) || 2.0
-    const useOrbRange= document.getElementById('filter-orb-range').checked
-    const orbRangePct= parseFloat(document.getElementById('orb-range-pct').value) || 1.0
-    const useRsi     = document.getElementById('filter-rsi').checked
-    const rsiDir     = document.querySelector('input[name=rsi-dir]:checked')?.value || 'below'
-    const rsiVal     = parseFloat(document.getElementById('rsi-val').value) || 40
-    const rsiVal2    = parseFloat(document.getElementById('rsi-val2').value) || 60
-    const useTrend   = document.getElementById('filter-trend').checked
-    const trendDir   = document.querySelector('input[name=trend-dir]:checked')?.value || 'above'
-    const maPeriod   = parseInt(document.getElementById('ma-period').value) || 20
-    const entryType      = document.querySelector('input[name=entry-type]:checked').value
-    const entryIntFrom   = document.getElementById('entry-interval-from').value || '09:00'
-    const entryIntTo     = document.getElementById('entry-interval-to').value   || '10:15'
-    const entryOrbDl     = document.getElementById('entry-orb-deadline').value  || '09:16'
-    const entryVolMult   = parseFloat(document.getElementById('entry-vol-mult').value) || 3
-    const entryVolWindow = document.getElementById('entry-vol-window').value    || '09:15'
-    const useOrb     = document.getElementById('use-orb').checked
-    const orbDeadline= document.getElementById('orb-deadline').value
-    const exitOrbTime= document.getElementById('exit-orb').value
-    const exitAvoid  = document.getElementById('exit-avoid').value
-    const exitTimes  = useOrb ? [] :
-      [...document.querySelectorAll('#exit-times-section input[type=checkbox]:checked')].map(c => c.value)
-
-    // ── 5. Simulasi per hari ──
-    const results = []  // { date, ret, exitLabel, cat }
-
-    for (const date of dates) {
-      if (date < dateFrom || date > dateTo) continue
-      if (!prevCloseMap[date]) continue
-
-      const day = byDate[date].sort((a,b) => a.unix - b.unix)
-      const iepC = day.filter(c => c.datetime.slice(11,16) >= '08:45' && c.datetime.slice(11,16) <= '08:59')
-      if (!iepC.length) continue
-      const iepPrice = iepC[iepC.length-1].close
-      const iepVol   = iepC.reduce((s,c) => s+c.volume, 0)
-      const prevClose = prevCloseMap[date]
-      const gapPct = (iepPrice - prevClose) / prevClose * 100
-
-      // Gap filter
-      let cat = gapPct > gapTh ? 'UP' : gapPct < -gapTh ? 'DOWN' : 'STABIL'
-      if (cat === 'UP'    && !useGapUp)   continue
-      if (cat === 'DOWN'  && !useGapDown) continue
-      if (cat === 'STABIL'&& !useStabil)  continue
-
-      // Volume IEP filter
-      if (useVolIep && avgIepVol5[date]) {
-        if (iepVol / avgIepVol5[date] < volIepRatio) continue
-      }
-
-      // IEP Surge filter
-      if (useIepSurge && iepVol < iepSurgeVol) continue
-
-      // ORB candles
-      const orbC = day.filter(c => c.datetime.slice(11,16) >= '09:00' && c.datetime.slice(11,16) <= '09:04')
-      if (!orbC.length) continue
-      const orbHigh = Math.max(...orbC.map(c => c.high))
-      const orbLow  = Math.min(...orbC.map(c => c.low))
-      const orbVol  = orbC.reduce((s,c) => s+c.volume, 0)
-
-      // Volume ORB filter
-      if (useVolOrb && avgOrbVol5[date]) {
-        if (orbVol / avgOrbVol5[date] < volOrbRatio) continue
-      }
-
-      // ORB Range filter
-      if (useOrbRange) {
-        const range = (orbHigh - orbLow) / prevClose * 100
-        if (range < orbRangePct) continue
-      }
-
-      // Daily filters (kemarin)
-      const prevDate = dates[dates.indexOf(date) - 1]
-      const prevDaily = prevDate ? dailyMap[prevDate] : null
-      if (useRsi && prevDaily?._rsi != null) {
-        if (rsiDir === 'below' && prevDaily._rsi > rsiVal) continue
-        if (rsiDir === 'above' && prevDaily._rsi < rsiVal2) continue
-      }
-      if (useTrend && prevDaily) {
-        const maVal = maPeriod === 20 ? prevDaily._ma20 : prevDaily._ma50
-        if (maVal == null) continue
-        if (trendDir === 'above' && iepPrice <= maVal) continue
-        if (trendDir === 'below' && iepPrice >= maVal) continue
-      }
-
-      // Entry price sesuai tipe
-      let entryPrice = null
-
-      if (entryType === 'open') {
-        // Open 09:00
-        entryPrice = orbC[0].open
-
-      } else if (entryType === 'interval') {
-        // Candle pertama dalam window interval
-        const cands = day.filter(c => {
-          const t = c.datetime.slice(11,16)
-          return t >= entryIntFrom && t <= entryIntTo
-        })
-        if (cands.length) entryPrice = cands[0].open
-
-      } else if (entryType === 'orb-up') {
-        // Close candle pertama yang break ORB high sebelum deadline
-        const postOrb2 = day.filter(c => {
-          const t = c.datetime.slice(11,16)
-          return t >= '09:05' && t < entryOrbDl
-        })
-        const breakC = postOrb2.find(c => c.close > orbHigh)
-        if (breakC) entryPrice = breakC.close
-
-      } else if (entryType === 'vol-surge') {
-        // Candle dengan volume ≥ X× rata-rata candle sebelumnya dalam window
-        const windowC = day.filter(c => {
-          const t = c.datetime.slice(11,16)
-          return t >= '09:00' && t <= entryVolWindow
-        })
-        if (windowC.length >= 3) {
-          // Rata-rata volume semua candle sebelum masing-masing
-          for (let ci = 1; ci < windowC.length; ci++) {
-            const prevAvg = windowC.slice(0, ci).reduce((s,c)=>s+c.volume,0) / ci
-            if (windowC[ci].volume >= prevAvg * entryVolMult) {
-              entryPrice = windowC[ci].close  // entry di close candle surge
-              break
-            }
-          }
-        }
-      }
-      if (!entryPrice) continue
-
-      // ORB monitoring mode
-      if (useOrb) {
-        const postOrb = day.filter(c => {
-          const t = c.datetime.slice(11,16)
-          return t >= '09:05' && t < orbDeadline
-        })
-        const broken = postOrb.some(c => c.close > orbHigh)
-
-        if (broken) {
-          const xp = gp(day, exitOrbTime)
-          if (xp) results.push({ date, ret: (xp-entryPrice)/entryPrice*100, exitLabel: `ORB→${exitOrbTime}`, cat, type: 'orb' })
-        } else {
-          const xp = gp(day, exitAvoid)
-          if (xp) results.push({ date, ret: (xp-entryPrice)/entryPrice*100, exitLabel: `AV→${exitAvoid}`, cat, type: 'avoid' })
-        }
-      } else {
-        // Fixed exit times
-        for (const xt of exitTimes) {
-          const xp = gp(day, xt)
-          if (xp) results.push({ date, ret: (xp-entryPrice)/entryPrice*100, exitLabel: xt, cat, type: 'fixed' })
-        }
-      }
-    }
-
-    setProgress(90)
-
-    // ── 6. Group results by exitLabel ──
-    const grouped = {}
-    for (const r of results) {
-      if (!grouped[r.exitLabel]) grouped[r.exitLabel] = []
-      grouped[r.exitLabel].push(r)
-    }
-
-    // ── 7. Hitung statistik per group ──
-    const totalDays = dates.filter(d => d >= dateFrom && d <= dateTo && prevCloseMap[d]).length
-    const rows = []
-
-    for (const [exitLabel, trades] of Object.entries(grouped)) {
-      const rets = trades.map(t => t.ret)
-      const w = rets.filter(r => r > 0).length
-      const wins = rets.filter(r => r > 0)
-      const loss = rets.filter(r => r <= 0)
-      const wlbV = wlb(w, rets.length)
-      const avgG = rets.reduce((s,r)=>s+r,0) / rets.length
-      const avgW = wins.length ? wins.reduce((s,r)=>s+r,0)/wins.length : 0
-      const avgL = loss.length ? loss.reduce((s,r)=>s+r,0)/loss.length : 0
-      const rr   = loss.length && avgL ? Math.abs(avgW/avgL) : null
-
-      // Equity compounded dengan fee
-      let eq = 100, peak = 100, mdd = 0
-      for (const r of rets) {
-        eq *= (1 + (r - FEE) / 100)
-        peak = Math.max(peak, eq)
-        mdd  = Math.max(mdd, (peak - eq) / peak * 100)
-      }
-      const returnPct = eq - 100
-
-      rows.push({
-        exitLabel, n: rets.length, totalDays,
-        winPct: w/rets.length*100, wlbV: wlbV*100,
-        avgG, avgW, avgL, rr, returnPct, mdd,
-        type: trades[0].type,
-        orbCount:   trades.filter(t=>t.type==='orb').length,
-        avoidCount: trades.filter(t=>t.type==='avoid').length,
-      })
-    }
-
-    // Sort by returnPct desc
-    rows.sort((a,b) => b.returnPct - a.returnPct)
-
-    setProgress(100)
-
-    // ── 8. Render tabel ──
-    const headerEl = document.getElementById('result-header')
-    const bodyEl   = document.getElementById('result-body')
-
-    const periodDays = dates.filter(d => d >= dateFrom && d <= dateTo).length
-    headerEl.innerHTML = `
-      <b>${sym}</b> · ${dateFrom} – ${dateTo} · <b>${periodDays}</b> hari ·
-      fee <b>${FEE}%</b>/RT · <b>${rows.length}</b> kombinasi exit
-    `
-
-    if (!rows.length) {
-      bodyEl.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div>Tidak ada trade dengan filter ini</div></div>`
-      return
-    }
-
-    const isOrbMode = useOrb
-    let html = `<table class="result-table"><thead><tr>`
-
-    if (isOrbMode) {
-      html += `<th>Exit</th><th>n/total</th><th>ORB</th><th>AVOID</th><th>Win%</th><th>WLB%</th><th>Avg</th><th>AvgWIN</th><th>AvgLOS</th><th>R/R</th><th>MDD</th><th>Return/thn</th>`
-    } else {
-      html += `<th>Exit</th><th>n/total</th><th>Win%</th><th>WLB%</th><th>Avg</th><th>AvgWIN</th><th>AvgLOS</th><th>R/R</th><th>MDD</th><th>Return/thn</th>`
-    }
-    html += `</tr></thead><tbody>`
-
-    for (const r of rows) {
-      const retCls = r.returnPct >= 0 ? 'val-up' : 'val-down'
-      const avgCls = r.avgG >= 0 ? 'val-up' : 'val-down'
-      const wlbCls = wlbClass(r.wlbV)
-      const wlbMk  = wlbMark(r.wlbV)
-
-      let exitCell = r.exitLabel
-      if (r.type === 'orb')   exitCell += `<span class="badge-orb">ORB</span>`
-      if (r.type === 'avoid') exitCell += `<span class="badge-avoid">AV</span>`
-
-      html += `<tr>`
-      html += `<td>${exitCell}</td>`
-      html += `<td>${r.n}/${r.totalDays}</td>`
-      if (isOrbMode) {
-        html += `<td>${r.orbCount||'–'}</td><td>${r.avoidCount||'–'}</td>`
-      }
-      html += `<td>${r.winPct.toFixed(1)}%</td>`
-      html += `<td class="${wlbCls}">${r.wlbV.toFixed(1)}%${wlbMk}</td>`
-      html += `<td class="${avgCls}">${fmtPct(r.avgG,2)}</td>`
-      html += `<td class="val-up">${fmtPct(r.avgW,2)}</td>`
-      html += `<td class="val-down">${fmtPct(r.avgL,2)}</td>`
-      html += `<td>${r.rr != null ? r.rr.toFixed(2)+'x' : '–'}</td>`
-      html += `<td class="val-down">${r.mdd.toFixed(1)}%</td>`
-      html += `<td class="${retCls}" style="font-weight:700">${fmtPct(r.returnPct,1)}</td>`
-      html += `</tr>`
-    }
-
-    html += `</tbody></table>`
-    bodyEl.innerHTML = html
+    const totalDays = dates.filter(d=>d>=dateFrom&&d<=dateTo&&prevCloseMap[d]).length
+    statusEl.className = 'data-status ready'
+    statusEl.textContent = `✓ ${sym} · ${totalDays} hari · ${allC.length.toLocaleString()} candle`
+    recalc()
 
   } catch(e) {
+    statusEl.className = 'data-status error'
+    statusEl.textContent = '✗ ' + (e.message||'Gagal')
     document.getElementById('result-body').innerHTML =
-      `<div class="empty-state"><div class="empty-icon">❌</div><div>${e.message}</div></div>`
-    if (e.code === 'TOKEN_EXPIRED') openTokenPopover()
+      `<div class="empty-state"><div style="font-size:28px">❌</div><div>${e.message}</div></div>`
+    if (e.code==='TOKEN_EXPIRED') openTokenPopover()
   } finally {
-    runBtn.disabled = false
-    runBtn.textContent = '▶ ANALISA'
-    setTimeout(() => setProgress(0), 800)
+    btn.disabled = false
+    btn.textContent = '▶ FETCH DATA'
+    setTimeout(()=>setP(0), 600)
   }
 }
 
-document.getElementById('run-btn').addEventListener('click', runAnalisa)
+// ── RECALC (real-time, pakai _state) ──
+function recalc() {
+  if (!_state) return
+  const { dates, byDate, prevCloseMap, dailyMap, avgOrbVol5, avgIepVol5, iepPctArr, sym, dateFrom, dateTo } = _state
 
-// ── Init ──
+  // Baca konfigurasi
+  const gapTh       = parseFloat(document.getElementById('gap-th').value)||0.5
+  const useGapUp    = document.getElementById('gap-up').checked
+  const useGapDown  = document.getElementById('gap-down').checked
+  const useGapSt    = document.getElementById('gap-stabil').checked
+  const useVolIep   = document.getElementById('use-vol-iep').checked
+  const volIepX     = parseFloat(document.getElementById('vol-iep-x').value)||1.5
+  const useIepPct   = document.getElementById('use-iep-pct').checked
+  const iepPctVal   = parseFloat(document.getElementById('iep-pct').value)||75
+  const iepPctTh    = iepPctArr[Math.floor(iepPctArr.length*iepPctVal/100)]||0
+  const useVolOrb   = document.getElementById('use-vol-orb').checked
+  const volOrbX     = parseFloat(document.getElementById('vol-orb-x').value)||2.0
+  const useOrbRange = document.getElementById('use-orb-range').checked
+  const orbRangePct = parseFloat(document.getElementById('orb-range-pct').value)||1.0
+  const useRsi      = document.getElementById('use-rsi').checked
+  const rsiDir      = document.querySelector('input[name=rsi-dir]:checked')?.value||'below'
+  const rsiLo       = parseFloat(document.getElementById('rsi-lo').value)||40
+  const rsiHi       = parseFloat(document.getElementById('rsi-hi').value)||60
+  const useTrend    = document.getElementById('use-trend').checked
+  const trendDir    = document.querySelector('input[name=trend-dir]:checked')?.value||'above'
+  const maPeriod    = parseInt(document.getElementById('ma-period').value)||20
+  const entryType   = document.querySelector('input[name=entry]:checked').value
+  const entryIntFrom= document.getElementById('entry-int-from').value||'09:00'
+  const entryIntTo  = document.getElementById('entry-int-to').value||'10:15'
+  const entryOrbDl  = document.getElementById('entry-orb-dl').value||'09:16'
+  const entryVolX   = parseFloat(document.getElementById('entry-vol-x').value)||3
+  const entryVolWin = document.getElementById('entry-vol-win').value||'09:15'
+  const useOrb      = document.getElementById('use-orb').checked
+  const orbDl       = document.getElementById('orb-dl').value
+  const exitOrbT    = document.getElementById('exit-orb').value
+  const exitAvoidT  = document.getElementById('exit-avoid').value
+  const exitTimes   = useOrb ? [] :
+    [...document.querySelectorAll('#exit-times-section input[type=checkbox]:checked')].map(c=>c.value)
+
+  const results = []
+  const totalDays = dates.filter(d=>d>=dateFrom&&d<=dateTo&&prevCloseMap[d]).length
+
+  for (const date of dates) {
+    if (date<dateFrom||date>dateTo) continue
+    if (!prevCloseMap[date]) continue
+
+    const day = byDate[date].sort((a,b)=>a.unix-b.unix)
+
+    // IEP
+    const iepC = day.filter(c=>c.datetime.slice(11,16)>='08:45'&&c.datetime.slice(11,16)<='08:59')
+    if (!iepC.length) continue
+    const iepPrice = iepC[iepC.length-1].close
+    const iepVol   = iepC.reduce((s,c)=>s+c.volume,0)
+    const prevClose = prevCloseMap[date]
+    const gapPct   = (iepPrice-prevClose)/prevClose*100
+    const cat      = gapPct>gapTh?'UP':gapPct<-gapTh?'DOWN':'STABIL'
+
+    if (cat==='UP'    &&!useGapUp)   continue
+    if (cat==='DOWN'  &&!useGapDown) continue
+    if (cat==='STABIL'&&!useGapSt)   continue
+
+    // Volume IEP filters
+    if (useVolIep&&avgIepVol5[date]&&iepVol/avgIepVol5[date]<volIepX) continue
+    if (useIepPct&&iepVol<iepPctTh) continue
+
+    // ORB candles
+    const orbC = day.filter(c=>c.datetime.slice(11,16)>='09:00'&&c.datetime.slice(11,16)<='09:04')
+    if (!orbC.length) continue
+    const orbHigh = Math.max(...orbC.map(c=>c.high))
+    const orbLow  = Math.min(...orbC.map(c=>c.low))
+    const orbVol  = orbC.reduce((s,c)=>s+c.volume,0)
+
+    // ORB filters
+    if (useVolOrb&&avgOrbVol5[date]&&orbVol/avgOrbVol5[date]<volOrbX) continue
+    if (useOrbRange&&(orbHigh-orbLow)/prevClose*100<orbRangePct) continue
+
+    // Daily filters
+    const prevDateIdx = dates.indexOf(date)-1
+    const prevDate = prevDateIdx>=0?dates[prevDateIdx]:null
+    const pd = prevDate?dailyMap[prevDate]:null
+    if (useRsi&&pd?._rsi!=null) {
+      if (rsiDir==='below'&&pd._rsi>rsiLo) continue
+      if (rsiDir==='above'&&pd._rsi<rsiHi) continue
+    }
+    if (useTrend&&pd) {
+      const maV = maPeriod===20?pd._ma20:pd._ma50
+      if (maV==null) continue
+      if (trendDir==='above'&&iepPrice<=maV) continue
+      if (trendDir==='below'&&iepPrice>=maV) continue
+    }
+
+    // Entry price
+    let entryPrice = null
+    if (entryType==='open') {
+      entryPrice = orbC[0].open
+    } else if (entryType==='interval') {
+      const cs = day.filter(c=>{ const t=c.datetime.slice(11,16); return t>=entryIntFrom&&t<=entryIntTo })
+      if (cs.length) entryPrice=cs[0].open
+    } else if (entryType==='orb-up') {
+      const post = day.filter(c=>{ const t=c.datetime.slice(11,16); return t>='09:05'&&t<entryOrbDl })
+      const bc = post.find(c=>c.close>orbHigh)
+      if (bc) entryPrice=bc.close
+    } else if (entryType==='vol-surge') {
+      const wc = day.filter(c=>{ const t=c.datetime.slice(11,16); return t>='09:00'&&t<=entryVolWin })
+      for (let ci=1;ci<wc.length;ci++) {
+        const avg = wc.slice(0,ci).reduce((s,c)=>s+c.volume,0)/ci
+        if (wc[ci].volume>=avg*entryVolX) { entryPrice=wc[ci].close; break }
+      }
+    }
+    if (!entryPrice) continue
+
+    // Simulasi
+    if (useOrb) {
+      const post = day.filter(c=>{ const t=c.datetime.slice(11,16); return t>='09:05'&&t<orbDl })
+      const broken = post.some(c=>c.close>orbHigh)
+      if (broken) {
+        const xp=gp(day,exitOrbT)
+        if (xp) results.push({date,ret:(xp-entryPrice)/entryPrice*100,exit:`ORB→${exitOrbT}`,cat,type:'orb'})
+      } else {
+        const xp=gp(day,exitAvoidT)
+        if (xp) results.push({date,ret:(xp-entryPrice)/entryPrice*100,exit:`AV→${exitAvoidT}`,cat,type:'av'})
+      }
+    } else {
+      for (const xt of exitTimes) {
+        const xp=gp(day,xt)
+        if (xp) results.push({date,ret:(xp-entryPrice)/entryPrice*100,exit:xt,cat,type:'fixed'})
+      }
+    }
+  }
+
+  // Group by exit
+  const grouped = {}
+  for (const r of results) {
+    if (!grouped[r.exit]) grouped[r.exit]=[]
+    grouped[r.exit].push(r)
+  }
+
+  // Stats per group
+  const rows = []
+  for (const [exit, trades] of Object.entries(grouped)) {
+    const rets = trades.map(t=>t.ret)
+    const w = rets.filter(r=>r>0).length
+    const wins = rets.filter(r=>r>0), loss = rets.filter(r=>r<=0)
+    const wlbV = wlb(w,rets.length)
+    const avgG = rets.reduce((s,r)=>s+r,0)/rets.length
+    const avgW = wins.length?wins.reduce((s,r)=>s+r,0)/wins.length:0
+    const avgL = loss.length?loss.reduce((s,r)=>s+r,0)/loss.length:0
+    const rr   = loss.length&&avgL?Math.abs(avgW/avgL):null
+    let eq=100,peak=100,mdd=0
+    for (const r of rets) { eq*=(1+(r-FEE)/100); peak=Math.max(peak,eq); mdd=Math.max(mdd,(peak-eq)/peak*100) }
+    rows.push({
+      exit, n:rets.length, totalDays, winPct:w/rets.length*100,
+      wlbV:wlbV*100, avgG, avgW, avgL, rr, ret:eq-100, mdd,
+      type:trades[0].type,
+      nOrb:trades.filter(t=>t.type==='orb').length,
+      nAv: trades.filter(t=>t.type==='av').length,
+    })
+  }
+  rows.sort((a,b)=>b.ret-a.ret)
+
+  // Render
+  const infoEl = document.getElementById('result-info')
+  const bodyEl = document.getElementById('result-body')
+
+  if (!rows.length) {
+    infoEl.innerHTML = ''
+    bodyEl.innerHTML = `<div class="empty-state"><div style="font-size:28px">⚠️</div><div>Tidak ada trade dengan filter ini</div></div>`
+    return
+  }
+
+  infoEl.innerHTML = `<b>${sym}</b> · ${dateFrom} – ${dateTo} · <b>${totalDays}</b> hari · fee <b>${FEE}%</b>/RT · <b>${rows.length}</b> exit kombinasi`
+
+  const isOrb = useOrb
+  let html = `<table class="rt"><thead><tr>`
+  html += `<th>Exit</th><th>n/hari</th>`
+  if (isOrb) html += `<th>ORB</th><th>AV</th>`
+  html += `<th>Win%</th><th>WLB%</th><th>Avg</th><th>AvgWIN</th><th>AvgLOS</th><th>R/R</th><th>MDD</th><th>Return/thn</th>`
+  html += `</tr></thead><tbody>`
+
+  for (const r of rows) {
+    const rc = r.ret>=0?'up':'down'
+    const ac = r.avgG>=0?'up':'down'
+    const wc = r.wlbV>=65?'wstar':r.wlbV>=55?'wdot':''
+    const wm = r.wlbV>=65?'★':r.wlbV>=55?'·':''
+    let exitCell = r.exit
+    if (r.type==='orb') exitCell+=`<span class="badge badge-orb">ORB</span>`
+    if (r.type==='av')  exitCell+=`<span class="badge badge-av">AV</span>`
+    html += `<tr>`
+    html += `<td>${exitCell}</td><td>${r.n}/${r.totalDays}</td>`
+    if (isOrb) html += `<td>${r.nOrb||'–'}</td><td>${r.nAv||'–'}</td>`
+    html += `<td>${r.winPct.toFixed(1)}%</td>`
+    html += `<td class="${wc}">${r.wlbV.toFixed(1)}%${wm}</td>`
+    html += `<td class="${ac}">${fp(r.avgG)}</td>`
+    html += `<td class="up">${fp(r.avgW)}</td>`
+    html += `<td class="down">${fp(r.avgL)}</td>`
+    html += `<td>${r.rr!=null?r.rr.toFixed(2)+'x':'–'}</td>`
+    html += `<td class="down">${r.mdd.toFixed(1)}%</td>`
+    html += `<td class="${rc}" style="font-weight:700">${fp(r.ret,1)}</td>`
+    html += `</tr>`
+  }
+  html += `</tbody></table>`
+  bodyEl.innerHTML = html
+}
+
+document.getElementById('fetch-btn').addEventListener('click', fetchData)
+
+// Init
 renderHeader(document.getElementById('app-header'), [
   { label: 'IHSG Suite', href: '../../index.html' },
   { label: 'Analisa Scalping' }
@@ -936,6 +785,3 @@ onReady(() => {})
 </script>
 </body>
 </html>
-
-
-
