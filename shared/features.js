@@ -65,10 +65,10 @@ export const FEATURES = [
     status: 'ready'
   },
   {
-    id:     'win-rate',
-    name:   'Win Rate Scanner',
-    desc:   'Backtest probabilitas 27 kondisi entry pagi terhadap 9 titik exit sepanjang hari.',
-    tags:   ['backtest', 'probabilitas', 'scalping', 'kondisi entry'],
+    id:     'analisa-scalping',
+    name:   'Analisa Scalping',
+    desc:   'Backtest intraday ORB — konfigurasi filter IEP, volume, RSI, trend, entry/exit timing. Return/tahun compounded setelah fee.',
+    tags:   ['backtest', 'scalping', 'orb', 'iep', 'volume', 'probabilitas', 'intraday'],
     status: 'ready'
   },
   {
@@ -93,3 +93,4 @@ export const FEATURES = [
     status: 'ready'
   }
 ]
+
