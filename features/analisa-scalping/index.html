@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Analisa Scalping · IHSG Suite</title>
+  <link rel="stylesheet" href="../../shared/ui.css">
+  <style>
+    .page { max-width: none; }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+    @media (max-width: 800px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+
+    /* ── Panel Kiri ── */
+    .config-panel {
+      background: var(--raised);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      position: sticky;
+      top: 16px;
+    }
+    .section-title {
+      font-family: var(--f-mono);
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--ghost);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 6px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--line);
+    }
+    .field-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+    .field-label {
+      font-family: var(--f-mono);
+      font-size: 11px;
+      color: var(--dim);
+      min-width: 80px;
+    }
+    .input-sm {
+      background: var(--sink);
+      border: 1px solid var(--line);
+      border-radius: 3px;
+      color: var(--paper);
+      font-family: var(--f-mono);
+      font-size: 11px;
+      padding: 3px 6px;
+      width: 70px;
+    }
+    .input-sym {
+      width: 120px;
+      text-transform: uppercase;
+    }
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--f-mono);
+      font-size: 11px;
+      color: var(--dim);
+      margin-bottom: 4px;
+      cursor: pointer;
+    }
+    .checkbox-row input[type=checkbox] { cursor: pointer; accent-color: var(--live); }
+    .checkbox-row input[type=radio]    { cursor: pointer; accent-color: var(--live); }
+    .sub-config {
+      margin-left: 20px;
+      margin-top: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--f-mono);
+      font-size: 10px;
+      color: var(--ghost);
+    }
+    .select-sm {
+      background: var(--sink);
+      border: 1px solid var(--line);
+      border-radius: 3px;
+      color: var(--paper);
+      font-family: var(--f-mono);
+      font-size: 11px;
+      padding: 3px 6px;
+    }
+    .run-btn {
+      background: var(--live);
+      color: var(--bg);
+      border: none;
+      border-radius: 4px;
+      font-family: var(--f-mono);
+      font-size: 12px;
+      font-weight: 700;
+      padding: 8px 0;
+      width: 100%;
+      cursor: pointer;
+      margin-top: 4px;
+    }
+    .run-btn:hover { opacity: 0.85; }
+    .run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ── Panel Kanan ── */
+    .result-panel { min-height: 400px; }
+    .result-header {
+      font-family: var(--f-mono);
+      font-size: 11px;
+      color: var(--ghost);
+      margin-bottom: 12px;
+    }
+    .result-header b { color: var(--paper); }
+
+    .result-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--f-mono);
+      font-size: 11px;
+    }
+    .result-table th {
+      text-align: right;
+      color: var(--ghost);
+      font-weight: 700;
+      padding: 4px 8px;
+      border-bottom: 1px solid var(--line);
+      white-space: nowrap;
+    }
+    .result-table th:first-child { text-align: left; }
+    .result-table td {
+      text-align: right;
+      padding: 5px 8px;
+      border-bottom: 1px solid var(--line);
+      color: var(--dim);
+      white-space: nowrap;
+    }
+    .result-table td:first-child { text-align: left; color: var(--paper); }
+    .result-table tr:hover td { background: var(--raised); }
+
+    .val-up   { color: var(--live) !important; }
+    .val-down { color: var(--down) !important; }
+    .val-warn { color: var(--warn) !important; }
+    .wlb-star { color: var(--live) !important; font-weight: 700; }
+    .wlb-dot  { color: var(--warn) !important; }
+
+    .badge-avoid {
+      display: inline-block;
+      font-size: 9px;
+      padding: 1px 4px;
+      border-radius: 2px;
+      background: rgba(248,113,113,.15);
+      color: var(--down);
+      margin-left: 4px;
+    }
+    .badge-orb {
+      display: inline-block;
+      font-size: 9px;
+      padding: 1px 4px;
+      border-radius: 2px;
+      background: rgba(74,222,128,.12);
+      color: var(--live);
+      margin-left: 4px;
+    }
+
+    .progress-bar {
+      height: 3px;
+      background: var(--line);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+    .progress-fill {
+      height: 100%;
+      background: var(--live);
+      transition: width 0.2s;
+      width: 0%;
+    }
+
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 300px;
+      color: var(--ghost);
+      font-family: var(--f-mono);
+      font-size: 12px;
+      gap: 8px;
+    }
+    .empty-icon { font-size: 32px; opacity: 0.4; }
+
+    .exit-times-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+    }
+    .divider { border: none; border-top: 1px solid var(--line); margin: 2px 0; }
+  </style>
+</head>
+<body>
+<div class="page">
+  <header class="app-header" id="app-header"></header>
+
+  <div class="layout">
+    <!-- ── PANEL KIRI ── -->
+    <div class="config-panel">
+
+      <!-- Emiten & Periode -->
+      <div>
+        <div class="section-title">Emiten & Periode</div>
+        <div class="field-row">
+          <span class="field-label">Emiten</span>
+          <input class="input-sm input-sym" id="sym-input" value="RAJA" maxlength="10"
+                 placeholder="RAJA" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="field-row">
+          <span class="field-label">Dari</span>
+          <input class="input-sm" id="date-from" type="date" style="width:115px">
+        </div>
+        <div class="field-row">
+          <span class="field-label">Sampai</span>
+          <input class="input-sm" id="date-to" type="date" style="width:115px">
+        </div>
+      </div>
+
+      <hr class="divider">
+
+      <!-- Filter Pre-Opening -->
+      <div>
+        <div class="section-title">Filter Pre-Opening (IEP)</div>
+        <div class="field-row">
+          <span class="field-label">Gap threshold</span>
+          <input class="input-sm" id="gap-threshold" value="0.5" style="width:50px"> %
+        </div>
+        <label class="checkbox-row">
+          <input type="checkbox" id="filter-gap-up" checked> Gap UP
+        </label>
+        <label class="checkbox-row">
+          <input type="checkbox" id="filter-gap-down" checked> Gap DOWN
+        </label>
+        <label class="checkbox-row">
+          <input type="checkbox" id="filter-stabil"> Stabil (±threshold)
+        </label>
+        <hr class="divider" style="margin:6px 0">
+        <label class="checkbox-row">
+          <input type="checkbox" id="filter-vol-iep"> Volume IEP
+        </label>
+        <div class="sub-config" id="vol-iep-config" style="display:none">
+          ratio ≥ <input class="input-sm" id="vol-iep-ratio" value="1.5" style="width:40px">x avg 5hr
+        </div>
+        <label class="checkbox-row">
+          <input type="checkbox" id="filter-iep-surge"> IEP Surge (vol IEP ≥ P)
+        </label>
+        <div class="sub-config" id="iep-surge-config" style="display:none">
+          percentile ≥ <input class="input-sm" id="iep-surge-pct" value="75" style="width:40px">%
+        </div>
+      </div>
+
+      <hr class="divider">
+
+      <!-- Filter Opening -->
+      <div>
+        <div class="section-title">Filter Opening (ORB)</div>
+        <label class="checkbox-row">
+          <input type="checkbox" id="filter-vol-orb"> Volume ORB
+        </label>
+        <div class="sub-config" id="vol-orb-config" style="display:none">
+          ratio ≥ <input class="input-sm" id="vol-orb-ratio" value="2.0" style="width:40px">x avg 5hr
+        </div>
+        <label class="checkbox-row">
+          <input type="checkbox" id="filter-orb-range"> ORB Range
+        </label>
+        <div class="sub-config" id="orb-range-config" style="display:none">
+          range ≥ <input class="input-sm" id="orb-range-pct" value="1.0" style="width:40px">% prev close
+        </div>
+      </div>
+
+      <hr class="divider">
+
+      <!-- Filter Daily Kemarin -->
+      <div>
+        <div class="section-title">Filter Daily (kemarin)</div>
+        <label class="checkbox-row">
+          <input type="checkbox" id="filter-rsi"> RSI kemarin
+        </label>
+        <div class="sub-config" id="rsi-config" style="display:none; gap:4px; flex-wrap:wrap;">
+          <label><input type="radio" name="rsi-dir" value="below" checked> ≤</label>
+          <input class="input-sm" id="rsi-val" value="40" style="width:40px">
+          <label><input type="radio" name="rsi-dir" value="above"> ≥</label>
+          <input class="input-sm" id="rsi-val2" value="60" style="width:40px">
+        </div>
+        <label class="checkbox-row">
+          <input type="checkbox" id="filter-trend"> Trend MA
+        </label>
+        <div class="sub-config" id="trend-config" style="display:none; gap:4px;">
+          IEP
+          <label><input type="radio" name="trend-dir" value="above" checked> di atas</label>
+          <label><input type="radio" name="trend-dir" value="below"> di bawah</label>
+          MA<input class="input-sm" id="ma-period" value="20" style="width:40px">
+        </div>
+      </div>
+
+      <hr class="divider">
+
+      <!-- Entry -->
+      <div>
+        <div class="section-title">Entry</div>
+        <label class="checkbox-row">
+          <input type="radio" name="entry-type" value="open" checked> Open 09:00
+        </label>
+        <label class="checkbox-row">
+          <input type="radio" name="entry-type" value="custom"> Jam custom
+        </label>
+        <div class="sub-config" id="entry-custom-config" style="display:none;">
+          <input class="input-sm" id="entry-from" value="09:00" style="width:55px"> –
+          <input class="input-sm" id="entry-to" value="09:30" style="width:55px">
+        </div>
+      </div>
+
+      <hr class="divider">
+
+      <!-- ORB Monitoring -->
+      <div>
+        <div class="section-title">ORB Monitoring</div>
+        <label class="checkbox-row">
+          <input type="checkbox" id="use-orb" checked> Aktifkan ORB
+        </label>
+        <div id="orb-config">
+          <div class="field-row" style="margin-top:6px">
+            <span class="field-label">Deadline</span>
+            <select class="select-sm" id="orb-deadline">
+              <option>09:06</option><option>09:11</option>
+              <option selected>09:16</option><option>09:21</option><option>09:31</option>
+            </select>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Exit ORB</span>
+            <select class="select-sm" id="exit-orb">
+              <option>09:15</option><option>09:30</option>
+              <option selected>10:00</option><option>10:30</option>
+              <option>11:00</option><option>11:30</option><option>15:50</option>
+            </select>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Exit AVOID</span>
+            <select class="select-sm" id="exit-avoid">
+              <option selected>09:15</option><option>09:30</option>
+              <option>10:00</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <hr class="divider">
+
+      <!-- Exit Times (tanpa ORB) -->
+      <div id="exit-times-section">
+        <div class="section-title">Exit Times (tanpa ORB)</div>
+        <div class="exit-times-grid">
+          <label class="checkbox-row"><input type="checkbox" value="09:15" checked> 09:15</label>
+          <label class="checkbox-row"><input type="checkbox" value="09:30" checked> 09:30</label>
+          <label class="checkbox-row"><input type="checkbox" value="10:00" checked> 10:00</label>
+          <label class="checkbox-row"><input type="checkbox" value="10:30" checked> 10:30</label>
+          <label class="checkbox-row"><input type="checkbox" value="11:00" checked> 11:00</label>
+          <label class="checkbox-row"><input type="checkbox" value="11:30" checked> 11:30</label>
+          <label class="checkbox-row"><input type="checkbox" value="12:00"> 12:00</label>
+          <label class="checkbox-row"><input type="checkbox" value="13:30"> 13:30</label>
+          <label class="checkbox-row"><input type="checkbox" value="14:00"> 14:00</label>
+          <label class="checkbox-row"><input type="checkbox" value="15:00"> 15:00</label>
+          <label class="checkbox-row"><input type="checkbox" value="15:50" checked> 15:50</label>
+        </div>
+      </div>
+
+      <button class="run-btn" id="run-btn">▶ ANALISA</button>
+    </div>
+
+    <!-- ── PANEL KANAN ── -->
+    <div class="result-panel">
+      <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+      <div id="result-header" class="result-header"></div>
+      <div id="result-body">
+        <div class="empty-state">
+          <div class="empty-icon">📊</div>
+          <div>Konfigurasi filter dan klik <b>ANALISA</b></div>
+          <div style="color:var(--ghost);font-size:10px;margin-top:4px">
+            Fetch data otomatis dari Stockbit API
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { renderHeader, whenTokenReady, openTokenPopover } from '../../shared/header.js'
+import { onReady }        from '../../shared/token.js'
+import { TOKEN }          from '../../shared/store.js'
+import { fetchIntraday, fetchDaily } from '../../shared/api.js'
+import { calcRSI, calcSMA }          from '../../shared/indicators.js'
+
+const FEE = 0.26  // % per round-trip
+
+// ── Default periode: 1 tahun terakhir ──
+const today = new Date()
+const oneYearAgo = new Date(today); oneYearAgo.setFullYear(today.getFullYear() - 1)
+document.getElementById('date-to').value   = today.toISOString().slice(0,10)
+document.getElementById('date-from').value = oneYearAgo.toISOString().slice(0,10)
+
+// ── Toggle sub-configs ──
+const toggleMap = {
+  'filter-vol-iep':   'vol-iep-config',
+  'filter-iep-surge': 'iep-surge-config',
+  'filter-vol-orb':   'vol-orb-config',
+  'filter-orb-range': 'orb-range-config',
+  'filter-rsi':       'rsi-config',
+  'filter-trend':     'trend-config',
+  'use-orb':          'orb-config',
+}
+Object.entries(toggleMap).forEach(([cbId, divId]) => {
+  const cb = document.getElementById(cbId)
+  const div = document.getElementById(divId)
+  if (!cb || !div) return
+  const update = () => {
+    if (cbId === 'use-orb') {
+      div.style.display = cb.checked ? '' : 'none'
+      document.getElementById('exit-times-section').style.display = cb.checked ? 'none' : ''
+    } else {
+      div.style.display = cb.checked ? 'flex' : 'none'
+    }
+  }
+  cb.addEventListener('change', update)
+  update()
+})
+
+// Entry custom
+document.querySelectorAll('input[name=entry-type]').forEach(r => {
+  r.addEventListener('change', () => {
+    document.getElementById('entry-custom-config').style.display =
+      document.querySelector('input[name=entry-type]:checked').value === 'custom' ? 'flex' : 'none'
+  })
+})
+
+// ── Uppercase emiten ──
+document.getElementById('sym-input').addEventListener('input', e => {
+  e.target.value = e.target.value.toUpperCase()
+})
+
+// ── Helper functions ──
+function wlb(w, n, z=1.96) {
+  if (n === 0) return 0
+  const p=w/n, dd=1+z*z/n, cc=p+z*z/(2*n)
+  return (cc - z*Math.sqrt(p*(1-p)/n + z*z/(4*n*n))) / dd
+}
+
+function gp(cs, t) {
+  const ec = cs.filter(c => c.datetime.slice(11,16) <= t)
+  return ec.length ? ec[ec.length-1].close : null
+}
+
+function setProgress(pct) {
+  document.getElementById('progress-fill').style.width = pct + '%'
+}
+
+function fmtPct(v, decimals=1) {
+  if (v == null) return '–'
+  const s = (v >= 0 ? '+' : '') + v.toFixed(decimals) + '%'
+  return s
+}
+
+function wlbClass(v) {
+  if (v >= 65) return 'wlb-star'
+  if (v >= 55) return 'wlb-dot'
+  return ''
+}
+
+function wlbMark(v) {
+  if (v >= 65) return '★'
+  if (v >= 55) return '·'
+  return ''
+}
+
+// ── Main analisa function ──
+async function runAnalisa() {
+  const sym = document.getElementById('sym-input').value.trim().toUpperCase()
+  const dateFrom = document.getElementById('date-from').value
+  const dateTo   = document.getElementById('date-to').value
+  if (!sym || !dateFrom || !dateTo) { alert('Lengkapi emiten dan periode'); return }
+
+  await whenTokenReady()
+  if (!TOKEN.isSet()) { openTokenPopover(); return }
+
+  const runBtn = document.getElementById('run-btn')
+  runBtn.disabled = true
+  runBtn.textContent = '⏳ Mengambil data...'
+  setProgress(5)
+  document.getElementById('result-header').textContent = ''
+  document.getElementById('result-body').innerHTML = `
+    <div class="empty-state">
+      <div class="empty-icon" style="animation:spin 1s linear infinite">⏳</div>
+      <div>Mengambil data ${sym}...</div>
+    </div>`
+
+  try {
+    // ── 1. Fetch intraday 1m ──
+    const fromTs = Math.floor(new Date(dateFrom + 'T01:00:00Z').getTime() / 1000)
+    const toTs   = Math.floor(new Date(dateTo   + 'T17:00:00Z').getTime() / 1000)
+    const batchMs = 7 * 24 * 3600 * 1000
+    const totalMs = (toTs - fromTs) * 1000
+    const numBatches = Math.ceil(totalMs / batchMs)
+
+    const allCandles = []; const seen = new Set()
+    for (let b = 0; b < numBatches; b++) {
+      const bTo   = toTs - b * batchMs / 1000
+      const bFrom = Math.max(fromTs, toTs - (b+1) * batchMs / 1000)
+      setProgress(5 + Math.round(b/numBatches * 40))
+      runBtn.textContent = `⏳ Batch ${b+1}/${numBatches}...`
+      try {
+        const cs = await fetchIntraday(sym, bTo, bFrom, 1)
+        for (const c of cs) { if (!seen.has(c.unix)) { seen.add(c.unix); allCandles.push(c) } }
+      } catch(e) { if (e.code === 'EMPTY_RESPONSE') break; throw e }
+    }
+    allCandles.sort((a,b) => a.unix - b.unix)
+    setProgress(50)
+
+    // ── 2. Fetch daily untuk RSI/MA filter ──
+    runBtn.textContent = '⏳ Fetch daily...'
+    const dailyAll = await fetchDaily(sym)
+    const dailySorted = [...dailyAll].sort((a,b) => a.date < b.date ? -1 : 1)
+    setProgress(60)
+
+    // Hitung MA dan RSI dari daily
+    const dailyCloses = dailySorted.map(d => d.close)
+    const rsiDaily    = calcRSI(dailyCloses, 14)
+    const ma20Daily   = calcSMA(dailyCloses, 20)
+    const ma50Daily   = calcSMA(dailyCloses, 50)
+    dailySorted.forEach((d, i) => {
+      d._rsi  = rsiDaily[i]
+      d._ma20 = ma20Daily[i]
+      d._ma50 = ma50Daily[i]
+    })
+    const dailyMap = {}
+    dailySorted.forEach(d => dailyMap[d.date] = d)
+
+    // ── 3. Group candles by date ──
+    const byDate = {}
+    for (const c of allCandles) {
+      const date = c.datetime.slice(0,10)
+      if (!byDate[date]) byDate[date] = []
+      byDate[date].push(c)
+    }
+    const dates = Object.keys(byDate).sort()
+
+    // Build prev close map
+    const prevCloseMap = {}
+    for (let i = 1; i < dates.length; i++) {
+      const d = dates[i], prev = dates[i-1]
+      const reg = byDate[prev].filter(c => c.datetime.slice(11,16) >= '09:00' && c.datetime.slice(11,16) <= '15:50')
+        .sort((a,b) => a.unix - b.unix)
+      if (reg.length) prevCloseMap[d] = reg[reg.length-1].close
+    }
+
+    // Build avg 5-day ORB vol & IEP vol
+    const avgOrbVol5 = {}
+    const avgIepVol5 = {}
+    for (let i = 5; i < dates.length; i++) {
+      const prevDays = dates.slice(i-5, i)
+      let orbVols = [], iepVols = []
+      for (const pd of prevDays) {
+        const orb = byDate[pd].filter(c => c.datetime.slice(11,16) >= '09:00' && c.datetime.slice(11,16) <= '09:04')
+        const iep = byDate[pd].filter(c => c.datetime.slice(11,16) >= '08:45' && c.datetime.slice(11,16) <= '08:59')
+        if (orb.length) orbVols.push(orb.reduce((s,c) => s+c.volume, 0))
+        if (iep.length) iepVols.push(iep.reduce((s,c) => s+c.volume, 0))
+      }
+      if (orbVols.length) avgOrbVol5[dates[i]] = orbVols.reduce((s,v)=>s+v,0)/orbVols.length
+      if (iepVols.length) avgIepVol5[dates[i]] = iepVols.reduce((s,v)=>s+v,0)/iepVols.length
+    }
+
+    // IEP surge percentile
+    const allIepVols = dates.map(d => {
+      const iep = byDate[d].filter(c => c.datetime.slice(11,16) >= '08:45' && c.datetime.slice(11,16) <= '08:59')
+      return iep.reduce((s,c) => s+c.volume, 0)
+    }).filter(v => v > 0).sort((a,b) => a-b)
+    function getIepPct(pct) {
+      return allIepVols[Math.floor(allIepVols.length * pct / 100)] || 0
+    }
+
+    setProgress(70)
+    runBtn.textContent = '⏳ Menghitung...'
+
+    // ── 4. Baca konfigurasi ──
+    const gapTh      = parseFloat(document.getElementById('gap-threshold').value) || 0.5
+    const useGapUp   = document.getElementById('filter-gap-up').checked
+    const useGapDown = document.getElementById('filter-gap-down').checked
+    const useStabil  = document.getElementById('filter-stabil').checked
+    const useVolIep  = document.getElementById('filter-vol-iep').checked
+    const volIepRatio= parseFloat(document.getElementById('vol-iep-ratio').value) || 1.5
+    const useIepSurge= document.getElementById('filter-iep-surge').checked
+    const iepSurgePct= parseFloat(document.getElementById('iep-surge-pct').value) || 75
+    const iepSurgeVol= getIepPct(iepSurgePct)
+    const useVolOrb  = document.getElementById('filter-vol-orb').checked
+    const volOrbRatio= parseFloat(document.getElementById('vol-orb-ratio').value) || 2.0
+    const useOrbRange= document.getElementById('filter-orb-range').checked
+    const orbRangePct= parseFloat(document.getElementById('orb-range-pct').value) || 1.0
+    const useRsi     = document.getElementById('filter-rsi').checked
+    const rsiDir     = document.querySelector('input[name=rsi-dir]:checked')?.value || 'below'
+    const rsiVal     = parseFloat(document.getElementById('rsi-val').value) || 40
+    const rsiVal2    = parseFloat(document.getElementById('rsi-val2').value) || 60
+    const useTrend   = document.getElementById('filter-trend').checked
+    const trendDir   = document.querySelector('input[name=trend-dir]:checked')?.value || 'above'
+    const maPeriod   = parseInt(document.getElementById('ma-period').value) || 20
+    const entryType  = document.querySelector('input[name=entry-type]:checked').value
+    const entryFrom  = document.getElementById('entry-from').value || '09:00'
+    const entryTo    = document.getElementById('entry-to').value || '09:30'
+    const useOrb     = document.getElementById('use-orb').checked
+    const orbDeadline= document.getElementById('orb-deadline').value
+    const exitOrbTime= document.getElementById('exit-orb').value
+    const exitAvoid  = document.getElementById('exit-avoid').value
+    const exitTimes  = useOrb ? [] :
+      [...document.querySelectorAll('#exit-times-section input[type=checkbox]:checked')].map(c => c.value)
+
+    // ── 5. Simulasi per hari ──
+    const results = []  // { date, ret, exitLabel, cat }
+
+    for (const date of dates) {
+      if (date < dateFrom || date > dateTo) continue
+      if (!prevCloseMap[date]) continue
+
+      const day = byDate[date].sort((a,b) => a.unix - b.unix)
+      const iepC = day.filter(c => c.datetime.slice(11,16) >= '08:45' && c.datetime.slice(11,16) <= '08:59')
+      if (!iepC.length) continue
+      const iepPrice = iepC[iepC.length-1].close
+      const iepVol   = iepC.reduce((s,c) => s+c.volume, 0)
+      const prevClose = prevCloseMap[date]
+      const gapPct = (iepPrice - prevClose) / prevClose * 100
+
+      // Gap filter
+      let cat = gapPct > gapTh ? 'UP' : gapPct < -gapTh ? 'DOWN' : 'STABIL'
+      if (cat === 'UP'    && !useGapUp)   continue
+      if (cat === 'DOWN'  && !useGapDown) continue
+      if (cat === 'STABIL'&& !useStabil)  continue
+
+      // Volume IEP filter
+      if (useVolIep && avgIepVol5[date]) {
+        if (iepVol / avgIepVol5[date] < volIepRatio) continue
+      }
+
+      // IEP Surge filter
+      if (useIepSurge && iepVol < iepSurgeVol) continue
+
+      // ORB candles
+      const orbC = day.filter(c => c.datetime.slice(11,16) >= '09:00' && c.datetime.slice(11,16) <= '09:04')
+      if (!orbC.length) continue
+      const orbHigh = Math.max(...orbC.map(c => c.high))
+      const orbLow  = Math.min(...orbC.map(c => c.low))
+      const orbVol  = orbC.reduce((s,c) => s+c.volume, 0)
+
+      // Volume ORB filter
+      if (useVolOrb && avgOrbVol5[date]) {
+        if (orbVol / avgOrbVol5[date] < volOrbRatio) continue
+      }
+
+      // ORB Range filter
+      if (useOrbRange) {
+        const range = (orbHigh - orbLow) / prevClose * 100
+        if (range < orbRangePct) continue
+      }
+
+      // Daily filters (kemarin)
+      const prevDate = dates[dates.indexOf(date) - 1]
+      const prevDaily = prevDate ? dailyMap[prevDate] : null
+      if (useRsi && prevDaily?._rsi != null) {
+        if (rsiDir === 'below' && prevDaily._rsi > rsiVal) continue
+        if (rsiDir === 'above' && prevDaily._rsi < rsiVal2) continue
+      }
+      if (useTrend && prevDaily) {
+        const maVal = maPeriod === 20 ? prevDaily._ma20 : prevDaily._ma50
+        if (maVal == null) continue
+        if (trendDir === 'above' && iepPrice <= maVal) continue
+        if (trendDir === 'below' && iepPrice >= maVal) continue
+      }
+
+      // Entry price
+      let entryPrice = null
+      if (entryType === 'open') {
+        entryPrice = orbC[0].open
+      } else {
+        const entryCands = day.filter(c => {
+          const t = c.datetime.slice(11,16)
+          return t >= entryFrom && t <= entryTo
+        })
+        if (entryCands.length) entryPrice = entryCands[0].open
+      }
+      if (!entryPrice) continue
+
+      // ORB monitoring mode
+      if (useOrb) {
+        const postOrb = day.filter(c => {
+          const t = c.datetime.slice(11,16)
+          return t >= '09:05' && t < orbDeadline
+        })
+        const broken = postOrb.some(c => c.close > orbHigh)
+
+        if (broken) {
+          const xp = gp(day, exitOrbTime)
+          if (xp) results.push({ date, ret: (xp-entryPrice)/entryPrice*100, exitLabel: `ORB→${exitOrbTime}`, cat, type: 'orb' })
+        } else {
+          const xp = gp(day, exitAvoid)
+          if (xp) results.push({ date, ret: (xp-entryPrice)/entryPrice*100, exitLabel: `AV→${exitAvoid}`, cat, type: 'avoid' })
+        }
+      } else {
+        // Fixed exit times
+        for (const xt of exitTimes) {
+          const xp = gp(day, xt)
+          if (xp) results.push({ date, ret: (xp-entryPrice)/entryPrice*100, exitLabel: xt, cat, type: 'fixed' })
+        }
+      }
+    }
+
+    setProgress(90)
+
+    // ── 6. Group results by exitLabel ──
+    const grouped = {}
+    for (const r of results) {
+      if (!grouped[r.exitLabel]) grouped[r.exitLabel] = []
+      grouped[r.exitLabel].push(r)
+    }
+
+    // ── 7. Hitung statistik per group ──
+    const totalDays = dates.filter(d => d >= dateFrom && d <= dateTo && prevCloseMap[d]).length
+    const rows = []
+
+    for (const [exitLabel, trades] of Object.entries(grouped)) {
+      const rets = trades.map(t => t.ret)
+      const w = rets.filter(r => r > 0).length
+      const wins = rets.filter(r => r > 0)
+      const loss = rets.filter(r => r <= 0)
+      const wlbV = wlb(w, rets.length)
+      const avgG = rets.reduce((s,r)=>s+r,0) / rets.length
+      const avgW = wins.length ? wins.reduce((s,r)=>s+r,0)/wins.length : 0
+      const avgL = loss.length ? loss.reduce((s,r)=>s+r,0)/loss.length : 0
+      const rr   = loss.length && avgL ? Math.abs(avgW/avgL) : null
+
+      // Equity compounded dengan fee
+      let eq = 100, peak = 100, mdd = 0
+      for (const r of rets) {
+        eq *= (1 + (r - FEE) / 100)
+        peak = Math.max(peak, eq)
+        mdd  = Math.max(mdd, (peak - eq) / peak * 100)
+      }
+      const returnPct = eq - 100
+
+      rows.push({
+        exitLabel, n: rets.length, totalDays,
+        winPct: w/rets.length*100, wlbV: wlbV*100,
+        avgG, avgW, avgL, rr, returnPct, mdd,
+        type: trades[0].type,
+        orbCount:   trades.filter(t=>t.type==='orb').length,
+        avoidCount: trades.filter(t=>t.type==='avoid').length,
+      })
+    }
+
+    // Sort by returnPct desc
+    rows.sort((a,b) => b.returnPct - a.returnPct)
+
+    setProgress(100)
+
+    // ── 8. Render tabel ──
+    const headerEl = document.getElementById('result-header')
+    const bodyEl   = document.getElementById('result-body')
+
+    const periodDays = dates.filter(d => d >= dateFrom && d <= dateTo).length
+    headerEl.innerHTML = `
+      <b>${sym}</b> · ${dateFrom} – ${dateTo} · <b>${periodDays}</b> hari ·
+      fee <b>${FEE}%</b>/RT · <b>${rows.length}</b> kombinasi exit
+    `
+
+    if (!rows.length) {
+      bodyEl.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div>Tidak ada trade dengan filter ini</div></div>`
+      return
+    }
+
+    const isOrbMode = useOrb
+    let html = `<table class="result-table"><thead><tr>`
+
+    if (isOrbMode) {
+      html += `<th>Exit</th><th>n/total</th><th>ORB</th><th>AVOID</th><th>Win%</th><th>WLB%</th><th>Avg</th><th>AvgWIN</th><th>AvgLOS</th><th>R/R</th><th>MDD</th><th>Return/thn</th>`
+    } else {
+      html += `<th>Exit</th><th>n/total</th><th>Win%</th><th>WLB%</th><th>Avg</th><th>AvgWIN</th><th>AvgLOS</th><th>R/R</th><th>MDD</th><th>Return/thn</th>`
+    }
+    html += `</tr></thead><tbody>`
+
+    for (const r of rows) {
+      const retCls = r.returnPct >= 0 ? 'val-up' : 'val-down'
+      const avgCls = r.avgG >= 0 ? 'val-up' : 'val-down'
+      const wlbCls = wlbClass(r.wlbV)
+      const wlbMk  = wlbMark(r.wlbV)
+
+      let exitCell = r.exitLabel
+      if (r.type === 'orb')   exitCell += `<span class="badge-orb">ORB</span>`
+      if (r.type === 'avoid') exitCell += `<span class="badge-avoid">AV</span>`
+
+      html += `<tr>`
+      html += `<td>${exitCell}</td>`
+      html += `<td>${r.n}/${r.totalDays}</td>`
+      if (isOrbMode) {
+        html += `<td>${r.orbCount||'–'}</td><td>${r.avoidCount||'–'}</td>`
+      }
+      html += `<td>${r.winPct.toFixed(1)}%</td>`
+      html += `<td class="${wlbCls}">${r.wlbV.toFixed(1)}%${wlbMk}</td>`
+      html += `<td class="${avgCls}">${fmtPct(r.avgG,2)}</td>`
+      html += `<td class="val-up">${fmtPct(r.avgW,2)}</td>`
+      html += `<td class="val-down">${fmtPct(r.avgL,2)}</td>`
+      html += `<td>${r.rr != null ? r.rr.toFixed(2)+'x' : '–'}</td>`
+      html += `<td class="val-down">${r.mdd.toFixed(1)}%</td>`
+      html += `<td class="${retCls}" style="font-weight:700">${fmtPct(r.returnPct,1)}</td>`
+      html += `</tr>`
+    }
+
+    html += `</tbody></table>`
+    bodyEl.innerHTML = html
+
+  } catch(e) {
+    document.getElementById('result-body').innerHTML =
+      `<div class="empty-state"><div class="empty-icon">❌</div><div>${e.message}</div></div>`
+    if (e.code === 'TOKEN_EXPIRED') openTokenPopover()
+  } finally {
+    runBtn.disabled = false
+    runBtn.textContent = '▶ ANALISA'
+    setTimeout(() => setProgress(0), 800)
+  }
+}
+
+document.getElementById('run-btn').addEventListener('click', runAnalisa)
+
+// ── Init ──
+renderHeader(document.getElementById('app-header'), [
+  { label: 'IHSG Suite', href: '../../index.html' },
+  { label: 'Analisa Scalping' }
+])
+onReady(() => {})
+</script>
+</body>
+</html>
