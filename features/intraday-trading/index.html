@@ -773,6 +773,20 @@ function _buildBsjpCards() {
   `
 }
 
+// Konstanta BSJP — module scope agar accessible dari fetch dan render
+const KONDISI_LABEL = {
+  buy_strong:  '🟢 NET BUY KUAT',
+  buy_weak:    '🟡 NET BUY LEMAH',
+  sell_strong: '🟠 NET SELL KUAT',
+  sell_weak:   '⚪ NET SELL LEMAH',
+}
+const KONDISI_STAT = {
+  buy_strong:  'WLB 67.9%★ · avg +2.05%',
+  buy_weak:    'WLB 49.7% · avg +1.15%',
+  sell_strong: 'WLB 48.8% · avg +1.40%',
+  sell_weak:   'WLB 61.1% · avg +0.50%',
+}
+
 async function _fetchBsjpMonitor() {
   if (!TOKEN.isSet()) return
   try {
@@ -1053,4 +1067,5 @@ function _startBsjp() {
 </script>
 </body>
 </html>
+
 
