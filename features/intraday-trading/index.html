@@ -776,82 +776,67 @@ function _buildBsjpCards() {
 async function _fetchBsjpMonitor() {
   if (!TOKEN.isSet()) return
   try {
-    const now      = Date.now()
-    const wib      = new Date(now + 7*3600*1000)
-    const dateStr  = wib.toISOString().slice(0, 10)
-    const timeNow  = _wibTime()
+    const now       = Date.now()
+    const wib       = new Date(now + 7*3600*1000)
+    const todayStr  = wib.toISOString().slice(0, 10)
+    const timeNow   = _wibTime()
     const dayOfWeek = wib.getUTCDay() // 0=Minggu, 6=Sabtu
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
 
-    // Baca posisi tersimpan dari localStorage
-    const savedEntryDate  = localStorage.getItem('bsjp_entry_date')
-    const savedEntryPrice = parseFloat(localStorage.getItem('bsjp_entry_price') || '0')
-    const savedKategori   = localStorage.getItem('bsjp_kategori')
-    const savedExitTime   = localStorage.getItem('bsjp_exit_time')
-    const savedFb         = parseFloat(localStorage.getItem('bsjp_fb') || '0')
-    const savedFs         = parseFloat(localStorage.getItem('bsjp_fs') || '0')
-    const savedMagnitude  = parseFloat(localStorage.getItem('bsjp_magnitude') || '0')
+    // ── Helper: cari hari kerja terakhir ──
+    // Mundur dari hari ini sampai ketemu Senin-Jumat
+    function getLastWorkday(fromDate) {
+      const d = new Date(fromDate + 'T07:00:00Z')
+      do { d.setUTCDate(d.getUTCDate() - 1) } while (d.getUTCDay() === 0 || d.getUTCDay() === 6)
+      return d.toISOString().slice(0, 10)
+    }
 
-    // ── CASE 1: Weekend ──
-    // Tidak fetch apapun — semua data dari localStorage
+    // Tentukan "hari entry" = hari kerja terakhir sebelum hari ini
+    // - Weekend: hari Jumat (atau Kamis kalau Jumat libur)
+    // - Hari kerja sebelum 16:00: kemarin
+    // - Hari kerja setelah 16:00: hari ini
+    let entryDateStr
     if (isWeekend) {
-      if (savedEntryDate && savedEntryPrice) {
-        // Ada posisi terbuka dari hari kerja sebelumnya
-        const netForeign = savedFb - savedFs
-        _renderBsjpMonitor({
-          entryPrice:   savedEntryPrice,
-          fb: savedFb, fs: savedFs, netForeign,
-          magnitude:    savedMagnitude,
-          kategori:     savedKategori,
-          exitTime:     savedExitTime,
-          exitPrice:    null, tradeReturn: null,
-          timeNow, dateStr,
-          foreignReady: !!savedKategori,
-          isEntryDay:   false,
-          isExitDay:    false,
-          isWeekend:    true,
-          entryDate:    savedEntryDate,
-        })
-      } else {
-        // Weekend tanpa posisi
-        _renderBsjpMonitor({
-          entryPrice: null, fb: 0, fs: 0, netForeign: 0, magnitude: 0,
-          kategori: null, exitTime: null, exitPrice: null, tradeReturn: null,
-          timeNow, dateStr, foreignReady: false,
-          isEntryDay: false, isExitDay: false,
-          isWeekend: true, entryDate: null,
-        })
-      }
+      entryDateStr = getLastWorkday(todayStr)
+    } else if (timeNow >= '16:00') {
+      entryDateStr = todayStr       // sudah entry hari ini
+    } else {
+      entryDateStr = getLastWorkday(todayStr)  // belum entry, posisi dari kemarin
+    }
+
+    // ── Fetch intraday hari entry untuk ambil harga 16:00 ──
+    const entryWib   = new Date(entryDateStr + 'T07:00:00Z')
+    const entryToTs  = Math.floor(new Date(entryDateStr + 'T09:30:00Z').getTime() / 1000) // sampai jam 16:30 WIB
+    const entryFromTs= Math.floor(new Date(entryDateStr + 'T01:00:00Z').getTime() / 1000)
+
+    const rawEntry = await fetchIntraday('RAJA', entryToTs, entryFromTs, 1)
+    if (!rawEntry || !rawEntry.length) {
+      _renderBsjpMonitor({ entryPrice: null, kategori: null, exitTime: null,
+        timeNow, todayStr, entryDateStr, isWeekend, isEntryDay: !isWeekend && timeNow >= '16:00', isExitDay: false })
       return
     }
 
-    // ── CASE 2: Hari kerja ──
-    // Fetch intraday hari ini
-    const toTs   = Math.floor(now / 1000)
-    const fromTs = Math.floor(new Date(dateStr + 'T01:00:00Z').getTime() / 1000)
-    const raw    = await fetchIntraday('RAJA', toTs, fromTs, 1)
-    if (!raw || !raw.length) return
+    const sortEntry = [...rawEntry].sort((a, b) => a.unix - b.unix)
 
-    const sort = [...raw].sort((a, b) => a.unix - b.unix)
+    // Harga entry = close candle jam 16:00 (lelang penutupan)
+    const candle1600 = sortEntry.filter(c => (c.datetime||'').slice(11,16) === '16:00')
+    const entryPrice = candle1600.length ? candle1600[0].close : null
 
-    // Entry price: candle jam 16:00 (lelang penutupan)
-    const entry16   = sort.filter(c => (c.datetime||'').slice(11,16) >= '16:00')
-    const entryPrice = entry16.length ? entry16[0].close : null
-
-    // Foreign flow — fetch dari daily API
+    // ── Fetch daily hari entry untuk foreign flow ──
     let fb=0, fs=0, netForeign=0, magnitude=0, kategori=null, exitTime=null
     let foreignReady = false
     try {
-      const dailyData = await fetchDaily('RAJA', dateStr, dateStr)
+      const dailyData = await fetchDaily('RAJA', entryDateStr, entryDateStr)
       if (dailyData && dailyData.length) {
         const d = dailyData[dailyData.length-1]
         fb = d.foreignbuy || 0
         fs = d.foreignsell || 0
         foreignReady = (fb + fs) > 0
-        if (foreignReady && timeNow >= '19:00') {
+
+        if (foreignReady) {
           netForeign = fb - fs
-          const closePrice = sort[sort.length-1]?.close || 1
-          const vol = sort.reduce((s, c) => s + (c.volume||0), 0)
+          const closePrice = sortEntry[sortEntry.length-1]?.close || 1
+          const vol = sortEntry.reduce((s, c) => s + (c.volume||0), 0)
           magnitude = vol > 0 ? Math.abs(netForeign) / (closePrice * vol * 100) * 100 : 0
           const isNetBuy = fb > fs
           const isStrong = magnitude >= BSJP_P75_MAG
@@ -860,63 +845,42 @@ async function _fetchBsjpMonitor() {
           else if (isStrong)              kategori = 'sell_strong'
           else                            kategori = 'sell_weak'
           exitTime = BSJP_EXIT_MAP[kategori]
-
-          // Simpan foreign data ke localStorage agar tersedia saat weekend
-          localStorage.setItem('bsjp_kategori',  kategori)
-          localStorage.setItem('bsjp_exit_time', exitTime)
-          localStorage.setItem('bsjp_fb',        String(fb))
-          localStorage.setItem('bsjp_fs',        String(fs))
-          localStorage.setItem('bsjp_magnitude', String(magnitude))
         }
       }
-    } catch(e2) {}
+    } catch(e2) { console.warn('[bsjp] daily fetch error:', e2.message) }
 
-    // Tentukan hari entry vs hari exit
+    // ── Tentukan state: entry hari ini, hari exit, atau weekend ──
+    const isEntryDay = !isWeekend && entryDateStr === todayStr
+    let isExitDay = false
     let exitPrice = null, tradeReturn = null
-    let isEntryDay = true, isExitDay = false
 
-    if (savedEntryDate && savedEntryDate !== dateStr) {
-      // Hari ini adalah hari exit
-      isEntryDay = false; isExitDay = true
-      const xt = savedExitTime || exitTime
-      if (xt && savedEntryPrice && timeNow >= xt) {
-        const ec = sort.filter(c => (c.datetime||'').slice(11,16) <= xt)
-        exitPrice = ec.length ? ec[ec.length-1].close : null
-        if (savedEntryPrice && exitPrice)
-          tradeReturn = (exitPrice - savedEntryPrice) / savedEntryPrice * 100
+    if (!isWeekend && !isEntryDay) {
+      // Hari ini adalah hari setelah entry → hari exit
+      isExitDay = true
+      const xt = exitTime
+      if (xt && entryPrice && timeNow >= xt) {
+        // Fetch intraday hari ini untuk hitung return
+        const todayToTs  = Math.floor(now / 1000)
+        const todayFromTs= Math.floor(new Date(todayStr + 'T01:00:00Z').getTime() / 1000)
+        const rawToday   = await fetchIntraday('RAJA', todayToTs, todayFromTs, 1)
+        if (rawToday && rawToday.length) {
+          const sortToday = [...rawToday].sort((a, b) => a.unix - b.unix)
+          const ec = sortToday.filter(c => (c.datetime||'').slice(11,16) <= xt)
+          exitPrice = ec.length ? ec[ec.length-1].close : null
+          if (entryPrice && exitPrice)
+            tradeReturn = (exitPrice - entryPrice) / entryPrice * 100
+        }
       }
-      // Pakai kategori & exitTime dari localStorage kalau belum ada dari fetch hari ini
-      if (!kategori && savedKategori) { kategori = savedKategori; exitTime = savedExitTime }
-    }
-
-    // Simpan data entry ke localStorage saat pertama kali entry jam 16:00+
-    if (isEntryDay && entryPrice && timeNow >= '16:00') {
-      localStorage.setItem('bsjp_entry_date',  dateStr)
-      localStorage.setItem('bsjp_entry_price', String(entryPrice))
     }
 
     _renderBsjpMonitor({
       entryPrice, fb, fs, netForeign, magnitude, kategori,
-      exitTime, exitPrice, tradeReturn, timeNow, dateStr,
-      foreignReady, isEntryDay, isExitDay, isWeekend: false, entryDate: savedEntryDate,
+      exitTime, exitPrice, tradeReturn, timeNow, todayStr,
+      entryDateStr, foreignReady, isEntryDay, isExitDay, isWeekend,
     })
   } catch(e) { console.warn('[bsjp]', e.message) }
 }
 
-
-// Konstanta BSJP — di scope module agar bisa diakses _fetchBsjpMonitor dan _renderBsjpMonitor
-const KONDISI_LABEL = {
-    buy_strong:  '🟢 NET BUY KUAT',
-    buy_weak:    '🟡 NET BUY LEMAH',
-    sell_strong: '🟠 NET SELL KUAT',
-    sell_weak:   '⚪ NET SELL LEMAH',
-  }
-const KONDISI_STAT = {
-    buy_strong:  'WLB 67.9%★ · avg +2.05%',
-    buy_weak:    'WLB 49.7% · avg +1.15%',
-    sell_strong: 'WLB 48.8% · avg +1.40%',
-    sell_weak:   'WLB 61.1% · avg +0.50%',
-  }
 
 function _renderBsjpMonitor(d) {
   const fmt = v => v ? v.toLocaleString('id-ID') : '–'
@@ -977,13 +941,13 @@ function _renderBsjpMonitor(d) {
       setBanner('entry','🌙 POSISI TERBUKA (weekend) — Exit Senin jam '+d.exitTime+' · '+(KONDISI_STAT[d.kategori]||''))
     } else {
       setStep('foreign','active','⏳')
-      $v('bsjp-net-foreign', 'Data dari hari entry ('+d.entryDate+')')
+      $v('bsjp-net-foreign', 'Data dari hari entry ('+d.entryDateStr+')')
       $v('bsjp-magnitude', '–'); $v('bsjp-kondisi', '–')
       setStep('exit','pending','○')
       setBanner(null)
     }
     const ref=document.getElementById('bsjp-refresh')
-    if (ref) ref.textContent='Weekend — posisi dari '+d.entryDate
+    if (ref) ref.textContent='Weekend — posisi dari '+d.entryDateStr
     return
   }
 
@@ -1089,3 +1053,4 @@ function _startBsjp() {
 </script>
 </body>
 </html>
+
