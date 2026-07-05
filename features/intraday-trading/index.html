@@ -835,7 +835,7 @@ async function _fetchEmiten(cfg) {
     }
 
     // Simpan hasil trade ke equity chart kalau sudah selesai
-    if (['done_orb','done_avoid','done_sl'].includes(orbStatus) && tradeReturn!=null) {
+    if (['done_orb','done_avoid','done_sl','done_trail'].includes(orbStatus) && tradeReturn!=null) {
       const wibDate = new Date(Date.now()+7*3600*1000).toISOString().slice(0,10)
       _saveEquityTrade(sym, wibDate, tradeReturn).then(() => _renderEquityChart())
     }

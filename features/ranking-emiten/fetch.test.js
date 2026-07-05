@@ -34,10 +34,10 @@ globalThis.fetch = async (url, options) => {
   if (kind === 'daily') {
     _dailyCallOrder.push(sym)
     if (_forceDailyStatus[sym]) {
-      return { ok: false, status: _forceDailyStatus[sym], json: async () => ({}) }
+      return { ok: false, status: _forceDailyStatus[sym], json: async () => ({}), text: async () => '{}' }
     }
     const rows = _mockDailyBySym[sym] || []
-    return { ok: true, status: 200, json: async () => ({ data: { chartbit: rows } }) }
+    return { ok: true, status: 200, json: async () => ({ data: { chartbit: rows } }), text: async () => JSON.stringify({ data: { chartbit: rows } }) }
   }
   const u = new URL(url)
   const fromTs = Number(u.searchParams.get('from')), toTs = Number(u.searchParams.get('to'))
@@ -47,7 +47,7 @@ globalThis.fetch = async (url, options) => {
     const ts = Number(c.unix_timestamp)
     return ts <= fromTs && ts >= toTs
   })
-  return { ok: true, status: 200, json: async () => ({ data: { chartbit: rows } }) }
+  return { ok: true, status: 200, json: async () => ({ data: { chartbit: rows } }), text: async () => JSON.stringify({ data: { chartbit: rows } }) }
 }
 
 mock.module('../../shared/indexeddb.js', {

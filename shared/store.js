@@ -72,7 +72,9 @@ export const TOKEN = {
 
 export let SYMS    = []         // semua kode saham IDX (894)
 export let LQ45    = []         // saham dalam index LQ45
+export function getLQ45()  { return LQ45 }   // getter — selalu nilai terbaru
 export let IDX80   = []         // saham dalam index IDX80
+export function getIDX80() { return IDX80 }  // getter — selalu nilai terbaru
 export let FCA_LIST = new Set() // saham suspended/auction (tradeable=0)
 
 // Kode broker — tidak ada di emiten.json, tetap hardcoded (jarang berubah)

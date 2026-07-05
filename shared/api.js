@@ -58,10 +58,16 @@ function toNum(v) {
  * Selalu throw Error dengan nama yang jelas.
  */
 async function _fetch(url, options = {}) {
+  // Timeout 15 detik — cegah UI freeze kalau Stockbit lambat/down
+  const ctrl  = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), 15_000)
   let res
   try {
-    res = await fetch(url, options)
+    res = await fetch(url, { ...options, signal: ctrl.signal })
+    clearTimeout(timer)
   } catch (e) {
+    clearTimeout(timer)
+    if (e.name === 'AbortError') throw Object.assign(new Error('TIMEOUT'), { code: 'TIMEOUT', detail: 'Request timeout 15s' })
     throw Object.assign(new Error('FETCH_FAILED'), { code: 'FETCH_FAILED', detail: e.message })
   }
 
@@ -72,7 +78,10 @@ async function _fetch(url, options = {}) {
   if (res.status >= 500)  throw Object.assign(new Error('SERVER_ERROR'),   { code: 'SERVER_ERROR', status: res.status })
   if (!res.ok)            throw Object.assign(new Error('FETCH_FAILED'),   { code: 'FETCH_FAILED', status: res.status })
 
-  const json = await res.json()
+  // Sanitize non-ASCII dari response Stockbit sebelum parse
+  const text  = await res.text()
+  const clean = text.replace(/[^\x09\x0A\x0D\x20-\x7E]/g, '')
+  const json  = JSON.parse(clean)
   return json
 }
 

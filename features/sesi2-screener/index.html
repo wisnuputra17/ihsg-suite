@@ -46,8 +46,8 @@
 
       <div class="config-label" style="margin-bottom:6px">Universe Emiten</div>
       <div class="preset-row">
-        <button class="btn btn-sm" data-preset="lq45">LQ45</button>
-        <button class="btn btn-sm" data-preset="idx80">IDX80</button>
+        <button class="btn btn-sm" data-preset="lq45" id="btn-lq45" disabled>LQ45</button>
+        <button class="btn btn-sm" data-preset="idx80" id="btn-idx80" disabled>IDX80</button>
         <button class="btn btn-sm" data-preset="clear">Clear</button>
       </div>
       <textarea class="sym-input" id="sym-input" placeholder="Ketik kode saham dipisah koma atau enter&#10;Contoh: BBCA,BBRI,BMRI,RAJA,MBMA"></textarea>
@@ -314,7 +314,9 @@ onReady(async () => {
     setEmitenInfo(json)
     window._lq45 = LQ45
     window._idx80 = IDX80
-    statusMsg.textContent = `Token aktif. LQ45: ${LQ45.length} emiten, IDX80: ${IDX80.length} emiten. Pilih universe lalu klik Screen.`
+    document.getElementById('btn-lq45').disabled = false
+    document.getElementById('btn-idx80').disabled = false
+    statusMsg.textContent = `Token aktif. LQ45: ${LQ45.length} emiten · IDX80: ${IDX80.length} emiten. Pilih universe lalu klik Screen.`
   } catch(e) {
     statusMsg.textContent = 'Token aktif. Gagal load daftar emiten — preset LQ45/IDX80 tidak tersedia, ketik manual.'
   }
