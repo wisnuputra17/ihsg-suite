@@ -194,9 +194,11 @@ const EMITEN_CONFIG = [
     exit_up: '10:00',
     exit_down: '09:15',
     exit_avoid: '09:15',
+    sl_up: 0.5,    // stop loss 0.5% untuk GAP UP
+    sl_down: 0.3,  // stop loss 0.3% untuk GAP DOWN
     stats: {
-      up:   { wlb: '71.6%', avg: '+2.83%', win: '85.4%', exit: '10:00' },
-      down: { wlb: '81.6%', avg: '+2.80%', win: '100%',  exit: '09:15' },
+      up:   { wlb: '72.7%', avg: '+2.83%', win: '85.4%', exit: '10:00' },
+      down: { wlb: '78.5%', avg: '+2.80%', win: '100%',  exit: '09:15' },
     }
   },
   {
@@ -326,7 +328,9 @@ function _buildCards() {
           <div class="step-body">
             <div class="step-label">09:00 ENTRY Open</div>
             <div class="step-details">
-              <div class="step-kv"><span class="step-key">Open price</span><span class="step-val" id="${id}-open-price">–</span></div>
+              <div class="step-kv"><span class="step-key">Entry price</span><span class="step-val" id="${id}-open-price">–</span></div>
+              <div class="step-kv"><span class="step-key">Stop Loss</span><span class="step-val down" id="${id}-sl-price">–</span></div>
+              <div class="step-kv"><span class="step-key">Avoid exit</span><span class="step-val warn" id="${id}-avoid-price">–</span></div>
             </div>
           </div>
         </div>
@@ -350,6 +354,7 @@ function _buildCards() {
           <div class="step-body">
             <div class="step-label" id="${id}-exit-label">Exit</div>
             <div class="step-details">
+              <div class="step-kv"><span class="step-key">Target exit</span><span class="step-val" id="${id}-exit-target">–</span></div>
               <div class="step-kv" style="flex-direction:column;gap:0">
                 <span class="step-val" id="${id}-exit-msg" style="white-space:normal;text-align:right">–</span>
               </div>
@@ -496,27 +501,47 @@ async function _fetchEmiten(cfg) {
       orbStatus='iep_confirmed'
     } else if (timeNow<'09:05') {
       orbStatus='orb_forming'
-    } else if (brokenUp) {
-      if (timeNow>=exitOrbTime) {
-        const ec=sort.filter(c=>(c.datetime||'').slice(11,16)<=exitOrbTime)
+    } else {
+      // Hitung SL level
+      const slPct = gapCat==='DOWN' ? (cfg.sl_down||0) : (cfg.sl_up||0)
+      const slLevel = slPct && openPrice ? openPrice*(1-slPct/100) : null
+
+      // Cek apakah SL sudah kena (sebelum deadline)
+      const postCandles = sort.filter(c=>{const t=(c.datetime||'').slice(11,16); return t>='09:05'&&t<cfg.orb_deadline})
+      const slHit = slLevel && postCandles.some(c=>c.low<=slLevel)
+
+      if (slHit && !brokenUp) {
+        // SL kena sebelum ORB — exit di SL level
+        exitPrice = slLevel
+        if (openPrice&&exitPrice) tradeReturn=(exitPrice-openPrice)/openPrice*100
+        orbStatus='done_sl'
+      } else if (brokenUp) {
+        if (timeNow>=exitOrbTime) {
+          const ec=sort.filter(c=>(c.datetime||'').slice(11,16)<=exitOrbTime)
+          exitPrice=ec.length?ec[ec.length-1].close:null
+          if (openPrice&&exitPrice) tradeReturn=(exitPrice-openPrice)/openPrice*100
+          orbStatus='done_orb'
+        } else {
+          orbStatus='broken_up'
+        }
+      } else if (timeNow<cfg.orb_deadline) {
+        orbStatus='waiting'
+      } else {
+        const ec=sort.filter(c=>(c.datetime||'').slice(11,16)<=cfg.exit_avoid)
         exitPrice=ec.length?ec[ec.length-1].close:null
         if (openPrice&&exitPrice) tradeReturn=(exitPrice-openPrice)/openPrice*100
-        orbStatus='done_orb'
-      } else {
-        orbStatus='broken_up'
+        orbStatus='done_avoid'
       }
-    } else if (timeNow<cfg.orb_deadline) {
-      orbStatus='waiting'
-    } else {
-      const ec=sort.filter(c=>(c.datetime||'').slice(11,16)<=cfg.exit_avoid)
-      exitPrice=ec.length?ec[ec.length-1].close:null
-      if (openPrice&&exitPrice) tradeReturn=(exitPrice-openPrice)/openPrice*100
-      orbStatus='done_avoid'
     }
+
+    const slPctFinal = gapCat==='DOWN' ? (cfg.sl_down||0) : (cfg.sl_up||0)
+    const slLevelFinal = slPctFinal && openPrice ? openPrice*(1-slPctFinal/100) : null
+    const avoidPriceFinal = openPrice ? openPrice : null  // avoid exit di harga pasar saat 09:15
 
     const d={sym,id,iepPrice,iepVol,openPrice,prevClose,gapCat,gapPct,
              orbHigh,orbLow,orbStatus,brokenUp,exitOrbTime,exitPrice,tradeReturn,
-             trailLevel,highestPrice,timeNow,cfg}
+             trailLevel,highestPrice,slLevel:slLevelFinal,avoidPrice:avoidPriceFinal,
+             timeNow,cfg}
     _renderEmiten(cfg, d)
 
     // Alert (hanya sekali per hari per status)
@@ -575,6 +600,9 @@ function _renderEmiten(cfg, d) {
   $v('iep-price', fmt(d.iepPrice))
   $v('iep-vol',   fmtVol(d.iepVol))
   $v('open-price',fmt(d.openPrice))
+  $v('sl-price',  d.slLevel ? fmt(Math.round(d.slLevel)) : '–')
+  $v('avoid-price', d.avoidPrice ? `${fmt(d.avoidPrice)} @${d.cfg.exit_avoid}` : '–')
+  $v('exit-target', d.exitOrbTime ? `${fmt(d.exitPrice||null)} @${d.exitOrbTime}` : '–')
   $v('orb-high',  fmt(d.orbHigh))
   $v('orb-low',   fmt(d.orbLow))
 
@@ -637,7 +665,8 @@ function _renderEmiten(cfg, d) {
     setStep('iep','done','✓'); setStep('entry','done','✓')
     setStep('orb','active','👁'); setStep('exit','pending','○')
     $v('exit-label','Menunggu ORB')
-    $v('exit-msg','Deadline '+d.cfg.orb_deadline+' — belum ada breakout')
+    const slInfo = d.slLevel ? ` · SL @${fmt(Math.round(d.slLevel))}` : ''
+    $v('exit-msg','Deadline '+d.cfg.orb_deadline+' — belum ada breakout'+slInfo)
     setBanner(null); card.className='it-card'
 
   } else if (s==='broken_up' && d.cfg.mode==='trailing') {
@@ -672,6 +701,23 @@ function _renderEmiten(cfg, d) {
     const gl=d.gapCat==='UP'?'🟢 GAP UP':'🔵 GAP DOWN'
     setBanner('entry',`✓ ORB UP CONFIRMED ${gl} — HOLD → exit ${d.exitOrbTime}`)
     card.className='it-card signal-entry'
+
+  } else if (s==='done_sl') {
+    setStep('iep','done','✓'); setStep('entry','done','✓')
+    setStep('orb','avoid','✗'); setStep('exit','avoid','🛑')
+    const slPct = d.cfg.gapCat==='DOWN' ? d.cfg.sl_down : d.cfg.sl_up
+    const retStr = d.tradeReturn!=null?(d.tradeReturn>=0?'+':'')+d.tradeReturn.toFixed(2)+'%':'–'
+    $v('exit-label','STOP LOSS kena')
+    $v('exit-target', fmt(d.slLevel ? Math.round(d.slLevel) : null))
+    $v('exit-msg', `SL ${slPct}% · Return ${retStr}`)
+    setBanner('avoid',`🛑 STOP LOSS kena @${fmt(d.slLevel ? Math.round(d.slLevel) : null)} · ${retStr}`)
+    card.className='it-card signal-avoid'
+    if (d.tradeReturn!=null) {
+      const retEl=document.getElementById(`${id}-result-ret`)
+      const metaEl=document.getElementById(`${id}-result-meta`)
+      if (retEl) { retEl.textContent=(d.tradeReturn>=0?'+':'')+d.tradeReturn.toFixed(2)+'%'; retEl.className='result-ret '+(d.tradeReturn>=0?'up':'down') }
+      if (metaEl) metaEl.textContent=`SL exit @${fmt(Math.round(d.slLevel||0))}`
+    }
 
   } else if (s==='done_avoid') {
     setStep('iep','done','✓'); setStep('entry','done','✓')
@@ -1159,6 +1205,7 @@ function _startBsjp() {
 </script>
 </body>
 </html>
+
 
 
 
