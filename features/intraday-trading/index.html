@@ -79,6 +79,21 @@
     .step-val.down { color: var(--down); }
     .step-val.warn { color: #fbbf24; }
 
+    /* Equity stats */
+    .eq-stat {
+      background: var(--raised);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 6px 10px;
+      font-family: var(--f-mono);
+      font-size: 10px;
+      color: var(--dim);
+    }
+    .eq-stat-sym { font-weight: 700; color: var(--paper); margin-bottom: 2px; }
+    .eq-stat-val { font-size: 12px; font-weight: 700; }
+    .eq-stat-pct { font-size: 10px; margin-left: 4px; }
+    .eq-dot { display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px; }
+
     /* Step states */
     .step-row.done  .step-label { color: var(--live); }
     .step-row.active .step-label { color: #fbbf24; }
@@ -150,6 +165,18 @@
       <div class="cards-grid" id="cards-grid">
         <!-- Cards di-generate oleh JS -->
       </div>
+
+      <!-- EQUITY CHART -->
+      <div id="equity-section" style="margin-top:24px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-family:var(--f-mono);font-size:11px;font-weight:700;color:var(--dim)">
+            📈 Equity Curve — Modal Rp 100jt
+          </div>
+          <div style="display:flex;gap:12px;font-family:var(--f-mono);font-size:10px;color:var(--ghost)" id="equity-legend"></div>
+        </div>
+        <div id="equity-chart" style="height:220px;border:1px solid var(--line);border-radius:6px;background:var(--sink)"></div>
+        <div id="equity-stats" style="display:flex;gap:16px;margin-top:8px;flex-wrap:wrap"></div>
+      </div>
     </div>
 
     <!-- BSJP SECTION -->
@@ -166,8 +193,117 @@ import { renderHeader } from '../../shared/header.js'
 import { onReady }     from '../../shared/token.js'
 import { fetchIntraday, fetchDaily } from '../../shared/api.js'
 import { TOKEN } from '../../shared/store.js'
+import { gsLoad, gsSave, gsAppend } from '../../shared/indexeddb.js'
 
 // renderHeader dan onReady dipanggil di bawah setelah semua fungsi terdefinisi
+
+// ============================================================
+// EQUITY CHART — simpan & render hasil trade harian
+// ============================================================
+const EQUITY_MODAL   = 100_000_000  // Rp 100jt
+const EQUITY_START   = '2026-07-07' // mulai Senin
+const EQUITY_SHEET   = 'equity_trades'
+const EQUITY_COLORS  = { RAJA: '#4ade80', MBMA: '#60a5fa', TPIA: '#fbbf24' }
+
+// Simpan hasil trade hari ini ke IndexedDB
+async function _saveEquityTrade(sym, date, retPct) {
+  try {
+    const existing = await gsLoad(EQUITY_SHEET) || []
+    const key = `${sym}_${date}`
+    const filtered = existing.filter(r => !(r.sym===sym && r.date===date))
+    filtered.push({ sym, date, ret: retPct })
+    filtered.sort((a,b) => a.date<b.date?-1:1)
+    await gsSave(EQUITY_SHEET, filtered)
+  } catch(e) { console.warn('[equity] save error:', e.message) }
+}
+
+// Render equity chart dari data IndexedDB
+async function _renderEquityChart() {
+  const chartEl = document.getElementById('equity-chart')
+  const legendEl = document.getElementById('equity-legend')
+  const statsEl = document.getElementById('equity-stats')
+  if (!chartEl) return
+
+  let trades = []
+  try { trades = await gsLoad(EQUITY_SHEET) || [] } catch(e) {}
+
+  const syms = ['RAJA', 'MBMA', 'TPIA']
+
+  // Kumpulkan semua tanggal unik
+  const allDates = [...new Set(trades.map(t=>t.date))].sort()
+
+  if (!allDates.length) {
+    chartEl.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-family:var(--f-mono);font-size:11px;color:var(--ghost)">Belum ada data — mulai Senin ${EQUITY_START}</div>`
+    statsEl.innerHTML = syms.map(sym => `
+      <div class="eq-stat">
+        <div class="eq-stat-sym"><span class="eq-dot" style="background:${EQUITY_COLORS[sym]}"></span>${sym}</div>
+        <div class="eq-stat-val" style="color:var(--ghost)">Rp 100.000.000</div>
+        <div class="eq-stat-pct" style="color:var(--ghost)">+0.00%</div>
+      </div>`).join('')
+    return
+  }
+
+  // Hitung equity curve per emiten
+  const curves = {}
+  for (const sym of syms) {
+    let eq = EQUITY_MODAL
+    const points = [{ date: EQUITY_START, val: eq }]
+    for (const date of allDates) {
+      const trade = trades.find(t=>t.sym===sym && t.date===date)
+      if (trade) {
+        eq = eq * (1 + (trade.ret - 0.26) / 100)
+      }
+      points.push({ date, val: Math.round(eq) })
+    }
+    curves[sym] = points
+  }
+
+  // Render dengan lightweight-charts
+  if (window.LightweightCharts) {
+    chartEl.innerHTML = ''
+    const chart = LightweightCharts.createChart(chartEl, {
+      autoSize: true,
+      layout: { background: { color: 'transparent' }, textColor: '#6b6557' },
+      grid: { vertLines: { color: '#1a1815' }, horzLines: { color: '#1a1815' } },
+      timeScale: { timeVisible: false, rightOffset: 4 },
+      rightPriceScale: { borderColor: '#1a1815' },
+      crosshair: { mode: 1 }
+    })
+
+    for (const sym of syms) {
+      const series = chart.addSeries(LightweightCharts.LineSeries, {
+        color: EQUITY_COLORS[sym],
+        lineWidth: 2,
+        title: sym,
+        priceLineVisible: false,
+        lastValueVisible: true,
+      })
+      series.setData(curves[sym].map(p => ({ time: p.date, value: p.val })))
+    }
+    chart.timeScale().fitContent()
+  }
+
+  // Legend
+  legendEl.innerHTML = syms.map(sym =>
+    `<span><span class="eq-dot" style="background:${EQUITY_COLORS[sym]}"></span>${sym}</span>`
+  ).join('')
+
+  // Stats per emiten
+  statsEl.innerHTML = syms.map(sym => {
+    const pts = curves[sym]
+    const last = pts[pts.length-1].val
+    const pct = (last - EQUITY_MODAL) / EQUITY_MODAL * 100
+    const cls = pct >= 0 ? 'up' : 'down'
+    const clr = pct >= 0 ? 'var(--live)' : 'var(--down)'
+    return `<div class="eq-stat">
+      <div class="eq-stat-sym"><span class="eq-dot" style="background:${EQUITY_COLORS[sym]}"></span>${sym}</div>
+      <div class="eq-stat-val" style="color:${clr}">Rp ${last.toLocaleString('id-ID')}</div>
+      <div class="eq-stat-pct" style="color:${clr}">${pct>=0?'+':''}${pct.toFixed(2)}%</div>
+    </div>`
+  }).join('')
+}
+
+// ── END EQUITY CHART ──
 
 // ============================================================
 // KONFIGURASI PER EMITEN — parameter tervalidasi dari backtest
@@ -555,6 +691,13 @@ async function _fetchEmiten(cfg) {
       if (orbStatus==='broken_up')     _playAlert('orb_up')
       if (orbStatus==='done_avoid')    _playAlert('avoid')
     }
+
+    // Simpan hasil trade ke equity chart kalau sudah selesai
+    if (['done_orb','done_avoid','done_sl'].includes(orbStatus) && tradeReturn!=null) {
+      const wibDate = new Date(Date.now()+7*3600*1000).toISOString().slice(0,10)
+      _saveEquityTrade(sym, wibDate, tradeReturn).then(() => _renderEquityChart())
+    }
+
   } catch(e) { console.warn(`[${sym}]`, e.message) }
 }
 
@@ -790,6 +933,7 @@ function _start() {
   if (_timer) clearInterval(_timer)
   _buildCards()
   _refresh()
+  _renderEquityChart()  // render equity curve dari data tersimpan
   _timer=setInterval(()=>{
     if (!_isMarketHours()) { clearInterval(_timer); _start(); return }
     _refresh()
@@ -1207,6 +1351,7 @@ function _startBsjp() {
 </script>
 </body>
 </html>
+
 
 
 
