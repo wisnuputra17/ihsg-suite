@@ -216,13 +216,14 @@ const EMITEN_CONFIG = [
     sym: 'TPIA',
     name: 'Chandra Asri Pacific',
     mode: 'trailing',       // mode khusus — tanpa filter gap
+    entry_mode: 'iep',      // entry di harga IEP (08:45-08:59), bukan open 09:00
     gap_threshold: 0,       // semua gap masuk
     orb_deadline: '09:31',  // deadline ORB
     exit_avoid: '09:31',    // tidak ada ORB → exit jam 09:31
     exit_orb: '15:50',      // ada ORB → hold sampai 15:50 atau trailing
     trail_pct: 10,          // trailing stop 10% dari highest
     stats: {
-      all: { win: '83%', avg: '+6.16%', exit: '15:50', trail: '10%', note: 'n=12, 24hr observasi' }
+      all: { win: '83%', avg: '+6.22%', exit: '15:50', trail: '10%', note: 'n=12, 24hr observasi' }
     }
   }
 ]
@@ -367,7 +368,7 @@ function _buildCards() {
       <div class="card-footer">
         <div class="card-params">
           ${cfg.mode==='trailing'
-            ? `<span class="param-tag">all gap</span>
+            ? `<span class="param-tag">entry ${cfg.entry_mode==='iep'?'IEP':'09:00'}</span>
                <span class="param-tag">ORB ${cfg.orb_deadline}</span>
                <span class="param-tag">trail ${cfg.trail_pct}%</span>
                <span class="param-tag">exit ${cfg.exit_orb}</span>`
@@ -407,7 +408,10 @@ async function _fetchEmiten(cfg) {
 
     // Open 09:00
     const open9 = sort.filter(c=>(c.datetime||'').slice(11,16)==='09:00')
-    const openPrice = open9.length ? open9[0].open : null
+    const open9Price = open9.length ? open9[0].open : null
+
+    // Entry price: IEP untuk mode trailing, open 09:00 untuk mode biasa
+    const openPrice = (cfg.entry_mode==='iep' && iepPrice) ? iepPrice : open9Price
 
     // ORB 09:00-09:04
     const orbC = sort.filter(c=>{const t=(c.datetime||'').slice(11,16); return t>='09:00'&&t<='09:04'})
@@ -613,9 +617,9 @@ function _renderEmiten(cfg, d) {
     setStep('orb','pending','○'); setStep('exit','pending','○')
     const gl=d.gapCat==='UP'?'🟢 GAP UP':d.gapCat==='DOWN'?'🔵 GAP DOWN':'🟡 STABIL'
     if (d.cfg.mode==='trailing') {
-      $v('exit-label','→ Siapkan ENTRY 09:00')
-      $v('exit-msg', `${gl} — masuk di Open 09:00, trailing ${d.cfg.trail_pct}%`)
-      setBanner('iep',`🔔 IEP FINAL ${gl} — ENTRY di Open 09:00 · Trail ${d.cfg.trail_pct}%`)
+      $v('exit-label','→ ENTRY di IEP sekarang')
+      $v('exit-msg', `${gl} — entry di harga IEP ${fmt(d.iepPrice)}, trail ${d.cfg.trail_pct}%`)
+      setBanner('iep',`🔔 IEP FINAL ${gl} — ENTRY di harga IEP ${fmt(d.iepPrice)}`)
     } else {
       $v('exit-label','→ Siapkan ENTRY 09:00')
       $v('exit-msg', gl+' — masuk di Open 09:00')
@@ -1155,6 +1159,7 @@ function _startBsjp() {
 </script>
 </body>
 </html>
+
 
 
 
