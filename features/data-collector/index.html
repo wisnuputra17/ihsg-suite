@@ -259,7 +259,7 @@
   let _activeTf = 'daily'
   const TF_NOTES = {
     'daily': 'Daily: histori penuh sejak listing, semua indikator tersedia.',
-    '1m':    '1 Menit: max ~7 hari per request, multi-batch otomatis. Output format sama dengan data analisa scalping (IEP/ORB).',
+    '1m':    '1 Menit: OHLCV only (tanpa indikator). Gunakan daily untuk indikator — pakai data kemarin sebagai filter entry hari ini. Max ~7 hari per request, multi-batch otomatis.',
     '30m':   '30 Menit: max ~30 hari per request, multi-batch otomatis. Indikator yang tersedia: RSI, MACD, Volume, MA Volume.',
     '1h':    '1 Jam: max ~30 hari per request, multi-batch otomatis. Indikator yang tersedia: RSI, MACD, Volume, MA Volume.',
   }
@@ -269,10 +269,13 @@
     radio.addEventListener('change', () => {
       _activeTf = radio.value
       document.getElementById('tf-note').textContent = TF_NOTES[_activeTf] || ''
-      // Disable indikator yang tidak tersedia di intraday
+      // 1m: disable semua indikator (OHLCV only — gunakan daily untuk indikator)
+      // 30m/1h: disable hanya slow indicators
+      // daily: semua aktif
       document.querySelectorAll('#indicator-grid .check-item').forEach(el => {
         const id = el.dataset.id
-        if (_activeTf !== 'daily' && TF_SLOW_IDS.has(id)) {
+        const shouldDisable = _activeTf === '1m' || (_activeTf !== 'daily' && TF_SLOW_IDS.has(id))
+        if (shouldDisable) {
           el.classList.add('is-disabled')
           el.style.opacity = '0.35'
           el.style.pointerEvents = 'none'
@@ -429,36 +432,38 @@
         allCandles.sort((a, b) => a.unix - b.unix)
         logProgress(progressEl, `${allCandles.length} candle intraday diterima.`, 'ok')
 
-        // Hitung indikator sederhana dari intraday
+        // Hitung indikator dari intraday (hanya 30m/1h — 1m OHLCV only)
         const closes  = allCandles.map(c => c.close)
         const volumes = allCandles.map(c => c.volume)
 
-        if (_selected.has('rsi')) {
-          const rsi = calcRSI(closes, 14)
-          allCandles.forEach((c, i) => c.rsi = rsi[i])
-        }
-        if (_selected.has('macd')) {
-          const macd = calcMACD(closes)
-          allCandles.forEach((c, i) => { c.macdHist = macd.hist[i]; c.macdSignal = macd.signal[i] })
-        }
-        if (_selected.has('maVolume')) {
-          const maVol = calcSMA(volumes, 20)
-          allCandles.forEach((c, i) => c.maVolume20 = maVol[i])
-        }
-        if (_selected.has('ma20')) {
-          const ma = calcSMA(closes, 20)
-          allCandles.forEach((c, i) => c.ma20 = ma[i])
-        }
-        if (_selected.has('ma50')) {
-          const ma = calcSMA(closes, 50)
-          allCandles.forEach((c, i) => c.ma50 = ma[i])
+        if (_activeTf !== '1m') {
+          if (_selected.has('rsi')) {
+            const rsi = calcRSI(closes, 14)
+            allCandles.forEach((c, i) => c.rsi = rsi[i])
+          }
+          if (_selected.has('macd')) {
+            const macd = calcMACD(closes)
+            allCandles.forEach((c, i) => { c.macdHist = macd.hist[i]; c.macdSignal = macd.signal[i] })
+          }
+          if (_selected.has('maVolume')) {
+            const maVol = calcSMA(volumes, 20)
+            allCandles.forEach((c, i) => c.maVolume20 = maVol[i])
+          }
+          if (_selected.has('ma20')) {
+            const ma = calcSMA(closes, 20)
+            allCandles.forEach((c, i) => c.ma20 = ma[i])
+          }
+          if (_selected.has('ma50')) {
+            const ma = calcSMA(closes, 50)
+            allCandles.forEach((c, i) => c.ma50 = ma[i])
+          }
         }
 
         const exportPayload = {
           symbol: _currentSym,
           timeframe: _activeTf,
           from, to,
-          indicators: ['ohlcv', ...(
+          indicators: _activeTf === '1m' ? ['ohlcv'] : ['ohlcv', ...(
             [_selected.has('rsi') && 'rsi', _selected.has('macd') && 'macd',
              _selected.has('maVolume') && 'maVolume20', _selected.has('ma20') && 'ma20',
              _selected.has('ma50') && 'ma50'].filter(Boolean)
@@ -758,4 +763,5 @@
 
 </body>
 </html>
+
 
