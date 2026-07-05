@@ -413,6 +413,8 @@ const EMITEN_CONFIG = [
     exit_avoid: '09:15',
     sl_up: 0.5,    // stop loss 0.5% untuk GAP UP
     sl_down: 0.3,  // stop loss 0.3% untuk GAP DOWN
+    ret_yr: '+237.8%',
+    mdd: '5.3%',
     stats: {
       up:   { wlb: '72.7%', avg: '+2.83%', win: '85.4%', exit: '10:00' },
       down: { wlb: '78.5%', avg: '+2.80%', win: '100%',  exit: '09:15' },
@@ -426,8 +428,10 @@ const EMITEN_CONFIG = [
     exit_up: '09:30',
     exit_down: '09:30',
     exit_avoid: '09:15',
-    sl_up: null,    // belum ditest untuk MBMA
-    sl_down: null,
+    sl_up: 0.3,    // stop loss 0.3% — tanpa SL return -10.2%, dengan SL +133.3%
+    sl_down: 0.3,
+    ret_yr: '+133.3%',
+    mdd: '32.5%',
     stats: {
       up:   { wlb: '68.5%', avg: '+2.59%', win: '85.7%', exit: '09:30' },
       down: { wlb: '75.7%', avg: '+2.29%', win: '100%',  exit: '09:30' },
@@ -642,11 +646,11 @@ function _buildCards() {
           </div>
           <div class="formula-stat-row">
             <span class="formula-key">Return/thn</span>
-            <span class="formula-val" style="color:var(--live)">+237.8% (fee 0.26%)</span>
+            <span class="formula-val" style="color:var(--live)">${cfg.ret_yr} (fee 0.26%)</span>
           </div>
           <div class="formula-stat-row">
             <span class="formula-key">MDD</span>
-            <span class="formula-val">5.3%</span>
+            <span class="formula-val">${cfg.mdd}</span>
           </div>
         </div>
         `}
@@ -1491,6 +1495,7 @@ function _startBsjp() {
 </script>
 </body>
 </html>
+
 
 
 
