@@ -119,8 +119,8 @@
 </div>
 <script type="module">
 import { renderHeader } from '../../shared/header.js'
-import { onReady, TOKEN, LQ45, IDX80 } from '../../shared/store.js'
-import { fetchIntraday } from '../../shared/api.js'
+import { onReady, TOKEN, LQ45, IDX80, setEmitenInfo } from '../../shared/store.js'
+import { fetchIntraday, fetchEmitenJson } from '../../shared/api.js'
 
 renderHeader(document.getElementById('app-header'), [
   { label: 'IHSG Suite', href: '../../index.html' },
@@ -306,7 +306,16 @@ btnStop.addEventListener('click', () => {
   statusMsg.textContent='Dihentikan.'
 })
 
-onReady(() => { statusMsg.textContent='Token aktif. Pilih universe emiten lalu klik Screen.' })
+onReady(async () => {
+  statusMsg.textContent = 'Memuat daftar emiten...'
+  try {
+    const json = await fetchEmitenJson()
+    setEmitenInfo(json)
+    statusMsg.textContent = `Token aktif. LQ45: ${LQ45.length} emiten, IDX80: ${IDX80.length} emiten. Pilih universe lalu klik Screen.`
+  } catch(e) {
+    statusMsg.textContent = 'Token aktif. Gagal load daftar emiten — preset LQ45/IDX80 tidak tersedia, ketik manual.'
+  }
+})
 </script>
 </body>
 </html>
