@@ -33,13 +33,15 @@
     }
 
     /* ── CARD ── */
-    /* ── Flip Card — opacity approach ── */
+    /* ── Flip Card — animasi ── */
     .card-flip-wrapper {
       cursor: pointer;
       position: relative;
+      perspective: 800px;
     }
     .card-front {
-      transition: opacity 0.2s ease;
+      transition: transform 0.35s ease, opacity 0.35s ease;
+      transform-origin: center left;
     }
     .card-back {
       position: absolute;
@@ -49,18 +51,26 @@
       border: 1px solid var(--line);
       border-radius: var(--radius);
       padding: 12px;
-      display: none;
+      display: flex;
       flex-direction: column;
       gap: 8px;
       box-sizing: border-box;
       z-index: 2;
+      opacity: 0;
+      pointer-events: none;
+      transform: rotateY(-15deg) scale(0.97);
+      transform-origin: center right;
+      transition: transform 0.35s ease, opacity 0.35s ease;
     }
     .card-flip-wrapper.flipped .card-front {
       opacity: 0;
       pointer-events: none;
+      transform: rotateY(15deg) scale(0.97);
     }
     .card-flip-wrapper.flipped .card-back {
-      display: flex;
+      opacity: 1;
+      pointer-events: auto;
+      transform: rotateY(0deg) scale(1);
     }
     .formula-title {
       font-family: var(--f-mono);
@@ -416,6 +426,8 @@ const EMITEN_CONFIG = [
     exit_up: '09:30',
     exit_down: '09:30',
     exit_avoid: '09:15',
+    sl_up: null,    // belum ditest untuk MBMA
+    sl_down: null,
     stats: {
       up:   { wlb: '68.5%', avg: '+2.59%', win: '85.7%', exit: '09:30' },
       down: { wlb: '75.7%', avg: '+2.29%', win: '100%',  exit: '09:30' },
@@ -613,8 +625,8 @@ function _buildCards() {
         ` : `
         <div class="formula-row"><span class="formula-key">Entry</span><span class="formula-val">Open 09:00</span></div>
         <div class="formula-row"><span class="formula-key">Gap threshold</span><span class="formula-val">±${cfg.gap_threshold}%</span></div>
-        <div class="formula-row"><span class="formula-key">SL (GAP UP)</span><span class="formula-val">-${cfg.sl_up||'–'}% dari entry</span></div>
-        <div class="formula-row"><span class="formula-key">SL (GAP DOWN)</span><span class="formula-val">-${cfg.sl_down||'–'}% dari entry</span></div>
+        <div class="formula-row"><span class="formula-key">SL (GAP UP)</span><span class="formula-val">${cfg.sl_up ? '-'+cfg.sl_up+'% dari entry' : '–'}</span></div>
+        <div class="formula-row"><span class="formula-key">SL (GAP DOWN)</span><span class="formula-val">${cfg.sl_down ? '-'+cfg.sl_down+'% dari entry' : '–'}</span></div>
         <div class="formula-row"><span class="formula-key">ORB deadline</span><span class="formula-val">${cfg.orb_deadline}</span></div>
         <div class="formula-row"><span class="formula-key">Exit GAP UP</span><span class="formula-val">${cfg.exit_up}</span></div>
         <div class="formula-row"><span class="formula-key">Exit GAP DOWN</span><span class="formula-val">${cfg.exit_down}</span></div>
@@ -1479,6 +1491,7 @@ function _startBsjp() {
 </script>
 </body>
 </html>
+
 
 
 
