@@ -211,6 +211,19 @@ const EMITEN_CONFIG = [
       up:   { wlb: '68.5%', avg: '+2.59%', win: '85.7%', exit: '09:30' },
       down: { wlb: '75.7%', avg: '+2.29%', win: '100%',  exit: '09:30' },
     }
+  },
+  {
+    sym: 'TPIA',
+    name: 'Chandra Asri Pacific',
+    mode: 'trailing',       // mode khusus — tanpa filter gap
+    gap_threshold: 0,       // semua gap masuk
+    orb_deadline: '09:31',  // deadline ORB
+    exit_avoid: '09:31',    // tidak ada ORB → exit jam 09:31
+    exit_orb: '15:50',      // ada ORB → hold sampai 15:50 atau trailing
+    trail_pct: 10,          // trailing stop 10% dari highest
+    stats: {
+      all: { win: '83%', avg: '+6.16%', exit: '15:50', trail: '10%', note: 'n=12, 24hr observasi' }
+    }
   }
 ]
 
@@ -353,9 +366,15 @@ function _buildCards() {
       <!-- Card Footer -->
       <div class="card-footer">
         <div class="card-params">
-          <span class="param-tag">gap ±${cfg.gap_threshold}%</span>
-          <span class="param-tag">ORB ${cfg.orb_deadline}</span>
-          <span class="param-tag">exit ${cfg.exit_up}</span>
+          ${cfg.mode==='trailing'
+            ? `<span class="param-tag">all gap</span>
+               <span class="param-tag">ORB ${cfg.orb_deadline}</span>
+               <span class="param-tag">trail ${cfg.trail_pct}%</span>
+               <span class="param-tag">exit ${cfg.exit_orb}</span>`
+            : `<span class="param-tag">gap ±${cfg.gap_threshold}%</span>
+               <span class="param-tag">ORB ${cfg.orb_deadline}</span>
+               <span class="param-tag">exit ${cfg.exit_up}</span>`
+          }
         </div>
         <span id="${id}-refresh">–</span>
       </div>
@@ -420,13 +439,52 @@ async function _fetchEmiten(cfg) {
     }
 
     // Exit time sesuai gap
-    const exitOrbTime = gapCat==='DOWN' ? cfg.exit_down : cfg.exit_up
+    const exitOrbTime = cfg.mode==='trailing' ? cfg.exit_orb : (gapCat==='DOWN' ? cfg.exit_down : cfg.exit_up)
 
     // Status
     const timeNow=_wibTime()
-    let orbStatus, exitPrice=null, tradeReturn=null
+    let orbStatus, exitPrice=null, tradeReturn=null, trailLevel=null, highestPrice=null
 
-    if (gapCat==='STABIL') {
+    if (cfg.mode==='trailing') {
+      // TPIA: semua gap masuk (tidak ada skip), trailing stop 10%
+      if (timeNow<'08:58') {
+        orbStatus='pre_iep'
+      } else if (timeNow<'09:00') {
+        orbStatus='iep_confirmed'
+      } else if (timeNow<'09:05') {
+        orbStatus='orb_forming'
+      } else if (brokenUp) {
+        // Hitung highest dan trailing level
+        const postEntry = sort.filter(c=>(c.datetime||'').slice(11,16)>='09:00')
+        highestPrice = openPrice ? Math.max(openPrice, ...postEntry.map(c=>c.high)) : null
+        trailLevel = highestPrice ? highestPrice*(1-cfg.trail_pct/100) : null
+
+        // Cek apakah trailing sudah kena
+        const trailHit = trailLevel && postEntry.some(c=>c.low<=trailLevel)
+        if (trailHit) {
+          // Cari candle pertama yang kena trailing
+          const hitC = postEntry.find(c=>c.low<=trailLevel)
+          exitPrice = trailLevel
+          if (openPrice) tradeReturn=(exitPrice-openPrice)/openPrice*100
+          orbStatus='done_trail'
+        } else if (timeNow>=cfg.exit_orb) {
+          const ec=sort.filter(c=>(c.datetime||'').slice(11,16)<=cfg.exit_orb)
+          exitPrice=ec.length?ec[ec.length-1].close:null
+          if (openPrice&&exitPrice) tradeReturn=(exitPrice-openPrice)/openPrice*100
+          orbStatus='done_orb'
+        } else {
+          orbStatus='broken_up'
+        }
+      } else if (timeNow<cfg.orb_deadline) {
+        orbStatus='waiting'
+      } else {
+        // Tidak ada ORB → exit avoid di deadline
+        const ec=sort.filter(c=>(c.datetime||'').slice(11,16)<=cfg.exit_avoid)
+        exitPrice=ec.length?ec[ec.length-1].close:null
+        if (openPrice&&exitPrice) tradeReturn=(exitPrice-openPrice)/openPrice*100
+        orbStatus='done_avoid'
+      }
+    } else if (gapCat==='STABIL') {
       orbStatus='skip'
     } else if (timeNow<'08:58') {
       orbStatus='pre_iep'
@@ -453,7 +511,8 @@ async function _fetchEmiten(cfg) {
     }
 
     const d={sym,id,iepPrice,iepVol,openPrice,prevClose,gapCat,gapPct,
-             orbHigh,orbLow,orbStatus,brokenUp,exitOrbTime,exitPrice,tradeReturn,timeNow,cfg}
+             orbHigh,orbLow,orbStatus,brokenUp,exitOrbTime,exitPrice,tradeReturn,
+             trailLevel,highestPrice,timeNow,cfg}
     _renderEmiten(cfg, d)
 
     // Alert (hanya sekali per hari per status)
@@ -553,9 +612,15 @@ function _renderEmiten(cfg, d) {
     setStep('iep','active','🔔'); setStep('entry','pending','○')
     setStep('orb','pending','○'); setStep('exit','pending','○')
     const gl=d.gapCat==='UP'?'🟢 GAP UP':d.gapCat==='DOWN'?'🔵 GAP DOWN':'🟡 STABIL'
-    $v('exit-label','→ Siapkan ENTRY 09:00')
-    $v('exit-msg', gl+' — masuk di Open 09:00')
-    setBanner('iep',`🔔 IEP FINAL ${gl} — ENTRY di Open 09:00`)
+    if (d.cfg.mode==='trailing') {
+      $v('exit-label','→ Siapkan ENTRY 09:00')
+      $v('exit-msg', `${gl} — masuk di Open 09:00, trailing ${d.cfg.trail_pct}%`)
+      setBanner('iep',`🔔 IEP FINAL ${gl} — ENTRY di Open 09:00 · Trail ${d.cfg.trail_pct}%`)
+    } else {
+      $v('exit-label','→ Siapkan ENTRY 09:00')
+      $v('exit-msg', gl+' — masuk di Open 09:00')
+      setBanner('iep',`🔔 IEP FINAL ${gl} — ENTRY di Open 09:00`)
+    }
     card.className='it-card signal-entry'
 
   } else if (s==='orb_forming') {
@@ -570,6 +635,29 @@ function _renderEmiten(cfg, d) {
     $v('exit-label','Menunggu ORB')
     $v('exit-msg','Deadline '+d.cfg.orb_deadline+' — belum ada breakout')
     setBanner(null); card.className='it-card'
+
+  } else if (s==='broken_up' && d.cfg.mode==='trailing') {
+    // TPIA trailing mode — ORB confirmed, pantau trailing
+    setStep('iep','done','✓'); setStep('entry','done','✓')
+    setStep('orb','done','✓'); setStep('exit','active','📈')
+    const trail = d.trailLevel ? fmt(Math.round(d.trailLevel)) : '–'
+    const highest = d.highestPrice ? fmt(d.highestPrice) : '–'
+    $v('exit-label', `HOLD → Exit 15:50 · Trail @${trail}`)
+    $v('exit-msg', `Highest: ${highest} · Trail stop: ${trail} (-${d.cfg.trail_pct}%)`)
+    setBanner('entry', `📈 ORB CONFIRMED — HOLD sampai 15:50 · Trail stop ${trail}`)
+    card.className='it-card signal-entry'
+
+  } else if (s==='done_trail') {
+    // TPIA trailing kena
+    setStep('iep','done','✓'); setStep('entry','done','✓')
+    setStep('orb','done','✓'); setStep('exit','done','✓')
+    const retCls=d.tradeReturn>=0?'signal-profit':'signal-loss'
+    const retStr=d.tradeReturn!=null?(d.tradeReturn>=0?'+':'')+d.tradeReturn.toFixed(2)+'%':'–'
+    $v('exit-label', `SELESAI — Trailing Stop kena`)
+    $v('exit-msg', `Return: ${retStr} · Exit @${fmt(Math.round(d.trailLevel||0))}`)
+    setBanner(d.tradeReturn>=0?'entry':'loss',
+      `${d.tradeReturn>=0?'✓':'✗'} Trailing Stop ${retStr}`)
+    card.className='it-card '+retCls
 
   } else if (s==='broken_up') {
     setStep('iep','done','✓'); setStep('entry','done','✓')
@@ -1067,5 +1155,6 @@ function _startBsjp() {
 </script>
 </body>
 </html>
+
 
 
