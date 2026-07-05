@@ -119,8 +119,9 @@
 </div>
 <script type="module">
 import { renderHeader } from '../../shared/header.js'
-import { onReady, TOKEN, setEmitenInfo } from '../../shared/store.js'
+import { TOKEN, LQ45 as _lq45, IDX80 as _idx80, setEmitenInfo } from '../../shared/store.js'
 import * as Store from '../../shared/store.js'
+import { onReady } from '../../shared/token.js'
 import { fetchIntraday, fetchEmitenJson } from '../../shared/api.js'
 
 renderHeader(document.getElementById('app-header'), [
