@@ -838,6 +838,8 @@ function _renderEmiten(cfg, d) {
   const id = cfg.sym.toLowerCase()
   const card = document.getElementById(`card-${id}`)
   if (!card) return
+  // card = wrapper (.card-flip-wrapper), cardFront = inner .it-card
+  const cardFront = document.getElementById(`${id}-front`) || card
 
   function $v(sel, val) {
     const el=document.getElementById(`${id}-${sel}`)
@@ -867,7 +869,7 @@ function _renderEmiten(cfg, d) {
   if (!d) {
     ['iep','entry','orb','exit'].forEach(s=>setStep(s,'pending','○'))
     setBanner(null)
-    card.className='it-card'
+    cardFront.className='it-card'
     return
   }
 
@@ -907,13 +909,13 @@ function _renderEmiten(cfg, d) {
     setStep('orb','pending','○'); setStep('exit','pending','○')
     $v('exit-label','SKIP hari ini')
     $v('exit-msg','Gap ±'+d.cfg.gap_threshold+'% — tidak ada sinyal')
-    setBanner(null); card.className='it-card signal-skip'
+    setBanner(null); cardFront.className='it-card signal-skip'
 
   } else if (s==='pre_iep') {
     setStep('iep','pending','○'); setStep('entry','pending','○')
     setStep('orb','pending','○'); setStep('exit','pending','○')
     $v('exit-label','Exit'); $v('exit-msg','–')
-    setBanner(null); card.className='it-card'
+    setBanner(null); cardFront.className='it-card'
 
   } else if (s==='iep_confirmed') {
     setStep('iep','active','🔔'); setStep('entry','pending','○')
@@ -928,13 +930,13 @@ function _renderEmiten(cfg, d) {
       $v('exit-msg', gl+' — masuk di Open 09:00')
       setBanner('iep',`🔔 IEP FINAL ${gl} — ENTRY di Open 09:00`)
     }
-    card.className='it-card signal-entry'
+    cardFront.className='it-card signal-entry'
 
   } else if (s==='orb_forming') {
     setStep('iep','done','✓'); setStep('entry','active','⏰')
     setStep('orb','pending','○'); setStep('exit','pending','○')
     $v('exit-label','Exit'); $v('exit-msg','ORB 09:00–09:04 terbentuk...')
-    setBanner(null); card.className='it-card'
+    setBanner(null); cardFront.className='it-card'
 
   } else if (s==='waiting') {
     setStep('iep','done','✓'); setStep('entry','done','✓')
@@ -942,7 +944,7 @@ function _renderEmiten(cfg, d) {
     $v('exit-label','Menunggu ORB')
     const slInfo = d.slLevel ? ` · SL @${fmt(Math.round(d.slLevel))}` : ''
     $v('exit-msg','Deadline '+d.cfg.orb_deadline+' — belum ada breakout'+slInfo)
-    setBanner(null); card.className='it-card'
+    setBanner(null); cardFront.className='it-card'
 
   } else if (s==='broken_up' && d.cfg.mode==='trailing') {
     // TPIA trailing mode — ORB confirmed, pantau trailing
@@ -953,7 +955,7 @@ function _renderEmiten(cfg, d) {
     $v('exit-label', `HOLD → Exit 15:50 · Trail @${trail}`)
     $v('exit-msg', `Highest: ${highest} · Trail stop: ${trail} (-${d.cfg.trail_pct}%)`)
     setBanner('entry', `📈 ORB CONFIRMED — HOLD sampai 15:50 · Trail stop ${trail}`)
-    card.className='it-card signal-entry'
+    cardFront.className='it-card signal-entry'
 
   } else if (s==='done_trail') {
     // TPIA trailing kena
@@ -965,7 +967,7 @@ function _renderEmiten(cfg, d) {
     $v('exit-msg', `Return: ${retStr} · Exit @${fmt(Math.round(d.trailLevel||0))}`)
     setBanner(d.tradeReturn>=0?'entry':'loss',
       `${d.tradeReturn>=0?'✓':'✗'} Trailing Stop ${retStr}`)
-    card.className='it-card '+retCls
+    cardFront.className='it-card '+retCls
 
   } else if (s==='broken_up') {
     setStep('iep','done','✓'); setStep('entry','done','✓')
@@ -975,7 +977,7 @@ function _renderEmiten(cfg, d) {
     $v('exit-msg', 'HOLD posisi · '+statTxt)
     const gl=d.gapCat==='UP'?'🟢 GAP UP':'🔵 GAP DOWN'
     setBanner('entry',`✓ ORB UP CONFIRMED ${gl} — HOLD → exit ${d.exitOrbTime}`)
-    card.className='it-card signal-entry'
+    cardFront.className='it-card signal-entry'
 
   } else if (s==='done_sl') {
     setStep('iep','done','✓'); setStep('entry','done','✓')
@@ -986,7 +988,7 @@ function _renderEmiten(cfg, d) {
     $v('exit-target', fmt(d.slLevel ? Math.round(d.slLevel) : null))
     $v('exit-msg', `SL ${slPct}% · Return ${retStr}`)
     setBanner('avoid',`🛑 STOP LOSS kena @${fmt(d.slLevel ? Math.round(d.slLevel) : null)} · ${retStr}`)
-    card.className='it-card signal-avoid'
+    cardFront.className='it-card signal-avoid'
     if (d.tradeReturn!=null) {
       const retEl=document.getElementById(`${id}-result-ret`)
       const metaEl=document.getElementById(`${id}-result-meta`)
@@ -1000,7 +1002,7 @@ function _renderEmiten(cfg, d) {
     $v('exit-label','EXIT AVOID '+d.cfg.exit_avoid)
     $v('exit-msg','Tidak ada ORB breakout')
     setBanner('avoid','✗ AVOID — Tidak ada ORB · exit '+d.cfg.exit_avoid)
-    card.className='it-card signal-avoid'
+    cardFront.className='it-card signal-avoid'
     // Result box
     if (d.tradeReturn!=null) _showResult(id, d, false)
 
@@ -1009,7 +1011,7 @@ function _renderEmiten(cfg, d) {
     setStep('orb','done','✓'); setStep('exit','done','✓')
     $v('exit-label','SELESAI — Exit '+d.exitOrbTime)
     $v('exit-msg','ORB UP terkonfirmasi')
-    setBanner(null); card.className='it-card'
+    setBanner(null); cardFront.className='it-card'
     if (d.tradeReturn!=null) _showResult(id, d, true)
   }
 }
@@ -1481,6 +1483,7 @@ function _startBsjp() {
 </script>
 </body>
 </html>
+
 
 
 
