@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Screener Sesi 2 — IHSG Suite</title>
+  <link rel="stylesheet" href="../../shared/ui.css">
+  <style>
+    .section { max-width: 900px; margin: 0 auto; padding: 16px; }
+    .preset-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+    .sym-input { font-family: var(--f-mono); font-size: 11px; background: var(--sink); border: 1px solid var(--line); color: var(--paper); border-radius: 4px; padding: 4px 8px; width: 100%; box-sizing: border-box; resize: vertical; min-height: 60px; }
+    .config-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+    .config-label { font-family: var(--f-mono); font-size: 10px; color: var(--ghost); }
+    .config-select { font-family: var(--f-mono); font-size: 11px; background: var(--sink); border: 1px solid var(--line); color: var(--paper); border-radius: 4px; padding: 3px 6px; }
+    .progress-bar { height: 3px; background: var(--line); border-radius: 2px; margin: 8px 0; overflow: hidden; }
+    .progress-fill { height: 100%; background: var(--live); border-radius: 2px; transition: width .2s; }
+    .status-msg { font-family: var(--f-mono); font-size: 10px; color: var(--ghost); margin-bottom: 8px; min-height: 16px; }
+    .result-table { width: 100%; border-collapse: collapse; font-family: var(--f-mono); font-size: 11px; }
+    .result-table th { background: var(--raised); color: var(--ghost); padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--line); cursor: pointer; user-select: none; white-space: nowrap; }
+    .result-table th:first-child { text-align: left; }
+    .result-table th:hover { color: var(--paper); }
+    .result-table td { padding: 5px 8px; text-align: right; border-bottom: 1px solid var(--raised); }
+    .result-table td:first-child { text-align: left; font-weight: 600; }
+    .result-table tr:hover td { background: var(--raised); }
+    .up   { color: var(--live); }
+    .down { color: var(--down); }
+    .warn { color: #f59e0b; }
+    .sort-asc::after  { content: ' ↑'; }
+    .sort-desc::after { content: ' ↓'; }
+    .badge { display: inline-block; padding: 1px 5px; border-radius: 3px; font-size: 9px; font-weight: 700; }
+    .badge-green { background: rgba(74,222,128,.15); color: var(--live); }
+    .badge-red   { background: rgba(239,68,68,.15);  color: var(--down); }
+    .badge-warn  { background: rgba(245,158,11,.15); color: #f59e0b; }
+    .summary-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+    .sum-card { background: var(--raised); border-radius: 6px; padding: 8px 12px; }
+    .sum-label { font-family: var(--f-mono); font-size: 9px; color: var(--ghost); text-transform: uppercase; }
+    .sum-val   { font-family: var(--f-mono); font-size: 18px; font-weight: 700; }
+  </style>
+</head>
+<body>
+<div class="page">
+  <div id="app-header"></div>
+  <div class="feature-section">
+    <div class="section-label">Screener Sesi 2</div>
+    <div class="section">
+
+      <div class="config-label" style="margin-bottom:6px">Universe Emiten</div>
+      <div class="preset-row">
+        <button class="btn btn-sm" data-preset="lq45">LQ45</button>
+        <button class="btn btn-sm" data-preset="idx80">IDX80</button>
+        <button class="btn btn-sm" data-preset="clear">Clear</button>
+      </div>
+      <textarea class="sym-input" id="sym-input" placeholder="Ketik kode saham dipisah koma atau enter&#10;Contoh: BBCA,BBRI,BMRI,RAJA,MBMA"></textarea>
+
+      <div class="config-row" style="margin-top:10px">
+        <span class="config-label">Periode</span>
+        <select class="config-select" id="cfg-days">
+          <option value="30">30 hari</option>
+          <option value="60" selected>60 hari</option>
+          <option value="90">90 hari</option>
+        </select>
+        <span class="config-label">Entry sesi 2</span>
+        <select class="config-select" id="cfg-entry">
+          <option value="13:30" selected>13:30</option>
+          <option value="13:45">13:45</option>
+          <option value="14:00">14:00</option>
+        </select>
+        <span class="config-label">Exit</span>
+        <select class="config-select" id="cfg-exit">
+          <option value="15:50" selected>15:50</option>
+          <option value="15:30">15:30</option>
+          <option value="15:00">15:00</option>
+        </select>
+        <span class="config-label">Min n hari</span>
+        <select class="config-select" id="cfg-minn">
+          <option value="10">10</option>
+          <option value="15" selected>15</option>
+          <option value="20">20</option>
+        </select>
+      </div>
+
+      <div style="display:flex;gap:8px;margin:10px 0 6px">
+        <button class="btn btn-primary" id="btn-run">▶ Screen</button>
+        <button class="btn" id="btn-stop" disabled>■ Stop</button>
+        <span id="status-sym" style="font-family:var(--f-mono);font-size:10px;color:var(--ghost);align-self:center"></span>
+      </div>
+
+      <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+      <div class="status-msg" id="status-msg">Pilih universe emiten lalu klik Screen.</div>
+
+      <div class="summary-row" id="summary-row" style="display:none">
+        <div class="sum-card"><div class="sum-label">Discreen</div><div class="sum-val" id="sum-total">–</div></div>
+        <div class="sum-card"><div class="sum-label">Avg WLB</div><div class="sum-val up" id="sum-wlb">–</div></div>
+        <div class="sum-card"><div class="sum-label">Positif</div><div class="sum-val up" id="sum-pos">–</div></div>
+        <div class="sum-card"><div class="sum-label">Negatif</div><div class="sum-val down" id="sum-neg">–</div></div>
+      </div>
+
+      <div id="result-container" style="display:none;overflow-x:auto">
+        <table class="result-table" id="result-table">
+          <thead>
+            <tr>
+              <th data-col="sym">Emiten</th>
+              <th data-col="n">n hari</th>
+              <th data-col="winRate">Win%</th>
+              <th data-col="wlb">WLB%</th>
+              <th data-col="avg">Avg ret</th>
+              <th data-col="avgWin">Avg win</th>
+              <th data-col="avgLoss">Avg loss</th>
+              <th data-col="eq">Equity</th>
+              <th data-col="status">Status</th>
+            </tr>
+          </thead>
+          <tbody id="result-body"></tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+</div>
+<script type="module">
+import { renderHeader } from '../../shared/header.js'
+import { onReady, TOKEN, LQ45, IDX80 } from '../../shared/store.js'
+import { fetchIntraday } from '../../shared/api.js'
+
+renderHeader(document.getElementById('app-header'), [
+  { label: 'IHSG Suite', href: '../../index.html' },
+  { label: 'Screener Sesi 2' }
+])
+
+const symInput  = document.getElementById('sym-input')
+const cfgDays   = document.getElementById('cfg-days')
+const cfgEntry  = document.getElementById('cfg-entry')
+const cfgExit   = document.getElementById('cfg-exit')
+const cfgMinN   = document.getElementById('cfg-minn')
+const btnRun    = document.getElementById('btn-run')
+const btnStop   = document.getElementById('btn-stop')
+const statusMsg = document.getElementById('status-msg')
+const statusSym = document.getElementById('status-sym')
+const progFill  = document.getElementById('progress-fill')
+const resultContainer = document.getElementById('result-container')
+const resultBody      = document.getElementById('result-body')
+const summaryRow      = document.getElementById('summary-row')
+
+// ── Preset ──
+document.querySelectorAll('[data-preset]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const p = btn.dataset.preset
+    if      (p === 'lq45')  symInput.value = LQ45.join(',')
+    else if (p === 'idx80') symInput.value = IDX80.join(',')
+    else                    symInput.value = ''
+  })
+})
+
+// ── WLB ──
+function wlb(w, n) {
+  if (n === 0) return 0
+  const z = 1.96, p = w / n
+  const dd = 1 + z*z/n, cc = p + z*z/(2*n)
+  return (cc - z * Math.sqrt(p*(1-p)/n + z*z/(4*n*n))) / dd
+}
+
+// ── Hitung return sesi 2 ──
+function calcSesi2(candles, entryTime, exitTime) {
+  const byDate = {}
+  for (const c of candles) {
+    const d = c.datetime.slice(0, 10)
+    if (!byDate[d]) byDate[d] = []
+    byDate[d].push(c)
+  }
+  const rets = []
+  for (const day of Object.values(byDate)) {
+    day.sort((a, b) => a.datetime < b.datetime ? -1 : 1)
+    const entryC = day.find(c => c.datetime.slice(11, 16) >= entryTime)
+    const exitCs = day.filter(c => c.datetime.slice(11, 16) <= exitTime)
+    if (!entryC || !exitCs.length) continue
+    const exitC = exitCs[exitCs.length - 1]
+    if (entryC.open <= 0 || exitC.close <= 0) continue
+    rets.push((exitC.close - entryC.open) / entryC.open * 100)
+  }
+  if (rets.length < 2) return null
+  const wins   = rets.filter(r => r > 0)
+  const losses = rets.filter(r => r <= 0)
+  let eq = 100, peak = 100, mdd = 0
+  for (const r of rets) {
+    eq *= (1 + (r - 0.26) / 100)
+    peak = Math.max(peak, eq); mdd = Math.max(mdd, (peak - eq) / peak * 100)
+  }
+  return {
+    n: rets.length,
+    winRate: wins.length / rets.length * 100,
+    wlb: wlb(wins.length, rets.length) * 100,
+    avg: rets.reduce((s,r)=>s+r,0)/rets.length,
+    avgWin:  wins.length   ? wins.reduce((s,r)=>s+r,0)/wins.length    : 0,
+    avgLoss: losses.length ? losses.reduce((s,r)=>s+r,0)/losses.length: 0,
+    eq, mdd
+  }
+}
+
+// ── Sort & Render ──
+let _results = [], _sortCol = 'wlb', _sortDir = 'desc'
+
+function renderTable() {
+  resultBody.innerHTML = ''
+  for (const r of _results) {
+    const wCls = r.winRate >= 60 ? 'up' : r.winRate >= 50 ? 'warn' : 'down'
+    const bCls = r.wlb >= 55 ? 'up' : r.wlb >= 45 ? 'warn' : 'down'
+    const aCls = r.avg > 0 ? 'up' : 'down'
+    const eCls = r.eq > 100 ? 'up' : 'down'
+    const badge = r.wlb >= 55 && r.avg > 0
+      ? '<span class="badge badge-green">★ Kuat</span>'
+      : r.wlb >= 45 && r.avg > 0
+        ? '<span class="badge badge-warn">· Moderat</span>'
+        : '<span class="badge badge-red">✗ Lemah</span>'
+    resultBody.innerHTML += `<tr>
+      <td>${r.sym}</td>
+      <td>${r.n}</td>
+      <td class="${wCls}">${r.winRate.toFixed(1)}%</td>
+      <td class="${bCls}">${r.wlb.toFixed(1)}%</td>
+      <td class="${aCls}">${r.avg>=0?'+':''}${r.avg.toFixed(3)}%</td>
+      <td class="up">${r.avgWin>=0?'+':''}${r.avgWin.toFixed(3)}%</td>
+      <td class="down">${r.avgLoss.toFixed(3)}%</td>
+      <td class="${eCls}">${r.eq.toFixed(1)}u</td>
+      <td>${badge}</td></tr>`
+  }
+  document.querySelectorAll('.result-table th').forEach(th => {
+    th.classList.remove('sort-asc','sort-desc')
+    if (th.dataset.col === _sortCol) th.classList.add(_sortDir==='asc'?'sort-asc':'sort-desc')
+  })
+}
+
+function sortAndRender() {
+  _results.sort((a,b) => {
+    const va=a[_sortCol], vb=b[_sortCol]
+    if (typeof va==='string') return _sortDir==='asc'?va.localeCompare(vb):vb.localeCompare(va)
+    return _sortDir==='asc' ? va-vb : vb-va
+  })
+  renderTable()
+}
+
+document.querySelectorAll('.result-table th[data-col]').forEach(th => {
+  th.addEventListener('click', () => {
+    if (_sortCol===th.dataset.col) _sortDir = _sortDir==='asc'?'desc':'asc'
+    else { _sortCol=th.dataset.col; _sortDir='desc' }
+    sortAndRender()
+  })
+})
+
+// ── Run ──
+let _stopped = false
+
+btnRun.addEventListener('click', async () => {
+  if (!TOKEN.isSet()) { statusMsg.textContent = 'Token belum diset.'; return }
+  const syms = symInput.value.split(/[\n,\s]+/).map(s=>s.trim().toUpperCase()).filter(Boolean)
+  if (!syms.length) { statusMsg.textContent = 'Masukkan minimal 1 kode saham.'; return }
+
+  const nDays  = parseInt(cfgDays.value)
+  const entryT = cfgEntry.value
+  const exitT  = cfgExit.value
+  const minN   = parseInt(cfgMinN.value)
+
+  _stopped = false; _results = []
+  btnRun.disabled=true; btnStop.disabled=false
+  resultContainer.style.display='none'; summaryRow.style.display='none'
+  resultBody.innerHTML=''; progFill.style.width='0%'
+  statusMsg.textContent=`Screening ${syms.length} emiten (5 menit candle, ${nDays} hari)...`
+
+  const now    = Math.floor(Date.now()/1000)
+  const fromTs = now - nDays*86400
+  let done=0; const errors=[]
+
+  for (const sym of syms) {
+    if (_stopped) break
+    statusSym.textContent = `${sym} (${done+1}/${syms.length})`
+    progFill.style.width  = `${done/syms.length*100}%`
+    try {
+      const candles = await fetchIntraday(sym, now, fromTs, 5)
+      const result  = calcSesi2(candles, entryT, exitT)
+      if (result && result.n >= minN) {
+        _results.push({ sym, ...result })
+        resultContainer.style.display=''
+        sortAndRender()
+      }
+    } catch(e) { errors.push(sym); console.warn(`[s2] ${sym}:`, e.message) }
+    done++
+    await new Promise(r => setTimeout(r, 400))
+  }
+
+  progFill.style.width='100%'
+  btnRun.disabled=false; btnStop.disabled=true; statusSym.textContent=''
+
+  const pos = _results.filter(r=>r.avg>0).length
+  const neg = _results.filter(r=>r.avg<=0).length
+  const avgWlb = _results.length ? _results.reduce((s,r)=>s+r.wlb,0)/_results.length : 0
+  document.getElementById('sum-total').textContent = _results.length
+  document.getElementById('sum-wlb').textContent   = avgWlb.toFixed(1)+'%'
+  document.getElementById('sum-pos').textContent   = pos
+  document.getElementById('sum-neg').textContent   = neg
+  summaryRow.style.display='flex'
+
+  const errStr = errors.length ? ` | Gagal: ${errors.slice(0,5).join(',')}` : ''
+  statusMsg.textContent = `Selesai. ${_results.length}/${syms.length} emiten dianalisa.${errStr}`
+})
+
+btnStop.addEventListener('click', () => {
+  _stopped=true; btnStop.disabled=true
+  statusMsg.textContent='Dihentikan.'
+})
+
+onReady(() => { statusMsg.textContent='Token aktif. Pilih universe emiten lalu klik Screen.' })
+</script>
+</body>
+</html>

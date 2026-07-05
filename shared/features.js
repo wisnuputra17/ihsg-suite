@@ -72,6 +72,13 @@ export const FEATURES = [
     status: 'ready'
   },
   {
+    id:     'sesi2-screener',
+    name:   'Screener Sesi 2',
+    desc:   'Screening emiten berdasarkan return sesi 2 (13:30–15:50) — ranking win rate, WLB, dan equity dari universe LQ45/IDX80 atau pilihan sendiri.',
+    tags:   ['screener', 'sesi 2', 'screening', 'ranking', 'win rate', 'intraday'],
+    status: 'ready'
+  },
+  {
     id:     'ranking-emiten',
     name:   'Ranking Emiten',
     desc:   'Ranking saham berdasarkan win rate terbaik — 16 kondisi (IEP surge, gap, RSI, IHSG, dst) x 9 exit time.',
