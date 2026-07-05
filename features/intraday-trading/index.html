@@ -604,7 +604,7 @@ function _renderEmiten(cfg, d) {
   $v('open-price',fmt(d.openPrice))
   $v('sl-price',  d.slLevel ? fmt(Math.round(d.slLevel)) : '–')
   $v('avoid-price', d.avoidPrice ? `${fmt(d.avoidPrice)} @${d.cfg.orb_deadline}` : `@${d.cfg.orb_deadline} (belum)`)
-  $v('exit-target', d.exitOrbTime ? `${fmt(d.exitPrice||null)} @${d.exitOrbTime}` : '–')
+  $v('exit-target', d.exitOrbTime ? (d.timeNow>=d.exitOrbTime && d.exitPrice ? `${fmt(d.exitPrice)} @${d.exitOrbTime}` : `@${d.exitOrbTime} (belum)`) : '–')
   $v('orb-high',  fmt(d.orbHigh))
   $v('orb-low',   fmt(d.orbLow))
 
@@ -1207,6 +1207,7 @@ function _startBsjp() {
 </script>
 </body>
 </html>
+
 
 
 
