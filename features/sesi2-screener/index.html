@@ -119,7 +119,8 @@
 </div>
 <script type="module">
 import { renderHeader } from '../../shared/header.js'
-import { onReady, TOKEN, LQ45, IDX80, setEmitenInfo } from '../../shared/store.js'
+import * as Store from '../../shared/store.js'
+const { onReady, TOKEN, setEmitenInfo } = Store
 import { fetchIntraday, fetchEmitenJson } from '../../shared/api.js'
 
 renderHeader(document.getElementById('app-header'), [
@@ -145,8 +146,8 @@ const summaryRow      = document.getElementById('summary-row')
 document.querySelectorAll('[data-preset]').forEach(btn => {
   btn.addEventListener('click', () => {
     const p = btn.dataset.preset
-    if      (p === 'lq45')  symInput.value = LQ45.join(',')
-    else if (p === 'idx80') symInput.value = IDX80.join(',')
+    if      (p === 'lq45')  symInput.value = Store.LQ45.join(',')
+    else if (p === 'idx80') symInput.value = Store.IDX80.join(',')
     else                    symInput.value = ''
   })
 })
@@ -311,7 +312,7 @@ onReady(async () => {
   try {
     const json = await fetchEmitenJson()
     setEmitenInfo(json)
-    statusMsg.textContent = `Token aktif. LQ45: ${LQ45.length} emiten, IDX80: ${IDX80.length} emiten. Pilih universe lalu klik Screen.`
+    statusMsg.textContent = `Token aktif. LQ45: ${Store.LQ45.length} emiten, IDX80: ${Store.IDX80.length} emiten. Pilih universe lalu klik Screen.`
   } catch(e) {
     statusMsg.textContent = 'Token aktif. Gagal load daftar emiten — preset LQ45/IDX80 tidak tersedia, ketik manual.'
   }
