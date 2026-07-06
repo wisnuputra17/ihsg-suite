@@ -711,9 +711,12 @@ async function _fetchEmiten(cfg) {
     // Prev close
     let prevClose=null
     try {
-      const yesterday = new Date(wib.getTime()-24*3600*1000).toISOString().slice(0,10)
-      const daily = await fetchDaily(sym, yesterday, yesterday)
-      if (daily&&daily.length) prevClose=daily[daily.length-1].close
+      // Cari last workday: mundur sampai 7 hari untuk handle weekend/libur panjang
+      for (let daysBack = 1; daysBack <= 7; daysBack++) {
+        const tryDate = new Date(wib.getTime()-daysBack*24*3600*1000).toISOString().slice(0,10)
+        const daily = await fetchDaily(sym, tryDate, tryDate)
+        if (daily&&daily.length) { prevClose=daily[daily.length-1].close; break }
+      }
     } catch(e2){}
 
     // Gap classification
@@ -1495,6 +1498,7 @@ function _startBsjp() {
 </script>
 </body>
 </html>
+
 
 
 
