@@ -447,8 +447,10 @@ const EMITEN_CONFIG = [
     exit_avoid: '09:31',    // tidak ada ORB → exit jam 09:31
     exit_orb: '15:50',      // ada ORB → hold sampai 15:50 atau trailing
     trail_pct: 10,          // trailing stop 10% dari highest
+    ret_yr: '+192.5%',
+    mdd: '7.1%',
     stats: {
-      all: { win: '83%', avg: '+6.22%', exit: '15:50', trail: '10%', note: 'n=12, 24hr observasi' }
+      all: { wlb: '–', win: '83%', avg: '+6.22%', exit: '15:50', trail: '10%', note: 'n=12, 24hr observasi' }
     }
   }
 ]
@@ -621,8 +623,11 @@ function _buildCards() {
         <div class="formula-row"><span class="formula-key">Exit ORB</span><span class="formula-val">${cfg.exit_orb} (trailing ${cfg.trail_pct}%)</span></div>
         <div class="formula-row"><span class="formula-key">Exit AVOID</span><span class="formula-val">${cfg.exit_avoid}</span></div>
         <div class="formula-stat">
+          <div class="formula-stat-row"><span class="formula-key">WLB</span><span class="formula-val" style="color:var(--live)">${cfg.stats.all.wlb||'–'}</span></div>
           <div class="formula-stat-row"><span class="formula-key">Win rate</span><span class="formula-val" style="color:var(--live)">${cfg.stats.all.win}</span></div>
           <div class="formula-stat-row"><span class="formula-key">Avg return</span><span class="formula-val" style="color:var(--live)">${cfg.stats.all.avg}</span></div>
+          <div class="formula-stat-row"><span class="formula-key">Return/thn</span><span class="formula-val" style="color:var(--live)">${cfg.ret_yr||'–'} (fee 0.26%)</span></div>
+          <div class="formula-stat-row"><span class="formula-key">MDD</span><span class="formula-val">${cfg.mdd||'–'}</span></div>
           <div class="formula-stat-row"><span class="formula-key">Trailing stop</span><span class="formula-val">${cfg.stats.all.trail}</span></div>
           <div class="formula-stat-row"><span class="formula-key">Catatan</span><span class="formula-val" style="color:var(--ghost)">${cfg.stats.all.note}</span></div>
         </div>
@@ -1497,6 +1502,7 @@ function _startBsjp() {
 </script>
 </body>
 </html>
+
 
 
 
