@@ -162,3 +162,50 @@ Kalau ada yang baru muncul pas testing, kasih tau Claude di sesi manapun — "ta
   - Logic: hitung kategori foreign (buy_strong/weak/sell_strong/weak), tentukan exit time
   - Agar bisa dipakai dari index.html, intraday-trading, dan fitur lain
 
+
+
+
+---
+
+# Restrukturisasi Kode — Hasil Audit 6 Jul 2026
+
+> Temuan dari audit menyeluruh semua file. Bug fungsional sudah di-fix (182 test pass).
+> Yang tersisa adalah masalah struktural — tidak crash, tapi sulit dirawat jangka panjang.
+
+## 🔴 Prioritas Tinggi
+
+- [ ] **Pisah EMITEN_CONFIG ke file tersendiri**
+  - Sekarang hardcode di `features/intraday-trading/index.html` (1511 baris)
+  - Kalau mau tambah emiten baru (BUVA, AMMN), harus edit file 1500 baris
+  - Fix: buat `features/intraday-trading/config.js` → export EMITEN_CONFIG
+  - Benefit: mudah tambah/ubah emiten, bisa di-import dari tempat lain
+
+## 🟡 Prioritas Sedang
+
+- [ ] **Pisah JS logic dari HTML di file besar**
+  - `features/intraday-trading/index.html` → 1511 baris (campur HTML+CSS+JS)
+  - `features/chart/index.html` → 1607 baris
+  - `features/analisa-scalping/index.html` → 694 baris
+  - Fix: pisah ke `logic.js` dan `style.css` per fitur
+  - Benefit: mudah debug, mudah cari kode, bisa di-test
+
+- [ ] **Konsolidasi logika ORB ke `shared/orb.js`**
+  - Duplikasi di: `intraday-trading`, `analisa-scalping`, `ranking-emiten/engine.js`
+  - `shared/orb.js` sudah ada dan ter-test (15 test)
+  - Fix: refactor ketiga fitur pakai `shared/orb.js` sebagai single source of truth
+  - Benefit: fix bug ORB cukup di satu tempat
+
+## 🟢 Prioritas Rendah
+
+- [ ] **Test untuk formula backtest**
+  - Semua logika backtest (return sesi 2, SL, trailing stop) hanya ada di HTML
+  - Tidak bisa di-test dengan `node --test`
+  - Fix: ekstrak ke pure JS function → buat test file
+  - Benefit: kalau formula berubah ada safety net otomatis
+
+- [ ] **Migrasi consumer LQ45/IDX80 ke getter functions**
+  - `store.js` sudah punya `getLQ45()` dan `getIDX80()` (ditambah 6 Jul 2026)
+  - Consumer yang masih pakai `import { LQ45 }` langsung: `ranking-emiten`, `haka`
+  - Fix: ganti ke `import { getLQ45 } from '../../shared/store.js'` lalu panggil `getLQ45()`
+  - Benefit: tidak ada timing confusion, eksplisit bahwa nilai ini dynamic
+
