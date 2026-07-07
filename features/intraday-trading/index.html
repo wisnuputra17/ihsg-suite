@@ -1254,22 +1254,23 @@ async function _fetchBsjpMonitor() {
     }
 
     // ── Fetch intraday hari entry untuk ambil harga 16:00 ──
-    const entryWib   = new Date(entryDateStr + 'T07:00:00Z')
-    const entryToTs  = Math.floor(new Date(entryDateStr + 'T09:30:00Z').getTime() / 1000) // sampai jam 16:30 WIB
-    const entryFromTs= Math.floor(new Date(entryDateStr + 'T01:00:00Z').getTime() / 1000)
+    // Fetch intraday hari entry: dari 08:00 sampai 17:00 WIB
+    const entryToTs  = Math.floor(new Date(entryDateStr + 'T10:00:00Z').getTime() / 1000) // 17:00 WIB
+    const entryFromTs= Math.floor(new Date(entryDateStr + 'T01:00:00Z').getTime() / 1000) // 08:00 WIB
 
     const rawEntry = await fetchIntraday('RAJA', entryToTs, entryFromTs, 1)
-    if (!rawEntry || !rawEntry.length) {
-      _renderBsjpMonitor({ entryPrice: null, kategori: null, exitTime: null,
-        timeNow, todayStr, entryDateStr, isWeekend, isEntryDay: !isWeekend && timeNow >= '16:00', isExitDay: false })
-      return
-    }
 
-    const sortEntry = [...rawEntry].sort((a, b) => a.unix - b.unix)
+    const sortEntry = rawEntry && rawEntry.length
+      ? [...rawEntry].sort((a, b) => a.unix - b.unix)
+      : []
 
-    // Harga entry = close candle jam 16:00 (lelang penutupan)
+    // Harga entry = close candle jam 16:00 (IEP lelang penutupan)
+    // Fallback: candle terakhir setelah 15:50 kalau 16:00 tidak ada
     const candle1600 = sortEntry.filter(c => (c.datetime||'').slice(11,16) === '16:00')
-    const entryPrice = candle1600.length ? candle1600[0].close : null
+    const candleLast = sortEntry.filter(c => (c.datetime||'').slice(11,16) >= '15:50')
+    const entryPrice = candle1600.length
+      ? candle1600[0].close
+      : candleLast.length ? candleLast[candleLast.length-1].close : null
 
     // ── Fetch daily hari entry untuk foreign flow ──
     let fb=0, fs=0, netForeign=0, magnitude=0, kategori=null, exitTime=null
