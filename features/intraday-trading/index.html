@@ -1258,19 +1258,34 @@ async function _fetchBsjpMonitor() {
     const entryToTs  = Math.floor(new Date(entryDateStr + 'T10:00:00Z').getTime() / 1000) // 17:00 WIB
     const entryFromTs= Math.floor(new Date(entryDateStr + 'T01:00:00Z').getTime() / 1000) // 08:00 WIB
 
-    const rawEntry = await fetchIntraday('RAJA', entryToTs, entryFromTs, 1)
-
-    const sortEntry = rawEntry && rawEntry.length
-      ? [...rawEntry].sort((a, b) => a.unix - b.unix)
-      : []
+    // Fetch intraday hari entry — EMPTY_RESPONSE mungkin terjadi kalau tidak ada candle
+    let sortEntry = []
+    try {
+      const rawEntry = await fetchIntraday('RAJA', entryToTs, entryFromTs, 1)
+      if (rawEntry && rawEntry.length)
+        sortEntry = [...rawEntry].sort((a, b) => a.unix - b.unix)
+    } catch(e) {
+      if (e.code !== 'EMPTY_RESPONSE') throw e
+      // EMPTY_RESPONSE = tidak ada candle hari itu (misal libur/weekend) → lanjut
+    }
 
     // Harga entry = close candle jam 16:00 (IEP lelang penutupan)
-    // Fallback: candle terakhir setelah 15:50 kalau 16:00 tidak ada
+    // Fallback 1: candle terakhir setelah 15:50
+    // Fallback 2: close dari fetchDaily
     const candle1600 = sortEntry.filter(c => (c.datetime||'').slice(11,16) === '16:00')
     const candleLast = sortEntry.filter(c => (c.datetime||'').slice(11,16) >= '15:50')
-    const entryPrice = candle1600.length
+    let entryPrice = candle1600.length
       ? candle1600[0].close
       : candleLast.length ? candleLast[candleLast.length-1].close : null
+
+    // Fallback 3: ambil dari daily close kalau intraday tidak ada
+    if (!entryPrice) {
+      try {
+        const entryFrom3 = new Date(new Date(entryDateStr+'T07:00:00Z').getTime()-3*86400*1000).toISOString().slice(0,10)
+        const dailyFb = await fetchDaily('RAJA', entryDateStr, entryFrom3)
+        if (dailyFb && dailyFb.length) entryPrice = dailyFb[0].close
+      } catch(e3) {}
+    }
 
     // ── Fetch daily hari entry untuk foreign flow ──
     let fb=0, fs=0, netForeign=0, magnitude=0, kategori=null, exitTime=null
@@ -1510,6 +1525,7 @@ function _startBsjp() {
 </script>
 </body>
 </html>
+
 
 
 
