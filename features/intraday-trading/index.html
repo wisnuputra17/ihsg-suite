@@ -1275,9 +1275,11 @@ async function _fetchBsjpMonitor() {
     let fb=0, fs=0, netForeign=0, magnitude=0, kategori=null, exitTime=null
     let foreignReady = false
     try {
-      const dailyData = await fetchDaily('RAJA', entryDateStr, entryDateStr)
+      // Ambil range 3 hari untuk handle Senin (data Jumat) atau libur
+      const entryFrom = new Date(new Date(entryDateStr+'T07:00:00Z').getTime()-3*86400*1000).toISOString().slice(0,10)
+      const dailyData = await fetchDaily('RAJA', entryDateStr, entryFrom)
       if (dailyData && dailyData.length) {
-        const d = dailyData[dailyData.length-1]
+        const d = dailyData[0]  // [0] = terbaru (Stockbit descending)
         fb = d.foreignbuy || 0
         fs = d.foreignsell || 0
         foreignReady = (fb + fs) > 0
@@ -1401,9 +1403,14 @@ function _renderBsjpMonitor(d) {
   }
 
   // ── Hari kerja biasa ──
-  if (t >= '16:00' && d.entryPrice) {
-    setStep('entry','done','✓')
-    $v('bsjp-entry-price', fmt(d.entryPrice))
+  if (t >= '16:00') {
+    if (d.entryPrice) {
+      setStep('entry','done','✓')
+      $v('bsjp-entry-price', fmt(d.entryPrice))
+    } else {
+      setStep('entry','active','⚠')
+      $v('bsjp-entry-price', 'Gagal fetch — refresh')
+    }
   } else if (t >= '15:30') {
     setStep('entry','active','⏰')
     $v('bsjp-entry-price', 'Siapkan order 16:00')
@@ -1413,7 +1420,7 @@ function _renderBsjpMonitor(d) {
   }
 
   // Step 2: Foreign flow (tersedia setelah 16:30)
-  if (d.kategori && d.isEntryDay && d.timeNow >= '19:00') {
+  if (d.kategori && d.isEntryDay && d.timeNow >= '16:30') {
     setStep('foreign','done','✓')
     const netSign = d.netForeign >= 0 ? '+' : ''
     $v('bsjp-net-foreign', netSign+fmtM(d.netForeign))
@@ -1465,7 +1472,7 @@ function _renderBsjpMonitor(d) {
     if (metaEl) metaEl.textContent='Entry '+fmt(d.entryPrice)+' → Exit '+fmt(d.exitPrice)+' ('+d.exitTime+')'
     setBanner(d.tradeReturn>=0?'entry':'avoid',
       (d.tradeReturn>=0?'✓ PROFIT ':'✗ LOSS ')+sign+d.tradeReturn.toFixed(2)+'%')
-  } else if (d.kategori && d.isEntryDay && d.timeNow >= '19:00') {
+  } else if (d.kategori && d.isEntryDay && d.timeNow >= '16:30') {
     setStep('exit','active','🎯')
     $v('bsjp-exit-label','Exit besok jam '+d.exitTime)
     $v('bsjp-exit-time', d.exitTime)
@@ -1502,6 +1509,7 @@ function _startBsjp() {
 </script>
 </body>
 </html>
+
 
 
 
