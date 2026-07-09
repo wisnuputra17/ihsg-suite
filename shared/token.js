@@ -48,8 +48,9 @@ export function onReady(fn) {
     setTimeout(fn, 0)
   } else {
     _callbacks.push(fn)
-    // Cek sekali lagi setelah module selesai parse, kalau token sudah ada
-    setTimeout(_checkAndDispatch, 0)
+    // Cek setelah 200ms — beri waktu renderHeader & syncTokenFromSheetsIfNeeded selesai
+    // agar dispatchReady hanya dipanggil sekali (dari header, bukan race dari sini)
+    setTimeout(_checkAndDispatch, 200)
   }
 }
 
