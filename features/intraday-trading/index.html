@@ -1365,6 +1365,46 @@ function _renderBsjpMonitor(d) {
     return
   }
 
+  // ── Hari exit (hari setelah entry, sebelum jam exit) ──
+  if (d.isExitDay) {
+    setStep('entry','done','✓')
+    $v('bsjp-entry-price', d.entryPrice ? fmt(d.entryPrice) : '–')
+    if (d.kategori && d.foreignReady) {
+      setStep('foreign','done','✓')
+      const netSign = d.netForeign >= 0 ? '+' : ''
+      $v('bsjp-net-foreign', netSign+fmtM(d.netForeign))
+      $v('bsjp-magnitude', d.magnitude.toFixed(3)+'%'+(d.magnitude>=BSJP_P75_MAG?' (KUAT)':' (lemah)'))
+      $v('bsjp-kondisi', KONDISI_LABEL[d.kategori]||'–')
+      const fl=document.getElementById('bsjp-foreign-label')
+      if (fl) {
+        fl.textContent=KONDISI_LABEL[d.kategori]
+        fl.style.color=d.kategori==='buy_strong'?'var(--live)':d.kategori==='buy_weak'?'#86efac':d.kategori==='sell_strong'?'#f97316':'var(--ghost)'
+      }
+      if (d.exitPrice && d.tradeReturn != null) {
+        setStep('exit','done','✓')
+        const retSign = d.tradeReturn >= 0 ? '+' : ''
+        $v('bsjp-exit-label', 'Selesai — '+retSign+d.tradeReturn.toFixed(2)+'%')
+        $v('bsjp-exit-time', d.exitTime)
+        $v('bsjp-exit-stat', retSign+d.tradeReturn.toFixed(2)+'%')
+        setBanner(d.tradeReturn>=0?'entry':'avoid',
+          (d.tradeReturn>=0?'✓':'✗')+' BSJP Exit '+retSign+d.tradeReturn.toFixed(2)+'% · Exit '+d.exitTime)
+      } else {
+        setStep('exit','active','⏰')
+        $v('bsjp-exit-label', 'Exit jam '+d.exitTime)
+        $v('bsjp-exit-time', d.exitTime)
+        $v('bsjp-exit-stat', KONDISI_STAT[d.kategori]||'–')
+        setBanner('entry','📅 HARI EXIT — '+KONDISI_LABEL[d.kategori]+' · Exit jam '+d.exitTime)
+      }
+    } else {
+      setStep('foreign','active','⏳')
+      $v('bsjp-net-foreign', 'Data foreign belum tersedia')
+      setStep('exit','pending','○')
+      $v('bsjp-exit-label', '–')
+      setBanner(null)
+    }
+    return
+  }
+
   // ── Hari kerja biasa ──
   if (t >= '16:00') {
     if (d.entryPrice) {
