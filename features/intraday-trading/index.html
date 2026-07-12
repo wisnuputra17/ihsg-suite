@@ -271,6 +271,8 @@
 
 <script type="module">
 import { renderHeader } from '../../shared/header.js'
+import { EMITEN_CONFIG }                  from './config.js'
+import { computeOrbFromIntraday, hasOrbBreakup } from '../../shared/orb.js'
 import { onReady }     from '../../shared/token.js'
 import { fetchIntraday, fetchDaily } from '../../shared/api.js'
 import { TOKEN } from '../../shared/store.js'
@@ -402,58 +404,7 @@ window._setMode = function(mode) {
   document.getElementById('bsjp-section').style.display    = mode==='bsjp'     ? '' : 'none'
 }
 
-const EMITEN_CONFIG = [
-  {
-    sym: 'RAJA',
-    name: 'Rukun Raharja',
-    gap_threshold: 0.5,
-    orb_deadline: '09:15',
-    exit_up: '10:00',
-    exit_down: '09:15',
-    exit_avoid: '09:15',
-    sl_up: 0.5,    // stop loss 0.5% untuk GAP UP
-    sl_down: 0.3,  // stop loss 0.3% untuk GAP DOWN
-    ret_yr: '+237.8%',
-    mdd: '5.3%',
-    stats: {
-      up:   { wlb: '72.7%', avg: '+2.83%', win: '85.4%', exit: '10:00' },
-      down: { wlb: '78.5%', avg: '+2.80%', win: '100%',  exit: '09:15' },
-    }
-  },
-  {
-    sym: 'MBMA',
-    name: 'Merdeka Battery Materials',
-    gap_threshold: 1.5,
-    orb_deadline: '09:31',
-    exit_up: '09:30',
-    exit_down: '09:30',
-    exit_avoid: '09:15',
-    sl_up: 0.3,    // stop loss 0.3% — tanpa SL return -10.2%, dengan SL +133.3%
-    sl_down: 0.3,
-    ret_yr: '+133.3%',
-    mdd: '32.5%',
-    stats: {
-      up:   { wlb: '68.5%', avg: '+2.59%', win: '85.7%', exit: '09:30' },
-      down: { wlb: '75.7%', avg: '+2.29%', win: '100%',  exit: '09:30' },
-    }
-  },
-  {
-    sym: 'TPIA',
-    name: 'Chandra Asri Pacific',
-    mode: 'trailing',       // mode khusus — tanpa filter gap
-    entry_mode: 'iep',      // entry di harga IEP (08:45-08:59), bukan open 09:00
-    gap_threshold: 0,       // semua gap masuk
-    orb_deadline: '09:31',  // deadline ORB
-    exit_avoid: '09:31',    // tidak ada ORB → exit jam 09:31
-    exit_orb: '15:50',      // ada ORB → hold sampai 15:50 atau trailing
-    trail_pct: 10,          // trailing stop 10% dari highest
-    ret_yr: '+192.5%',
-    mdd: '7.1%',
-    stats: {
-      all: { wlb: '–', win: '83%', avg: '+6.22%', exit: '15:50', trail: '10%', note: 'n=12, 24hr observasi' }
-    }
-  }
-]
+// EMITEN_CONFIG → lihat config.js
 
 // BSJP config — hanya RAJA (tervalidasi dari backtest 238 hari)
 // Entry: 16:00 (lelang penutupan) | Exit: dinamis berdasarkan foreign flow
@@ -701,17 +652,13 @@ async function _fetchEmiten(cfg) {
     // Entry price: IEP untuk mode trailing, open 09:00 untuk mode biasa
     const openPrice = (cfg.entry_mode==='iep' && iepPrice) ? iepPrice : open9Price
 
-    // ORB 09:00-09:04
-    const orbC = sort.filter(c=>{const t=(c.datetime||'').slice(11,16); return t>='09:00'&&t<='09:04'})
-    const orbHigh = orbC.length ? Math.max(...orbC.map(c=>c.high)) : null
-    const orbLow  = orbC.length ? Math.min(...orbC.map(c=>c.low))  : null
+    // ORB 09:00-09:04 (via shared/orb.js)
+    const orbRange = computeOrbFromIntraday(sort, '09:00', '09:04')
+    const orbHigh  = orbRange?.high ?? null
+    const orbLow   = orbRange?.low  ?? null
 
     // ORB breakout
-    const postOrb = sort.filter(c=>{
-      const t=(c.datetime||'').slice(11,16)
-      return t>='09:05' && t<cfg.orb_deadline
-    })
-    const brokenUp = orbHigh && postOrb.some(c=>c.close>orbHigh)
+    const brokenUp = orbHigh ? hasOrbBreakup(sort, orbHigh, '09:05', cfg.orb_deadline) : false
 
     // Prev close
     let prevClose=null

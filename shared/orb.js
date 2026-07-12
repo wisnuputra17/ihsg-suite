@@ -88,3 +88,41 @@ export function scanForFirstBreakout(candles, rangeBarCount, opts = {}) {
   }
   return null
 }
+
+// ============================================================
+// Helper untuk intraday-trading (filter by WIB time string)
+// ============================================================
+
+/**
+ * Hitung ORB dari candles intraday berdasarkan rentang waktu.
+ * @param {Array} candles - array candle dengan field `datetime` (format 'YYYY-MM-DD HH:MM:SS')
+ * @param {string} startTime - jam mulai ORB, format 'HH:MM' (mis. '09:00')
+ * @param {string} endTime   - jam akhir ORB, format 'HH:MM' (mis. '09:04')
+ * @returns {{high:number, low:number}|null}
+ */
+export function computeOrbFromIntraday(candles, startTime = '09:00', endTime = '09:04') {
+  const orbCandles = candles.filter(c => {
+    const t = (c.datetime || '').slice(11, 16)
+    return t >= startTime && t <= endTime
+  })
+  if (!orbCandles.length) return null
+  return {
+    high: Math.max(...orbCandles.map(c => c.high)),
+    low:  Math.min(...orbCandles.map(c => c.low)),
+  }
+}
+
+/**
+ * Cek apakah ada ORB breakout sebelum deadline.
+ * @param {Array} candles - candles setelah ORB window
+ * @param {number} orbHigh - ORB high
+ * @param {string} afterTime  - cek candle setelah jam ini (mis. '09:05')
+ * @param {string} beforeTime - cek candle sebelum jam ini / deadline (mis. '09:15')
+ * @returns {boolean}
+ */
+export function hasOrbBreakup(candles, orbHigh, afterTime = '09:05', beforeTime = '09:15') {
+  return candles.some(c => {
+    const t = (c.datetime || '').slice(11, 16)
+    return t >= afterTime && t < beforeTime && c.close > orbHigh
+  })
+}

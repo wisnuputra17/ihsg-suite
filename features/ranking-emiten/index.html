@@ -107,7 +107,7 @@
 </div>
 
 <script type="module">
-  import { TOKEN, SYMS, LQ45, IDX80, has, setEmitenInfo } from '../../shared/store.js'
+  import { TOKEN, SYMS, LQ45, IDX80, getLQ45, getIDX80, has, setEmitenInfo } from '../../shared/store.js'
   import { fetchEmitenJson } from '../../shared/api.js'
   import { renderHeader, refreshTokenStatus, openTokenPopover, whenTokenReady } from '../../shared/header.js'
   import { rankEmiten, buildRows, validateSplit } from './engine.js'
