@@ -127,7 +127,7 @@ Kalau ada yang baru muncul pas testing, kasih tau Claude di sesi manapun — "ta
   - Monitor panel sebaiknya jadi fitur tersendiri di-embed via `<iframe>` atau di-load dinamis
   - Atau minimal pisahkan JS monitor ke `shared/monitor.js`
 
-- [ ] **Checklist wajib setiap buat file baru**
+- [x] ~~**Checklist wajib setiap buat file baru**~~ — **SELESAI (7 Jul 2026)**: ditambahkan ke HANDOFF.md §8 Common Pitfalls
   - Bug `import TOKEN from` vs `import { TOKEN }` sudah terjadi 3x
   - Tambahkan ke HANDOFF.md sebagai "common pitfalls":
     - TOKEN adalah named export → wajib `import { TOKEN }`
@@ -174,7 +174,7 @@ Kalau ada yang baru muncul pas testing, kasih tau Claude di sesi manapun — "ta
 
 ## 🔴 Prioritas Tinggi
 
-- [ ] **Pisah EMITEN_CONFIG ke file tersendiri**
+- [x] ~~**Pisah EMITEN_CONFIG ke file tersendiri**~~ — **SELESAI (7 Jul 2026)**: dipindah ke features/intraday-trading/config.js
   - Sekarang hardcode di `features/intraday-trading/index.html` (1511 baris)
   - Kalau mau tambah emiten baru (BUVA, AMMN), harus edit file 1500 baris
   - Fix: buat `features/intraday-trading/config.js` → export EMITEN_CONFIG
@@ -182,14 +182,14 @@ Kalau ada yang baru muncul pas testing, kasih tau Claude di sesi manapun — "ta
 
 ## 🟡 Prioritas Sedang
 
-- [ ] **Pisah JS logic dari HTML di file besar**
+- [x] ~~**Pisah JS logic dari HTML di file besar**~~ — **SELESAI (7 Jul 2026)**: analisa-scalping 694→175 baris, chart 1607→132 baris (logic.js + style.css)
   - `features/intraday-trading/index.html` → 1511 baris (campur HTML+CSS+JS)
   - `features/chart/index.html` → 1607 baris
   - `features/analisa-scalping/index.html` → 694 baris
   - Fix: pisah ke `logic.js` dan `style.css` per fitur
   - Benefit: mudah debug, mudah cari kode, bisa di-test
 
-- [ ] **Konsolidasi logika ORB ke `shared/orb.js`**
+- [x] ~~**Konsolidasi logika ORB ke `shared/orb.js`**~~ — **SELESAI (7 Jul 2026)**: tambah computeOrbFromIntraday() dan hasOrbBreakup(), intraday-trading pakai shared/orb.js
   - Duplikasi di: `intraday-trading`, `analisa-scalping`, `ranking-emiten/engine.js`
   - `shared/orb.js` sudah ada dan ter-test (15 test)
   - Fix: refactor ketiga fitur pakai `shared/orb.js` sebagai single source of truth
@@ -197,13 +197,13 @@ Kalau ada yang baru muncul pas testing, kasih tau Claude di sesi manapun — "ta
 
 ## 🟢 Prioritas Rendah
 
-- [ ] **Test untuk formula backtest**
+- [x] ~~**Test untuk formula backtest**~~ — **SELESAI (7 Jul 2026)**: shared/backtest.js + 31 test (wilsonLowerBound, calcEquity, classifyGap, calcSesi2Return, backtestORB)
   - Semua logika backtest (return sesi 2, SL, trailing stop) hanya ada di HTML
   - Tidak bisa di-test dengan `node --test`
   - Fix: ekstrak ke pure JS function → buat test file
   - Benefit: kalau formula berubah ada safety net otomatis
 
-- [ ] **Migrasi consumer LQ45/IDX80 ke getter functions**
+- [x] ~~**Migrasi consumer LQ45/IDX80 ke getter functions**~~ — **SELESAI (7 Jul 2026)**: sesi2-screener pakai getLQ45()/getIDX80(), ranking-emiten import getter
   - `store.js` sudah punya `getLQ45()` dan `getIDX80()` (ditambah 6 Jul 2026)
   - Consumer yang masih pakai `import { LQ45 }` langsung: `ranking-emiten`, `haka`
   - Fix: ganti ke `import { getLQ45 } from '../../shared/store.js'` lalu panggil `getLQ45()`

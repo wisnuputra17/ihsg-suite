@@ -286,3 +286,96 @@ if (TOKEN.isSet()) _start()
 window.addEventListener('load', () => { if (TOKEN.isSet()) _start() })
 window.addEventListener('ihsg:token-saved', _start)
 ```
+
+
+---
+
+## §8 Common Pitfalls — Checklist Wajib Setiap File Baru (7 Jul 2026)
+
+Bug-bug ini sudah terjadi berulang — wajib dicek sebelum push file baru.
+
+### 1. TOKEN harus named export
+```js
+// ✗ SALAH
+import TOKEN from '../../shared/store.js'
+
+// ✓ BENAR
+import { TOKEN } from '../../shared/store.js'
+```
+
+### 2. onReady dari token.js, BUKAN store.js
+```js
+// ✗ SALAH — store.js tidak export onReady
+import { onReady } from '../../shared/store.js'
+
+// ✓ BENAR
+import { onReady } from '../../shared/token.js'
+```
+
+### 3. LQ45/IDX80 pakai getter, bukan direct import
+Direct import `{ LQ45 }` bisa stale kalau diklik sebelum `setEmitenInfo()` selesai.
+```js
+// ✗ BENAR secara teknis tapi rentan timing
+import { LQ45 } from '../../shared/store.js'
+btn.onclick = () => { input.value = LQ45.join(',') }  // mungkin kosong
+
+// ✓ BENAR — getter selalu baca nilai terbaru
+import { getLQ45 } from '../../shared/store.js'
+btn.onclick = () => { input.value = getLQ45().join(',') }
+```
+
+### 4. Fungsi di module scope tidak accessible dari onclick HTML attribute
+```js
+// ✗ SALAH — onclick="doSomething()" tidak bisa akses module scope
+<button onclick="doSomething()">...</button>
+
+// ✓ BENAR — expose ke window atau pakai addEventListener
+window.doSomething = doSomething
+// atau
+btn.addEventListener('click', doSomething)
+```
+
+### 5. renderHeader butuh array, bukan object
+```js
+// ✗ SALAH
+renderHeader(el, { label: 'IHSG Suite', href: '/' })
+
+// ✓ BENAR
+renderHeader(el, [
+  { label: 'IHSG Suite', href: '../../index.html' },
+  { label: 'Nama Fitur' }
+])
+```
+
+### 6. fetchIntraday parameter order: (sym, fromTs, toTs, mult)
+Stockbit API: `from` > `to` (unix descending). Jangan tertukar.
+```js
+// ✓ BENAR — from = lebih baru, to = lebih lama
+fetchIntraday('RAJA', nowTs, nowTs - 7*86400, 5)
+```
+
+### 7. Stockbit daily API descending — daily[0] = terbaru
+```js
+const daily = await fetchDaily('RAJA', today, sevenDaysAgo)
+const latestClose = daily[0].close  // [0] = hari terbaru ✓
+// BUKAN daily[daily.length-1] yang adalah hari terlama
+```
+
+### 8. prevClose hari Senin/libur — fetch range, bukan single day
+```js
+// ✗ SALAH — Minggu tidak ada data, gagal
+fetchDaily(sym, yesterday, yesterday)
+
+// ✓ BENAR — ambil range, dapat Jumat otomatis
+const from7 = new Date(Date.now()-7*86400*1000).toISOString().slice(0,10)
+const daily = await fetchDaily(sym, yesterday, from7)
+const prevClose = daily[0]?.close  // [0] = hari terakhir trading
+```
+
+### 9. EMITEN_CONFIG ada di config.js, bukan index.html
+Untuk tambah/ubah emiten scalping pagi, edit:
+```
+features/intraday-trading/config.js  ← edit di sini
+```
+Bukan di `index.html` yang 1500+ baris.
+

@@ -119,7 +119,7 @@
 </div>
 <script type="module">
 import { renderHeader }                          from '../../shared/header.js'
-import { TOKEN, LQ45, IDX80, setEmitenInfo }    from '../../shared/store.js'
+import { TOKEN, getLQ45, getIDX80, setEmitenInfo } from '../../shared/store.js'
 import { onReady }                               from '../../shared/token.js'
 import { fetchIntraday, fetchEmitenJson }        from '../../shared/api.js'
 
@@ -146,8 +146,8 @@ const summaryRow      = document.getElementById('summary-row')
 document.querySelectorAll('[data-preset]').forEach(btn => {
   btn.addEventListener('click', () => {
     const p = btn.dataset.preset
-    if      (p === 'lq45')  symInput.value = (window._lq45||LQ45).join(',')
-    else if (p === 'idx80') symInput.value = (window._idx80||IDX80).join(',')
+    if      (p === 'lq45')  symInput.value = getLQ45().join(',')
+    else if (p === 'idx80') symInput.value = getIDX80().join(',')
     else                    symInput.value = ''
   })
 })
@@ -312,11 +312,9 @@ onReady(async () => {
   try {
     const json = await fetchEmitenJson()
     setEmitenInfo(json)
-    window._lq45 = LQ45
-    window._idx80 = IDX80
     document.getElementById('btn-lq45').disabled = false
     document.getElementById('btn-idx80').disabled = false
-    statusMsg.textContent = `Token aktif. LQ45: ${LQ45.length} emiten · IDX80: ${IDX80.length} emiten. Pilih universe lalu klik Screen.`
+    statusMsg.textContent = `Token aktif. LQ45: ${getLQ45().length} emiten · IDX80: ${getIDX80().length} emiten. Pilih universe lalu klik Screen.`
   } catch(e) {
     statusMsg.textContent = 'Token aktif. Gagal load daftar emiten — preset LQ45/IDX80 tidak tersedia, ketik manual.'
   }

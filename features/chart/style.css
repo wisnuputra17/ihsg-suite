@@ -1,0 +1,182 @@
+/* features/chart/style.css */
+
+    /* Halaman ini full-screen — override max-width default shared/ui.css */
+    html, body { overflow: hidden; height: 100%; }
+    .page {
+      max-width: none; padding: 0 10px;
+      height: 100vh; display: flex; flex-direction: column;
+    }
+
+    .app-header { flex-shrink: 0; padding: 10px 0; }
+
+    /* ── TIMEFRAME SELECTOR ── */
+    .tf-bar { display:flex; align-items:center; gap:2px; padding:0 4px; border-right:1px solid var(--line); margin-right:4px; }
+    .tf-btn { padding:2px 7px; border-radius:4px; border:none; background:transparent; color:var(--ghost); font-family:var(--f-mono); font-size:11px; cursor:pointer; transition:background 0.15s,color 0.15s; }
+    .tf-btn:hover { background:var(--raised); color:var(--paper); }
+    .tf-btn.active { background:var(--phosphor); color:var(--bg); font-weight:700; }
+
+    /* ── TOOLBAR — search saham + Indicators + LPM mode + token, semua 1 baris ── */
+    .chart-toolbar {
+      flex-shrink: 0; display: flex; align-items: center; gap: 8px;
+      padding-bottom: 8px; flex-wrap: wrap; position: relative;
+    }
+
+    .sym-search {
+      position: relative;
+      display: flex; align-items: center; gap: 6px;
+      background: #0f0e0c; border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 6px 10px; min-width: 140px;
+    }
+    .sym-search-icon { color: var(--ghost); font-size: 12px; }
+    .sym-search input {
+      background: transparent; border: none; outline: none; width: 90px;
+      font-family: var(--f-mono); font-size: 12px; color: var(--paper); text-transform: uppercase;
+    }
+    .sym-search input::placeholder { color: var(--ghost); text-transform: none; }
+
+    .sym-dropdown {
+      position: absolute; top: calc(100% + 4px); left: 0; z-index: 30;
+      background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+      width: 260px; max-height: 280px; overflow-y: auto;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+    .sym-option {
+      display: flex; align-items: baseline; gap: 8px; padding: 7px 10px;
+      cursor: pointer; transition: background 120ms ease;
+    }
+    .sym-option:hover, .sym-option.is-active { background: var(--panel-hi); }
+    .sym-option-code { font-family: var(--f-mono); font-size: 12px; color: var(--paper); flex-shrink: 0; }
+    .sym-option-name { font-size: 11px; color: var(--ghost); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sym-dropdown-empty { padding: 10px; font-family: var(--f-mono); font-size: 11px; color: var(--ghost); }
+
+    .dropdown-wrap { position: relative; }
+    .dropdown-panel {
+      position: absolute; top: calc(100% + 4px); left: 0; z-index: 20;
+      background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 12px; min-width: 220px; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+    .dropdown-row {
+      display: flex; align-items: center; gap: 8px; padding: 6px 0;
+      font-family: var(--f-mono); font-size: 12px; color: var(--dim);
+    }
+    .dropdown-row input[type=checkbox] { accent-color: var(--phosphor); cursor: pointer; }
+    .dropdown-row label { cursor: pointer; user-select: none; flex: 1; }
+    .num-input { width: 50px; }
+
+    .ind-section-label {
+      font-family: var(--f-mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--ghost); margin: 10px 0 6px;
+    }
+    .ind-section-label:first-child { margin-top: 0; }
+
+    .ma-add-row { display: flex; gap: 6px; align-items: center; padding: 4px 0; }
+    .ma-add-row .num-input { width: 60px; }
+    .ma-chip-row { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 0 6px; }
+    .ma-chip-row .chip { font-size: 10px; padding: 2px 4px 2px 8px; }
+    .ma-chip-gear { background: none; border: none; color: inherit; opacity: 0.6; cursor: pointer; font-size: 10px; padding: 0 2px; }
+    .ma-chip-gear:hover { opacity: 1; }
+
+    .ind-gear {
+      background: none; border: none; color: var(--ghost); cursor: pointer;
+      font-size: 12px; padding: 2px 4px; opacity: 0.7; transition: opacity var(--ease);
+    }
+    .ind-gear:hover { opacity: 1; color: var(--phosphor); }
+
+    /* ── Modal setting indikator ── */
+    .ind-settings-overlay {
+      position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,0.6);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .ind-settings-modal {
+      background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+      width: 320px; max-width: 90vw;
+    }
+    .ind-settings-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 16px; border-bottom: 1px solid var(--line);
+      font-family: var(--f-mono); font-size: 13px; color: var(--paper); font-weight: 500;
+    }
+    .ind-settings-header button {
+      background: none; border: none; color: var(--ghost); font-size: 16px; cursor: pointer;
+    }
+    .ind-settings-header button:hover { color: var(--paper); }
+    .ind-settings-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+    .ind-settings-field { display: flex; flex-direction: column; gap: 4px; }
+    .ind-settings-field label {
+      font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ghost);
+    }
+    .ind-settings-field select, .ind-settings-field input {
+      background: #0f0e0c; border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 7px 10px; font-family: var(--f-mono); font-size: 12px; color: var(--paper); outline: none;
+    }
+    .ind-settings-field input[type=color] { padding: 3px; height: 32px; cursor: pointer; }
+    .ind-settings-footer {
+      display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px;
+      border-top: 1px solid var(--line);
+    }
+    .mode-select {
+      background: #0f0e0c; border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 3px 5px; font-family: var(--f-mono); font-size: 10px; color: var(--paper); outline: none;
+    }
+
+    .lpm-status { font-family: var(--f-mono); font-size: 10px; color: var(--ghost); margin-left: 4px; }
+
+    /* ── Toolbar drawing tools — vertikal, sisi kiri chart ── */
+    .draw-toolbar {
+      position: absolute; top: 8px; left: 8px; z-index: 6;
+      display: flex; flex-direction: column; gap: 2px;
+      background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 4px;
+    }
+    .draw-tool {
+      width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+      background: transparent; border: none; border-radius: var(--radius);
+      color: var(--ghost); font-size: 14px; cursor: pointer; transition: all var(--ease);
+    }
+    .draw-tool:hover { background: var(--panel-hi); color: var(--dim); }
+    .draw-tool.active { background: var(--phosphor-dim); color: var(--phosphor); }
+    .draw-toolbar-sep { height: 1px; background: var(--line); margin: 2px 0; }
+
+    /* ── Overlay canvas garis gambar — murni visual, klik diteruskan ke chart ── */
+    /* (canvas overlay manual sudah dihapus — trend line sekarang series chart native,
+       library urus reposisi otomatis saat pan/zoom, jauh lebih efisien) */
+
+    .draw-delete-btn {
+      position: absolute; z-index: 7; transform: translate(-50%, -50%);
+      background: var(--down); color: #fff; border: none; border-radius: 50%;
+      width: 20px; height: 20px; font-size: 12px; line-height: 1; cursor: pointer;
+      display: none; align-items: center; justify-content: center;
+    }
+
+    /* ── AREA CHART — mengisi sisa layar ── */
+    .chart-wrap { flex: 1; min-height: 0; border: 1px solid var(--line); position: relative; }
+    #chart-main { width: 100%; height: 100%; }
+
+    /* ── OHLC info bar — overlay di atas chart, bukan baris terpisah ── */
+    .ohlc-bar {
+      position: absolute; top: 6px; left: 8px; z-index: 5;
+      display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap;
+      font-family: var(--f-mono); font-size: 12px; pointer-events: none;
+      text-shadow: 0 0 4px rgba(10,9,8,0.9);
+    }
+    .ohlc-sym { color: var(--paper); font-weight: 500; }
+    .ohlc-tf  { color: var(--ghost); }
+    .ohlc-val { color: var(--dim); }
+    .ohlc-val b { color: var(--paper); font-weight: 400; }
+    .ohlc-chg.up   { color: var(--live); }
+    .ohlc-chg.down { color: var(--down); }
+
+    /* ── Legend indikator — di bawah OHLC bar, overlay juga ── */
+    .chart-legend {
+      position: absolute; top: 28px; left: 8px; z-index: 5;
+      display: flex; flex-direction: column; gap: 2px;
+      pointer-events: none; max-width: 260px;
+    }
+    .legend-row {
+      font-family: var(--f-mono); font-size: 11px; line-height: 1.5;
+      white-space: nowrap; text-shadow: 0 0 4px rgba(10,9,8,0.9);
+    }
+    .legend-swatch { display: inline-block; width: 8px; height: 2px; margin-right: 5px; vertical-align: middle; }
+    .legend-name  { color: var(--dim); }
+    .legend-value { font-weight: 500; }
+  
