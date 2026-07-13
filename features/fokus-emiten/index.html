@@ -379,7 +379,6 @@ import { isMarketHours } from '../../shared/monitor.js'
         const brokenDown = orbLow  && postOrb.some(c => c.close < orbLow)
 
         // Klasifikasi IEP gap
-        const iepClose = iepC.length ? iepC[iepC.length-1].close : null
         let gapCat = 'STABIL'
         // prevClose diambil dari candle sebelum 08:45 (hari yang sama, tidak ada)
         // atau dari parameter yang dipass — untuk checklist pakai prevClose dari daily
