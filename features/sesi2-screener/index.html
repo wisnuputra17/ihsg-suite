@@ -169,13 +169,28 @@ function calcSesi2(candles, entryTime, exitTime) {
     byDate[d].push(c)
   }
   const rets = []
-  for (const day of Object.values(byDate)) {
+  for (const [dateStr, day] of Object.entries(byDate)) {
     day.sort((a, b) => a.datetime < b.datetime ? -1 : 1)
-    const entryC = day.find(c => c.datetime.slice(11, 16) >= entryTime)
+
+    // Jadwal IDX: Jumat sesi 2 mulai 14:00 (Senin-Kamis 13:30)
+    // getUTCDay dari date string: 5 = Jumat
+    const isFriday = new Date(dateStr + 'T07:00:00Z').getUTCDay() === 5
+    const effEntry = (isFriday && entryTime < '14:00') ? '14:00' : entryTime
+
+    const entryC = day.find(c => c.datetime.slice(11, 16) >= effEntry)
     const exitCs = day.filter(c => c.datetime.slice(11, 16) <= exitTime)
     if (!entryC || !exitCs.length) continue
+
+    // Guard: entry candle tidak boleh nyasar >30 menit dari jam target
+    // (kalau saham sepi dan candle pertama jam 15:40, return tidak bermakna)
+    const entryHM = entryC.datetime.slice(11, 16)
+    const [th, tm] = effEntry.split(':').map(Number)
+    const [eh, em] = entryHM.split(':').map(Number)
+    if ((eh * 60 + em) - (th * 60 + tm) > 30) continue
+
     const exitC = exitCs[exitCs.length - 1]
     if (entryC.open <= 0 || exitC.close <= 0) continue
+    if (exitC.datetime <= entryC.datetime) continue  // exit harus setelah entry
     rets.push((exitC.close - entryC.open) / entryC.open * 100)
   }
   if (rets.length < 2) return null

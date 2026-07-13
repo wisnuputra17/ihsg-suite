@@ -88,6 +88,37 @@ describe('calcSesi2Return', () => {
     const ret = calcSesi2Return(candles, '13:30', '15:50')
     assert.ok(Math.abs(ret - 10) < 0.01)  // (1100-1000)/1000*100 = 10%
   })
+
+  it('Jumat: entry 13:30 otomatis geser ke 14:00 (sesi 2 Jumat mulai 14:00)', () => {
+    // 2026-07-10 = Jumat
+    const mk = (time, open, close) => ({
+      datetime: `2026-07-10 ${time}:00`, open, close, high: close, low: open, volume: 1
+    })
+    // Ada candle 13:30 (seharusnya TIDAK dipakai di Jumat) dan 14:00
+    const candles = [mk('13:30', 900, 900), mk('14:00', 1000, 1000), mk('15:50', 1000, 1100)]
+    const ret = calcSesi2Return(candles, '13:30', '15:50')
+    // Entry harus dari candle 14:00 (open 1000), bukan 13:30 (open 900)
+    assert.ok(Math.abs(ret - 10) < 0.01)  // (1100-1000)/1000 = 10%, bukan (1100-900)/900 = 22%
+  })
+
+  it('Senin: entry 13:30 tetap 13:30 (bukan Jumat)', () => {
+    // 2026-07-06 = Senin
+    const mk = (time, open, close) => ({
+      datetime: `2026-07-06 ${time}:00`, open, close, high: close, low: open, volume: 1
+    })
+    const candles = [mk('13:30', 1000, 1000), mk('15:50', 1000, 1100)]
+    const ret = calcSesi2Return(candles, '13:30', '15:50')
+    assert.ok(Math.abs(ret - 10) < 0.01)
+  })
+
+  it('entry candle nyasar >30 menit dari target → null', () => {
+    // Saham sepi: minta entry 13:30 tapi candle pertama 15:40
+    const mk = (time, open, close) => ({
+      datetime: `2026-07-06 ${time}:00`, open, close, high: close, low: open, volume: 1
+    })
+    const candles = [mk('15:40', 1000, 1000), mk('15:50', 1000, 1100)]
+    assert.equal(calcSesi2Return(candles, '13:30', '15:50'), null)
+  })
 })
 
 // ── backtestORB ──

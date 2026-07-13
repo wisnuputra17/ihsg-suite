@@ -63,11 +63,25 @@ export function classifyGap(iepPrice, prevClose, threshold = 0.5) {
  */
 export function calcSesi2Return(candles, entryTime, exitTime) {
   const sorted = [...candles].sort((a, b) => a.datetime < b.datetime ? -1 : 1)
-  const entryC = sorted.find(c => c.datetime.slice(11, 16) >= entryTime)
+  if (!sorted.length) return null
+
+  // Jadwal IDX: Jumat sesi 2 mulai 14:00 (Senin–Kamis 13:30)
+  const dateStr  = sorted[0].datetime.slice(0, 10)
+  const isFriday = new Date(dateStr + 'T07:00:00Z').getUTCDay() === 5
+  const effEntry = (isFriday && entryTime < '14:00') ? '14:00' : entryTime
+
+  const entryC = sorted.find(c => c.datetime.slice(11, 16) >= effEntry)
   const exitCs  = sorted.filter(c => c.datetime.slice(11, 16) <= exitTime)
   if (!entryC || !exitCs.length) return null
+
+  // Guard: entry candle tidak boleh nyasar >30 menit dari target
+  const [th, tm] = effEntry.split(':').map(Number)
+  const [eh, em] = entryC.datetime.slice(11, 16).split(':').map(Number)
+  if ((eh * 60 + em) - (th * 60 + tm) > 30) return null
+
   const exitC = exitCs[exitCs.length - 1]
   if (!entryC.open || !exitC.close) return null
+  if (exitC.datetime <= entryC.datetime) return null
   return (exitC.close - entryC.open) / entryC.open * 100
 }
 
