@@ -269,6 +269,8 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@5.2.0/dist/lightweight-charts.standalone.production.js"></script>
+
 <script type="module">
 import { renderHeader } from '../../shared/header.js'
 import { EMITEN_CONFIG }                  from './config.js'
@@ -342,7 +344,9 @@ async function _renderEquityChart() {
   }
 
   // Render dengan lightweight-charts
-  if (window.LightweightCharts) {
+  if (!window.LightweightCharts) {
+    chartEl.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-family:var(--f-mono);font-size:11px;color:var(--down)">LightweightCharts gagal load — cek koneksi CDN</div>`
+  } else {
     chartEl.innerHTML = ''
     const chart = LightweightCharts.createChart(chartEl, {
       autoSize: true,
