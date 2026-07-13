@@ -95,7 +95,8 @@ async function _fetch(url, options = {}) {
  * @returns Array of {date, open, high, low, close, volume, foreignbuy, foreignsell}
  */
 export async function fetchDaily(sym, from, to) {
-  const today = new Date().toISOString().slice(0, 10)
+  // WIB offset — new Date() UTC bisa beda tanggal antara 00:00-07:00 WIB
+  const today = new Date(Date.now() + 7*3600*1000).toISOString().slice(0, 10)
   const _from = from || today
   const _to   = to   || '2000-01-01'
 

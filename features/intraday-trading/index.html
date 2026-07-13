@@ -695,17 +695,21 @@ async function _fetchEmiten(cfg) {
       } else if (timeNow<'09:05') {
         orbStatus='orb_forming'
       } else if (brokenUp) {
-        // Hitung highest dan trailing level
+        // Trailing stop SEKUENSIAL: update highest per candle, cek trail SAAT ITU
+        // (bukan max global — highest 'masa depan' tidak boleh dipakai)
         const postEntry = sort.filter(c=>(c.datetime||'').slice(11,16)>='09:00')
-        highestPrice = openPrice ? Math.max(openPrice, ...postEntry.map(c=>c.high)) : null
+        let runHigh = openPrice || 0
+        let trailHitPrice = null
+        for (const c of postEntry) {
+          runHigh = Math.max(runHigh, c.high)
+          const lvl = runHigh * (1 - cfg.trail_pct/100)
+          if (c.low <= lvl) { trailHitPrice = lvl; break }
+        }
+        highestPrice = runHigh || null
         trailLevel = highestPrice ? highestPrice*(1-cfg.trail_pct/100) : null
 
-        // Cek apakah trailing sudah kena
-        const trailHit = trailLevel && postEntry.some(c=>c.low<=trailLevel)
-        if (trailHit) {
-          // Cari candle pertama yang kena trailing
-          const hitC = postEntry.find(c=>c.low<=trailLevel)
-          exitPrice = trailLevel
+        if (trailHitPrice) {
+          exitPrice = trailHitPrice
           if (openPrice) tradeReturn=(exitPrice-openPrice)/openPrice*100
           orbStatus='done_trail'
         } else if (timeNow>=cfg.exit_orb) {

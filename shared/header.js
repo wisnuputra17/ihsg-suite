@@ -72,7 +72,9 @@ export function renderHeader(container, crumbs) {
     if (TOKEN.isSet()) dispatchReady()
   })
 
-  setInterval(_renderStatus, 60_000)
+  // Simpan interval id agar tidak double kalau renderHeader dipanggil 2x
+  if (window._hdrStatusTimer) clearInterval(window._hdrStatusTimer)
+  window._hdrStatusTimer = setInterval(_renderStatus, 60_000)
 }
 
 /**
