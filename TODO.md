@@ -209,3 +209,72 @@ Kalau ada yang baru muncul pas testing, kasih tau Claude di sesi manapun — "ta
   - Fix: ganti ke `import { getLQ45 } from '../../shared/store.js'` lalu panggil `getLQ45()`
   - Benefit: tidak ada timing confusion, eksplisit bahwa nilai ini dynamic
 
+
+---
+
+# Hasil Audit Mendalam — 9 Jul 2026
+
+> Audit kedua: trading logic, operasional live trading, dan improvisasi.
+> Bug kritikal (trailing TPIA look-ahead, timezone fetchDaily, timer leak header) SUDAH di-fix di commit c7ddf23.
+
+## 🔴 Prioritas Tinggi — sebelum trading live serius
+
+- [ ] **Backtest SL setelah ORB confirmed**
+  - Sekarang: SL hanya aktif 09:05→deadline. Setelah ORB confirmed, holding TANPA proteksi sampai jam exit
+  - Kalau crash mendadak jam 09:30, tidak ada SL
+  - Tugas: backtest dengan data RAJA/MBMA — apakah SL post-ORB (misal -1.5% dari entry) memperbaiki return atau justru merusak (false stop)?
+
+- [ ] **Token expiry warning**
+  - Token Stockbit umur ~24 jam. Kalau expire jam 09:05, semua card mati di saat kritis
+  - `TOKEN.getExpiryMs()` sudah ada di store.js, tinggal dipakai
+  - Fix: banner merah "Token expire dalam X jam" + alert suara kalau <1 jam
+
+- [ ] **Position sizing di card**
+  - Card tampilkan entry/SL price tapi tidak "beli berapa lot"
+  - Formula: lot = (modal × risk%) / (entry − SL) / 100
+  - Input modal + risk% di setting, card tampilkan jumlah lot otomatis
+  - Menghilangkan keputusan emosional saat 09:00
+
+## 🟡 Prioritas Sedang
+
+- [ ] **Slippage di backtest**
+  - Backtest exit di harga persis (slLevel/close) — realita market order kena 1-2 tick lebih buruk
+  - Estimasi dampak: -0.1~0.3% per trade × 150 trade/thn = -15~45%/thn dari return backtest
+  - Fix: tambah parameter slippage 1 tick di shared/backtest.js
+
+- [ ] **Stale data warning**
+  - Kalau Stockbit down jam 09:10, card diam dengan data lama — trader tidak sadar
+  - Fix: warning visual kalau update terakhir >2 menit dari jam bursa
+
+- [ ] **Alert di background tab**
+  - Browser throttle timer di tab tidak aktif — alert ORB 09:15 bisa telat
+  - Fix: Notification API (minta izin browser) + document.title blink
+
+- [ ] **Export/Import IndexedDB**
+  - Clear browser cache = equity history hilang permanen
+  - Fix: tombol Export JSON (download) + Import JSON di halaman utama
+
+- [ ] **Daftar libur bursa 2026**
+  - getLastWorkday hanya skip Sabtu/Minggu — Lebaran/Nyepi bikin entry date BSJP salah
+  - Fix: hardcode array tanggal libur bursa 2026 (~20 tanggal) di shared/monitor.js
+
+## 🟢 Improvisasi Trading (jangka menengah)
+
+- [ ] **Correlation risk management**
+  - RAJA+MBMA+TPIA bisa sinyal bersamaan → 3 posisi rugi bersamaan kalau market reversal
+  - Aturan alokasi: max 2 posisi aktif, atau bagi modal 40/30/30
+
+- [ ] **Journal otomatis kondisi trade**
+  - Equity chart catat return, tapi tidak catat kondisi (gap%, ORB range, vol IEP)
+  - Simpan kondisi per trade → setelah 3 bulan bisa analisa "formula masih bekerja atau decay?"
+
+- [ ] **Paper trading 2 minggu pertama**
+  - Eksekusi 1 lot saja, bandingkan return card vs return real
+  - Ukur slippage aktual sebelum scale up ke modal penuh
+
+## Struktur kode (minor, tidak urgent)
+
+- [ ] intraday-trading/index.html masih 1533 baris — pisah logic.js seperti chart
+- [ ] Fee 0.26 hardcode 3x di intraday-trading — pindah ke config.js sebagai FEE_PCT
+- [ ] fetchDaily default to='2000-01-01' — tambah guard max range atau warning
+
