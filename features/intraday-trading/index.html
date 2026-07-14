@@ -410,15 +410,16 @@ window._setMode = function(mode) {
 
 // EMITEN_CONFIG → lihat config.js
 
-// BSJP config — hanya RAJA (tervalidasi dari backtest 238 hari)
-// Entry: 16:00 (lelang penutupan) | Exit: dinamis berdasarkan foreign flow
-const BSJP_P75_MAG = 0.156  // perlu dikalibrasi tiap 6 bulan
-const BSJP_EXIT_MAP = {
-  buy_strong:  '09:05',  // fb>fs + mag≥P75: WLB 67.9%★, avg +2.05%
-  buy_weak:    '10:00',  // fb>fs + mag<P75:  WLB 49.7%, avg +1.15%
-  sell_strong: '09:30',  // fs>fb + mag≥P75:  WLB 48.8%, avg +1.40%
-  sell_weak:   '09:00',  // fs>fb + mag<P75:  WLB 61.1%, avg +0.50%
-}
+// BSJP config — hanya RAJA
+// FORMULA E (13 Jul 2026, backtest 237 hari):
+//   Entry 16:00 SETIAP hari, KECUALI RAJA turun >3% hari itu → SKIP
+//   Exit besok 09:05 FIX (tidak tergantung foreign flow)
+//   WLB 62.1% · avg +1.26% · MDD 8.6% · ~+343%/thn (ex-Jan 2026, fee 0.40%)
+//   Temporal E59/L59 ✓ | Kategori foreign = INFO saja (terbukti tidak konsisten temporal)
+//   ⚠️ Overnight: fee reguler 0.40% (bukan Day Trade) · tail risk gap → max 30-40% modal
+const BSJP_P75_MAG    = 0.156   // untuk info kategori (kalibrasi 6 bulan)
+const BSJP_SKIP_DAYRET = -3     // skip entry kalau RAJA hari itu turun > 3%
+const BSJP_EXIT       = '09:05' // exit fix semua kondisi
 
 // ============================================================
 // ALERT SUARA
@@ -1081,7 +1082,7 @@ function _buildBsjpCards() {
       <div class="step-row pending" id="bsjp-step-foreign">
         <span class="step-icon" id="bsjp-icon-foreign">○</span>
         <div class="step-body">
-          <div class="step-label">~19:00 Cek Foreign Flow</div>
+          <div class="step-label">~16:30 Foreign Flow (info)</div>
           <div class="step-details">
             <div class="step-kv"><span class="step-key">Net Foreign</span><span class="step-val" id="bsjp-net-foreign">–</span></div>
             <div class="step-kv"><span class="step-key">Magnitude</span><span class="step-val" id="bsjp-magnitude">–</span></div>
@@ -1111,18 +1112,19 @@ function _buildBsjpCards() {
       <!-- Info box: statistik formula -->
       <div style="margin:8px 12px;padding:8px 10px;border-radius:4px;background:var(--raised);
                   border:1px solid var(--line);font-family:var(--f-mono);font-size:10px;">
-        <div style="color:var(--ghost);margin-bottom:4px;font-weight:700">Formula Tervalidasi (238 hari)</div>
+        <div style="color:var(--ghost);margin-bottom:4px;font-weight:700">Formula E (237 hari, ex-Jan '26)</div>
         <div style="display:flex;gap:12px;flex-wrap:wrap;color:var(--dim)">
-          <span>WLB 61.9%</span><span>Win 68.1%</span>
-          <span>avg +1.01%/hari</span><span>MDD 36.1%</span>
+          <span>WLB 62.1%</span><span>avg +1.26%/hari</span>
+          <span>MDD 8.6%</span><span>fee 0.40%</span>
         </div>
+        <div style="color:var(--ghost);margin-top:4px">Skip jika RAJA −3% di hari entry · exit fix 09:05 · max 30-40% modal (tail risk overnight)</div>
       </div>
 
       <div class="card-footer">
         <div class="card-params">
           <span class="param-tag">entry 16:00</span>
-          <span class="param-tag">exit dinamis</span>
-          <span class="param-tag">P75 0.156%</span>
+          <span class="param-tag">skip dayRet&lt;-3%</span>
+          <span class="param-tag">exit 09:05</span>
         </div>
         <span id="bsjp-refresh">–</span>
       </div>
@@ -1170,11 +1172,12 @@ const KONDISI_LABEL = {
   sell_strong: '🟠 NET SELL KUAT',
   sell_weak:   '⚪ NET SELL LEMAH',
 }
+// Info kategori foreign (BUKAN penentu exit — formula E exit fix 09:05)
 const KONDISI_STAT = {
-  buy_strong:  'WLB 67.9%★ · avg +2.05%',
-  buy_weak:    'WLB 49.7% · avg +1.15%',
-  sell_strong: 'WLB 48.8% · avg +1.40%',
-  sell_weak:   'WLB 61.1% · avg +0.50%',
+  buy_strong:  'info · formula E: WLB 62.1% avg +1.26%',
+  buy_weak:    'info · formula E: WLB 62.1% avg +1.26%',
+  sell_strong: 'info · formula E: WLB 62.1% avg +1.26%',
+  sell_weak:   'info · formula E: WLB 62.1% avg +1.26%',
 }
 
 async function _fetchBsjpMonitor() {
@@ -1243,8 +1246,9 @@ async function _fetchBsjpMonitor() {
     }
 
     // ── Fetch daily hari entry untuk foreign flow ──
-    let fb=0, fs=0, netForeign=0, magnitude=0, kategori=null, exitTime=null
-    let foreignReady = false
+    let fb=0, fs=0, netForeign=0, magnitude=0, kategori=null
+    let exitTime = BSJP_EXIT            // formula E: exit fix, tidak tergantung foreign
+    let dayRetEntry = null, foreignReady = false
     try {
       // Ambil range 3 hari untuk handle Senin (data Jumat) atau libur
       const entryFrom = new Date(new Date(entryDateStr+'T07:00:00Z').getTime()-3*86400*1000).toISOString().slice(0,10)
@@ -1254,6 +1258,9 @@ async function _fetchBsjpMonitor() {
         fb = d.foreignbuy || 0
         fs = d.foreignsell || 0
         foreignReady = (fb + fs) > 0
+
+        // dayRet hari entry → filter SKIP (formula E)
+        if (d.open) dayRetEntry = (d.close - d.open) / d.open * 100
 
         if (foreignReady) {
           netForeign = fb - fs
@@ -1266,7 +1273,6 @@ async function _fetchBsjpMonitor() {
           else if (isNetBuy)              kategori = 'buy_weak'
           else if (isStrong)              kategori = 'sell_strong'
           else                            kategori = 'sell_weak'
-          exitTime = BSJP_EXIT_MAP[kategori]
         }
       }
     } catch(e2) { console.warn('[bsjp] daily fetch error:', e2.message) }
@@ -1295,10 +1301,12 @@ async function _fetchBsjpMonitor() {
       }
     }
 
+    const skipBsjp = dayRetEntry != null && dayRetEntry < BSJP_SKIP_DAYRET
     _renderBsjpMonitor({
       entryPrice, fb, fs, netForeign, magnitude, kategori,
       exitTime, exitPrice, tradeReturn, timeNow, todayStr,
       entryDateStr, foreignReady, isEntryDay, isExitDay, isWeekend,
+      dayRetEntry, skipBsjp,
     })
   } catch(e) { console.warn('[bsjp]', e.message) }
 }
@@ -1328,6 +1336,18 @@ function _renderBsjpMonitor(d) {
   if (!d) return
 
   const t=d.timeNow
+
+  // ── FORMULA E: SKIP — RAJA turun >3% di hari entry, tidak ada posisi ──
+  if (d.skipBsjp) {
+    setStep('entry','skip','⚪')
+    setStep('foreign','pending','○')
+    setStep('exit','pending','○')
+    $v('bsjp-entry-price', 'SKIP')
+    $v('bsjp-net-foreign', '–'); $v('bsjp-magnitude', '–'); $v('bsjp-kondisi', '–')
+    $v('bsjp-exit-label', 'Tidak ada posisi')
+    setBanner('avoid', `⛔ SKIP — RAJA ${d.dayRetEntry.toFixed(1)}% di hari entry (${d.entryDateStr}) · filter dayRet < -3%`)
+    return
+  }
 
   // ── Weekend tanpa posisi / pasar tutup ──
   if (d.isWeekend && !d.entryPrice) {
