@@ -214,6 +214,8 @@
     { id: 'vwma20',    label: 'VWMA (20)',        group: 'fast', default: false },
     { id: 'poc',       label: 'Volume Profile POC', group: 'fast', default: false },
     { id: 'rsiDiv',    label: 'RSI Divergence',   group: 'fast', default: false },
+    { id: 'foreignRatio', label: 'Foreign Net Ratio (% dari value harian)', group: 'fast', default: false },
+    { id: 'bandarmology', label: 'Bandarmology (top-3 broker net 5 hari)',  group: 'slow', default: false },
   ]
 
   const _selected = new Set(INDICATOR_DEFS.filter(d => d.default).map(d => d.id))
@@ -545,6 +547,17 @@
         const divFlags = calcRSIDivergence(closesAll, rsiForDiv, 3)
         dailyAllSorted.forEach((d, i) => d.rsiBullishDiv = divFlags[i])
       }
+      if (_selected.has('foreignRatio')) {
+        // foreignbuy/foreignsell dari chartbit daily = value Rp.
+        // Daily TIDAK punya field value → proxy: value ≈ close × volume.
+        // foreignNetRatio = net foreign / total value harian, dalam % (-100..+100)
+        dailyAllSorted.forEach(d => {
+          const fb = d.foreignbuy || 0, fs = d.foreignsell || 0
+          const valueProxy = (d.close || 0) * (d.volume || 0)
+          d.foreignNet      = fb - fs
+          d.foreignNetRatio = valueProxy > 0 ? +(((fb - fs) / valueProxy) * 100).toFixed(4) : null
+        })
+      }
 
       // ── 3. FILTER ke rentang export yang dipilih user — PALING AKHIR,
       // setelah semua indikator selesai dihitung dgn basis histori penuh ──
@@ -557,13 +570,20 @@
       const lpmByDate       = {}
       const tradebookByDate = {}
 
-      const needsBroker    = _selected.has('broker')
+      const needsBandarmology = _selected.has('bandarmology')
+      const needsBroker    = _selected.has('broker') || needsBandarmology
       const needsLpm       = _selected.has('lpm')
       const needsTradebook = _selected.has('tradebook')
 
+      // Bandarmology butuh rolling 5 hari trading — fetch broker mulai
+      // 9 hari kalender sebelum 'from' agar window penuh sejak bar pertama
+      const brokerDateList = needsBandarmology
+        ? _dateRangeArray(new Date(new Date(from + 'T07:00:00Z').getTime() - 9*86400*1000).toISOString().slice(0,10), to)
+        : dateList
+
       if (needsBroker || needsLpm || needsTradebook) {
         const tasks = []
-        if (needsBroker)    tasks.push(...dateList.map(date => ({ type: 'broker',    date })))
+        if (needsBroker)    tasks.push(...brokerDateList.map(date => ({ type: 'broker', date })))
         if (needsLpm)       tasks.push(...dateList.map(date => ({ type: 'lpm',       date })))
         if (needsTradebook) tasks.push(...dateList.map(date => ({ type: 'tradebook', date })))
 
@@ -637,9 +657,52 @@
       }
 
       // Gabungkan ke daily by date
-      if (needsBroker)    daily.forEach(d => d.broker    = brokerByDate[d.date]    || null)
+      if (_selected.has('broker')) daily.forEach(d => d.broker = brokerByDate[d.date] || null)
       if (needsLpm)       daily.forEach(d => d.lpm       = lpmByDate[d.date]       || null)
       if (needsTradebook) daily.forEach(d => d.tradebook = tradebookByDate[d.date] || null)
+
+      // ── Bandarmology: akumulasi net broker rolling 5 hari trading ──
+      if (needsBandarmology) {
+        // Urutan tanggal trading yang punya data broker (ascending)
+        const brokerDates = Object.keys(brokerByDate).sort()
+        daily.forEach(d => {
+          // Window = 5 tanggal broker terakhir sampai dengan d.date
+          const upto = brokerDates.filter(bd => bd <= d.date)
+          const win  = upto.slice(-5)
+          if (!win.length) { d.bandarmology = null; return }
+
+          // Akumulasi net per broker: buys val positif, sells val negatif
+          const netByBroker = {}
+          let totalAbs = 0
+          for (const bd of win) {
+            const res = brokerByDate[bd]
+            if (!res) continue
+            for (const b of (res.buys || []))  { netByBroker[b.code] = (netByBroker[b.code] || 0) + (b.val || 0); totalAbs += Math.abs(b.val || 0) }
+            for (const s of (res.sells || [])) { netByBroker[s.code] = (netByBroker[s.code] || 0) + (s.val || 0); totalAbs += Math.abs(s.val || 0) }
+          }
+
+          const entries = Object.entries(netByBroker)
+          if (!entries.length) { d.bandarmology = null; return }
+
+          // Top-3 net buyer (hanya net>0) & top-3 net seller (hanya net<0)
+          const sorted = entries.sort((a, b) => b[1] - a[1])
+          const top3Buy  = sorted.filter(([, net]) => net > 0).slice(0, 3)
+            .map(([code, net]) => ({ code, net: Math.round(net) }))
+          const top3Sell = sorted.filter(([, net]) => net < 0).sort((a, b) => a[1] - b[1]).slice(0, 3)
+            .map(([code, net]) => ({ code, net: Math.round(net) }))
+
+          // Konsentrasi: |net top-3 buyer| / total turnover broker window (0..1)
+          const top3Net = top3Buy.reduce((s, b) => s + b.net, 0)
+          const concentration = totalAbs > 0 ? +(Math.abs(top3Net) / totalAbs).toFixed(4) : null
+
+          d.bandarmology = {
+            days: win.length,           // <5 di awal kalau data belum penuh
+            top3Buy, top3Sell,
+            top3NetCum5d: Math.round(top3Net),
+            concentration               // 0..1 — makin tinggi makin terkonsentrasi
+          }
+        })
+      }
 
       // ── 4. Export ──
       const exportPayload = {
@@ -732,12 +795,17 @@
     if (_selected.has('rsiDiv'))   cols.push('rsiBullishDiv')
     if (_selected.has('broker'))   cols.push('broker')
     if (_selected.has('lpm'))      cols.push('lpm')
+    if (_selected.has('foreignRatio')) cols.push('foreignNetRatio')
+    if (_selected.has('bandarmology')) cols.push('bandarmology')
 
     const fmt = (v) => {
       if (v === null || v === undefined) return '–'
       if (typeof v === 'boolean') return v ? '✓' : '–'
       if (typeof v === 'number') return v.toLocaleString('id-ID', { maximumFractionDigits: 2 })
-      if (typeof v === 'object') return v.net !== undefined ? v.net.toLocaleString('id-ID') : JSON.stringify(v).slice(0, 30)
+      if (typeof v === 'object') {
+        if (v.concentration !== undefined) return `${v.top3Buy?.[0]?.code||'?'} ${(v.concentration*100).toFixed(1)}%`
+        return v.net !== undefined ? v.net.toLocaleString('id-ID') : JSON.stringify(v).slice(0, 30)
+      }
       return v
     }
 
