@@ -274,7 +274,7 @@
 <script type="module">
 import { renderHeader } from '../../shared/header.js'
 import { EMITEN_CONFIG, FEE_DAY_TRADE }    from './config.js'
-import { prevTradingDay, isTradingDay }   from '../../shared/idx-calendar.js'
+import { prevTradingDay, isTradingDay, roundToTick } from '../../shared/idx-calendar.js'
 import { computeOrbFromIntraday, hasOrbBreakup } from '../../shared/orb.js'
 import { onReady }     from '../../shared/token.js'
 import { fetchIntraday, fetchDaily, fetchBroker } from '../../shared/api.js'
@@ -780,7 +780,7 @@ async function _fetchEmiten(cfg) {
     } else {
       // Hitung SL level
       const slPct = gapCat==='DOWN' ? (cfg.sl_down||0) : (cfg.sl_up||0)
-      const slLevel = slPct && openPrice ? openPrice*(1-slPct/100) : null
+      const slLevel = slPct && openPrice ? roundToTick(openPrice*(1-slPct/100), 'down') : null
 
       // Cek apakah SL sudah kena (sebelum deadline)
       const postCandles = sort.filter(c=>{const t=(c.datetime||'').slice(11,16); return t>='09:05'&&t<cfg.orb_deadline})
@@ -811,7 +811,7 @@ async function _fetchEmiten(cfg) {
     }
 
     const slPctFinal = gapCat==='DOWN' ? (cfg.sl_down||0) : (cfg.sl_up||0)
-    const slLevelFinal = slPctFinal && openPrice ? openPrice*(1-slPctFinal/100) : null
+    const slLevelFinal = slPctFinal && openPrice ? roundToTick(openPrice*(1-slPctFinal/100), 'down') : null
     // Avoid exit price = harga pasar saat deadline (bukan harga fixed)
     const avoidCandlesFinal = sort.filter(c=>(c.datetime||'').slice(11,16)<=cfg.orb_deadline)
     const avoidPriceFinal = avoidCandlesFinal.length ? avoidCandlesFinal[avoidCandlesFinal.length-1].close : null
@@ -887,7 +887,7 @@ function _renderEmiten(cfg, d) {
   $v('iep-price', fmt(d.iepPrice))
   $v('iep-vol',   fmtVol(d.iepVol))
   $v('open-price',fmt(d.openPrice))
-  $v('sl-price',  d.slLevel ? fmt(Math.round(d.slLevel)) : '–')
+  $v('sl-price',  d.slLevel ? fmt(d.slLevel) : '–')
   $v('avoid-price', d.avoidPrice ? `${fmt(d.avoidPrice)} @${d.cfg.orb_deadline}` : `@${d.cfg.orb_deadline} (belum)`)
   $v('exit-target', d.exitOrbTime ? (d.timeNow>=d.exitOrbTime && d.exitPrice ? `${fmt(d.exitPrice)} @${d.exitOrbTime}` : `@${d.exitOrbTime} (belum)`) : '–')
   $v('orb-high',  fmt(d.orbHigh))
@@ -952,7 +952,7 @@ function _renderEmiten(cfg, d) {
     setStep('iep','done','✓'); setStep('entry','done','✓')
     setStep('orb','active','👁'); setStep('exit','pending','○')
     $v('exit-label','Menunggu ORB')
-    const slInfo = d.slLevel ? ` · SL @${fmt(Math.round(d.slLevel))}` : ''
+    const slInfo = d.slLevel ? ` · SL @${fmt(d.slLevel)}` : ''
     $v('exit-msg','Deadline '+d.cfg.orb_deadline+' — belum ada breakout'+slInfo)
     setBanner(null); cardFront.className='it-card'
 
