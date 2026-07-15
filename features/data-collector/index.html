@@ -695,10 +695,15 @@
           const top3Net = top3Buy.reduce((s, b) => s + b.net, 0)
           const concentration = totalAbs > 0 ? +(Math.abs(top3Net) / totalAbs).toFixed(4) : null
 
+          const sellNet = top3Sell.reduce((s, b) => s + b.net, 0)
+          const imbalance = (top3Net + Math.abs(sellNet)) > 0
+            ? +((top3Net + sellNet) / (top3Net + Math.abs(sellNet))).toFixed(4)
+            : null
           d.bandarmology = {
             days: win.length,           // <5 di awal kalau data belum penuh
             top3Buy, top3Sell,
             top3NetCum5d: Math.round(top3Net),
+            imbalance,                  // -1..1 — buyer vs seller dominan (indikator utama BSJP v3)
             concentration               // 0..1 — makin tinggi makin terkonsentrasi
           }
         })

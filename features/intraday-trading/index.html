@@ -276,7 +276,7 @@ import { renderHeader } from '../../shared/header.js'
 import { EMITEN_CONFIG }                  from './config.js'
 import { computeOrbFromIntraday, hasOrbBreakup } from '../../shared/orb.js'
 import { onReady }     from '../../shared/token.js'
-import { fetchIntraday, fetchDaily } from '../../shared/api.js'
+import { fetchIntraday, fetchDaily, fetchBroker } from '../../shared/api.js'
 import { TOKEN } from '../../shared/store.js'
 import { gsLoad, gsSave, gsAppend } from '../../shared/indexeddb.js'
 
@@ -417,9 +417,47 @@ window._setMode = function(mode) {
 //   WLB 62.1% · avg +1.26% · MDD 8.6% · ~+343%/thn (ex-Jan 2026, fee 0.40%)
 //   Temporal E59/L59 ✓ | Kategori foreign = INFO saja (terbukti tidak konsisten temporal)
 //   ⚠️ Overnight: fee reguler 0.40% (bukan Day Trade) · tail risk gap → max 30-40% modal
+// FORMULA E-BANDAR v3 (15 Jul 2026, backtest 237 hari, NO look-ahead):
+//   Filter 1: bandar imbalance 5 hari (H-1..H-5) > 0 — data final semalam
+//   Filter 2: dayRet RAJA live > -3% (cek 15:55)
+//   Exit 09:15 · n=80/thn · WLB 64.5% · avg +1.83% · MDD 7.4% (fee 0.40)
 const BSJP_P75_MAG    = 0.156   // untuk info kategori (kalibrasi 6 bulan)
 const BSJP_SKIP_DAYRET = -3     // skip entry kalau RAJA hari itu turun > 3%
-const BSJP_EXIT       = '09:05' // exit fix semua kondisi
+const BSJP_EXIT       = '09:15' // exit fix semua kondisi (v3)
+
+// n hari kerja mundur dari dateStr (skip Sabtu/Minggu)
+function _workdayBack(dateStr, n) {
+  const d = new Date(dateStr + 'T07:00:00Z')
+  let left = n
+  while (left > 0) {
+    d.setUTCDate(d.getUTCDate() - 1)
+    if (d.getUTCDay() !== 0 && d.getUTCDay() !== 6) left--
+  }
+  return d.toISOString().slice(0, 10)
+}
+
+// Bandar imbalance 5 hari trading SEBELUM entryDateStr (H-1..H-5)
+// imbalance = (netTop3Buy + netTop3Sell) / (netTop3Buy + |netTop3Sell|) ∈ -1..1
+// Cache per entryDate — broker H-1 tidak berubah sepanjang hari
+async function _fetchBandarImbalance(entryDateStr) {
+  if (window._bsjpImb && window._bsjpImb.key === entryDateStr) return window._bsjpImb.val
+  const toH1   = _workdayBack(entryDateStr, 1)
+  const fromH5 = _workdayBack(entryDateStr, 5)
+  const res = await fetchBroker('RAJA', fromH5, toH1)
+  const net = {}
+  for (const b of (res.buys  || [])) net[b.code] = (net[b.code] || 0) + (b.val || 0)
+  for (const s of (res.sells || [])) net[s.code] = (net[s.code] || 0) + (s.val || 0)
+  const entries = Object.entries(net)
+  const buys  = entries.filter(([,v]) => v > 0).sort((a,b) => b[1]-a[1]).slice(0,3)
+  const sells = entries.filter(([,v]) => v < 0).sort((a,b) => a[1]-b[1]).slice(0,3)
+  const B = buys.reduce((s,[,v]) => s+v, 0)
+  const S = sells.reduce((s,[,v]) => s+v, 0)
+  const imb = (B + Math.abs(S)) > 0 ? (B + S)/(B + Math.abs(S)) : null
+  const val = { imb, topBuy: buys[0]?.[0] || '–', topSell: sells[0]?.[0] || '–',
+                from: fromH5, to: toH1 }
+  window._bsjpImb = { key: entryDateStr, val }
+  return val
+}
 
 // ============================================================
 // ALERT SUARA
@@ -1067,6 +1105,10 @@ function _buildBsjpCards() {
       <!-- Status bar -->
       <div class="signal-banner" id="bsjp-banner"></div>
 
+      <!-- Panel keputusan sore ini (v3) -->
+      <div id="bsjp-precheck" style="display:none;margin:8px 12px;padding:8px 10px;border-radius:4px;
+           background:var(--sink);border:1px solid var(--line);font-family:var(--f-mono);font-size:10px;line-height:1.7"></div>
+
       <!-- Step 1: Entry -->
       <div class="step-row" id="bsjp-step-entry">
         <span class="step-icon" id="bsjp-icon-entry">○</span>
@@ -1112,19 +1154,19 @@ function _buildBsjpCards() {
       <!-- Info box: statistik formula -->
       <div style="margin:8px 12px;padding:8px 10px;border-radius:4px;background:var(--raised);
                   border:1px solid var(--line);font-family:var(--f-mono);font-size:10px;">
-        <div style="color:var(--ghost);margin-bottom:4px;font-weight:700">Formula E (237 hari, ex-Jan '26)</div>
+        <div style="color:var(--ghost);margin-bottom:4px;font-weight:700">Formula E-Bandar v3 (237 hari, no look-ahead)</div>
         <div style="display:flex;gap:12px;flex-wrap:wrap;color:var(--dim)">
-          <span>WLB 62.1%</span><span>avg +1.26%/hari</span>
-          <span>MDD 8.6%</span><span>fee 0.40%</span>
+          <span>n=80/thn</span><span>WLB 64.5%</span><span>avg +1.83%</span>
+          <span>MDD 7.4%</span><span>fee 0.40%</span>
         </div>
-        <div style="color:var(--ghost);margin-top:4px">Skip jika RAJA −3% di hari entry · exit fix 09:05 · max 30-40% modal (tail risk overnight)</div>
+        <div style="color:var(--ghost);margin-top:4px">Entry hanya jika: bandar imbalance 5hr (H-1) &gt; 0 DAN RAJA hari itu &gt; −3% · exit 09:15 · max 30-40% modal</div>
       </div>
 
       <div class="card-footer">
         <div class="card-params">
-          <span class="param-tag">entry 16:00</span>
-          <span class="param-tag">skip dayRet&lt;-3%</span>
-          <span class="param-tag">exit 09:05</span>
+          <span class="param-tag">imb H-1 &gt; 0</span>
+          <span class="param-tag">dayRet &gt; -3%</span>
+          <span class="param-tag">exit 09:15</span>
         </div>
         <span id="bsjp-refresh">–</span>
       </div>
@@ -1174,10 +1216,10 @@ const KONDISI_LABEL = {
 }
 // Info kategori foreign (BUKAN penentu exit — formula E exit fix 09:05)
 const KONDISI_STAT = {
-  buy_strong:  'info · formula E: WLB 62.1% avg +1.26%',
-  buy_weak:    'info · formula E: WLB 62.1% avg +1.26%',
-  sell_strong: 'info · formula E: WLB 62.1% avg +1.26%',
-  sell_weak:   'info · formula E: WLB 62.1% avg +1.26%',
+  buy_strong:  'info · v3: WLB 64.5% avg +1.83%',
+  buy_weak:    'info · v3: WLB 64.5% avg +1.83%',
+  sell_strong: 'info · v3: WLB 64.5% avg +1.83%',
+  sell_weak:   'info · v3: WLB 64.5% avg +1.83%',
 }
 
 async function _fetchBsjpMonitor() {
@@ -1301,12 +1343,29 @@ async function _fetchBsjpMonitor() {
       }
     }
 
-    const skipBsjp = dayRetEntry != null && dayRetEntry < BSJP_SKIP_DAYRET
+    // ── v3: bandar imbalance H-1..H-5 relatif hari entry ──
+    let imbData = null
+    try { imbData = await _fetchBandarImbalance(entryDateStr) }
+    catch(eImb) { console.warn('[bsjp] imbalance fetch:', eImb.message) }
+
+    // dayRet live HARI INI (untuk keputusan sore, pre-16:00)
+    let dayRetLive = null
+    if (!isWeekend && entryDateStr !== todayStr) {
+      try {
+        const from7 = new Date(now - 7*86400*1000).toISOString().slice(0,10)
+        const dToday = await fetchDaily('RAJA', todayStr, from7)
+        if (dToday && dToday.length && dToday[0].date === todayStr && dToday[0].open)
+          dayRetLive = (dToday[0].close - dToday[0].open) / dToday[0].open * 100
+      } catch(eLive) {}
+    }
+
+    const imbFail = imbData && imbData.imb != null ? imbData.imb <= 0 : false
+    const skipBsjp = (dayRetEntry != null && dayRetEntry < BSJP_SKIP_DAYRET) || imbFail
     _renderBsjpMonitor({
       entryPrice, fb, fs, netForeign, magnitude, kategori,
       exitTime, exitPrice, tradeReturn, timeNow, todayStr,
       entryDateStr, foreignReady, isEntryDay, isExitDay, isWeekend,
-      dayRetEntry, skipBsjp,
+      dayRetEntry, skipBsjp, imbData, dayRetLive,
     })
   } catch(e) { console.warn('[bsjp]', e.message) }
 }
@@ -1337,7 +1396,30 @@ function _renderBsjpMonitor(d) {
 
   const t=d.timeNow
 
-  // ── FORMULA E: SKIP — RAJA turun >3% di hari entry, tidak ada posisi ──
+  // ── Panel keputusan sore ini (pre-entry, hari kerja sebelum 16:00) ──
+  const pre = document.getElementById('bsjp-precheck')
+  if (pre) {
+    if (!d.isWeekend && d.entryDateStr !== d.todayStr && t < '16:00') {
+      const imb = d.imbData?.imb
+      const c1ok = imb != null && imb > 0
+      const c1txt = imb != null ? `${imb>0?'+':''}${imb.toFixed(3)} (top: ${d.imbData.topBuy})` : 'gagal fetch'
+      const c2ok = d.dayRetLive != null && d.dayRetLive >= BSJP_SKIP_DAYRET
+      const c2txt = d.dayRetLive != null ? `${d.dayRetLive>=0?'+':''}${d.dayRetLive.toFixed(2)}%` : 'belum ada data'
+      const verdict = c1ok && c2ok
+        ? '<span style="color:var(--live);font-weight:700">🟢 AMBIL POSISI 16:00</span>'
+        : imb == null || d.dayRetLive == null
+          ? '<span style="color:#f59e0b;font-weight:700">⚠ Data belum lengkap</span>'
+          : '<span style="color:var(--down);font-weight:700">⛔ SKIP SORE INI</span>'
+      pre.style.display = 'block'
+      pre.innerHTML = `
+        <div style="color:var(--ghost);font-weight:700;margin-bottom:4px">CEK ENTRY SORE INI (${d.todayStr})</div>
+        <div>${c1ok?'✅':'❌'} Bandar imbalance 5 hari (H-1): <b>${c1txt}</b> <span style="color:var(--ghost)">syarat &gt; 0</span></div>
+        <div>${c2ok?'✅':'❌'} RAJA hari ini (live): <b>${c2txt}</b> <span style="color:var(--ghost)">syarat &gt; -3%</span></div>
+        <div style="margin-top:4px">${verdict}</div>`
+    } else pre.style.display = 'none'
+  }
+
+  // ── FORMULA E-BANDAR v3: SKIP — tidak ada posisi ──
   if (d.skipBsjp) {
     setStep('entry','skip','⚪')
     setStep('foreign','pending','○')
@@ -1345,7 +1427,10 @@ function _renderBsjpMonitor(d) {
     $v('bsjp-entry-price', 'SKIP')
     $v('bsjp-net-foreign', '–'); $v('bsjp-magnitude', '–'); $v('bsjp-kondisi', '–')
     $v('bsjp-exit-label', 'Tidak ada posisi')
-    setBanner('avoid', `⛔ SKIP — RAJA ${d.dayRetEntry.toFixed(1)}% di hari entry (${d.entryDateStr}) · filter dayRet < -3%`)
+    const alasan = []
+    if (d.dayRetEntry != null && d.dayRetEntry < BSJP_SKIP_DAYRET) alasan.push(`RAJA ${d.dayRetEntry.toFixed(1)}% (< -3%)`)
+    if (d.imbData?.imb != null && d.imbData.imb <= 0) alasan.push(`imbalance ${d.imbData.imb.toFixed(3)} (≤ 0)`)
+    setBanner('avoid', `⛔ SKIP hari entry ${d.entryDateStr} — ${alasan.join(' · ')}`)
     return
   }
 
