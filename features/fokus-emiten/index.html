@@ -208,11 +208,11 @@ import { isMarketHours } from '../../shared/monitor.js'
     {
       sym: 'RAJA',
       indicatorName: 'Kunci RAJA',
-      summary: 'Entry: Connors RSI ≤15 + Asing Net Buy (filter konfluensi). Max 3 posisi, min jarak 14 hari. Exit per posisi: Trailing stop 30%. Exit semua: MACD hist>100. Filter asing membuang trade saat institusi distribusi (WLB naik 43%→65%, win rate 65%→92%).',
+      summary: 'Entry: Connors RSI ≤15. Max 3 posisi, min jarak 14 hari. Exit per posisi: Trailing stop 30% (basis close harian). Exit semua: MACD hist>100. CATATAN 15 Jul 2026: filter "Asing Net Buy" DIHAPUS dari syarat entry — replikasi backtest membuktikan filter itu justru merusak (WLB 69.9%→54.8%, win 90%→78%; entry terbaik 2021-2022 terjadi saat asing masih jual). Asing net sell kini hanya info marker.',
       stat: { n: 20, wlb: '69.9%', horizon: 'per-trade, avg hold ~184 hari kalender' },
       rules: [
         { type: 'entry', text: 'Connors RSI ≤ 15' },
-        { type: 'entry', text: 'Asing NET BUY hari itu (foreignbuy > foreignsell) — filter konfluensi' },
+        { type: 'info',  text: 'Status asing ditampilkan sebagai info (BUKAN syarat — filter asing terbukti merusak WLB)' },
         { type: 'entry', text: 'Max 3 posisi terbuka bersamaan' },
         { type: 'entry', text: 'Min jarak 14 hari dari entry sebelumnya' },
         { type: 'exit',  text: 'Trailing stop 30% dari highest tiap posisi (independen)' },
@@ -289,14 +289,14 @@ import { isMarketHours } from '../../shared/monitor.js'
 
           out[i]._posCount = positions.length
 
-          // Cek entry baru
-          // Filter konfluensi: CRSI ≤ 15 + Asing NET BUY
-          // (dari backtest: WLB naik dari 43% → 65%, win rate 65% → 92%, n=12)
-          const foreignNetBuy = (d.foreignbuy || 0) > (d.foreignsell || 0)
-          const entryOk = d._connorsRsi != null && d._connorsRsi <= CRSI_THRESH && foreignNetBuy
-          // Tandai hari CRSI rendah tapi asing distribusi → marker khusus
-          const crsiOkButForeignSell = d._connorsRsi != null && d._connorsRsi <= CRSI_THRESH && !foreignNetBuy
-          if (crsiOkButForeignSell && d._signal == null) d._signal = 'crsi_no_foreign'
+          // Cek entry baru — CRSI ≤ 15 SAJA (formula tervalidasi WLB 69.9% n=20).
+          // Filter "Asing NET BUY" DIHAPUS dari syarat (15 Jul 2026): replikasi
+          // backtest 2021-2026 membuktikan filter itu MERUSAK — WLB 69.9%→54.8%,
+          // win 90%→78%, avg +100.2%→+64.9%. Entry terbaik (Nov'21-Mar'22, rally
+          // +324~365%) semua terjadi saat asing masih net sell (akumulasi lokal
+          // saat asing kapitulasi). Status asing tetap dicatat sebagai INFO.
+          const entryOk = d._connorsRsi != null && d._connorsRsi <= CRSI_THRESH
+          d._foreignNetBuy = (d.foreignbuy || 0) > (d.foreignsell || 0)
           if (entryOk && positions.length < MAX_POS) {
             // Cek min gap dari entry terakhir
             let gapOk = true
@@ -752,15 +752,6 @@ import { isMarketHours } from '../../shared/monitor.js'
             color: isNearEnd ? '#60a5fa' : '#4ade80',
             shape: 'arrowUp',
             text: isNearEnd ? `ENTRY (${lastPosCount} open)` : 'ENTRY'
-          })
-        } else if (d._signal === 'crsi_no_foreign') {
-          // CRSI rendah tapi asing net sell — sinyal lemah, tidak entry
-          markers.push({
-            time: d.date,
-            position: 'belowBar',
-            color: '#6b7280',
-            shape: 'circle',
-            text: '○ CRSI≤15 (Asing Jual)'
           })
         } else if (d._signal === 'exit_trail') {
           markers.push({ time: d.date, position: 'aboveBar', color: '#f0635c', shape: 'arrowDown', text: 'EXIT (trail)' })
