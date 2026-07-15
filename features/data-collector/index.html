@@ -598,7 +598,11 @@
               const res = await fetchAbsorption(_currentSym, t.date)
               const totalBuy  = res.buy.reduce((s, x) => s + x.value, 0)
               const totalSell = res.sell.reduce((s, x) => s + x.value, 0)
-              lpmByDate[t.date] = { buy: totalBuy, sell: totalSell, net: totalBuy - totalSell }
+              // bigMoneyNet = NET PER MENIT (BUKAN kumulatif) → agregat harian = SUM.
+              // Diverifikasi Console 15 Jul 2026 (RAJA 14 Jul): nilai per menit
+              // bolak-balik ±, elemen terakhir 0, SUM -13.78M vs net total -33M ✓
+              const totalBig  = (res.bigMoneyNet || []).reduce((s, x) => s + x.value, 0)
+              lpmByDate[t.date] = { buy: totalBuy, sell: totalSell, net: totalBuy - totalSell, bigMoneyNet: totalBig }
             } else {
               // TRADEBOOK: ambil semua data per menit, simpan raw + ekstrak IEP metrics
               const res = await fetchAbsorption(_currentSym, t.date)
