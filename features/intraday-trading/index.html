@@ -273,7 +273,8 @@
 
 <script type="module">
 import { renderHeader } from '../../shared/header.js'
-import { EMITEN_CONFIG }                  from './config.js'
+import { EMITEN_CONFIG, FEE_DAY_TRADE }    from './config.js'
+import { prevTradingDay, isTradingDay }   from '../../shared/idx-calendar.js'
 import { computeOrbFromIntraday, hasOrbBreakup } from '../../shared/orb.js'
 import { onReady }     from '../../shared/token.js'
 import { fetchIntraday, fetchDaily, fetchBroker } from '../../shared/api.js'
@@ -336,7 +337,7 @@ async function _renderEquityChart() {
     for (const date of allDates) {
       const trade = trades.find(t=>t.sym===sym && t.date===date)
       if (trade) {
-        eq = eq * (1 + (trade.ret - 0.26) / 100)
+        eq = eq * (1 + (trade.ret - FEE_DAY_TRADE) / 100)
       }
       points.push({ date, val: Math.round(eq) })
     }
@@ -425,15 +426,11 @@ const BSJP_P75_MAG    = 0.156   // untuk info kategori (kalibrasi 6 bulan)
 const BSJP_SKIP_DAYRET = -3     // skip entry kalau RAJA hari itu turun > 3%
 const BSJP_EXIT       = '09:15' // exit fix semua kondisi (v3)
 
-// n hari kerja mundur dari dateStr (skip Sabtu/Minggu)
+// n hari bursa mundur dari dateStr (skip Sabtu/Minggu + libur bursa IDX)
 function _workdayBack(dateStr, n) {
-  const d = new Date(dateStr + 'T07:00:00Z')
-  let left = n
-  while (left > 0) {
-    d.setUTCDate(d.getUTCDate() - 1)
-    if (d.getUTCDay() !== 0 && d.getUTCDay() !== 6) left--
-  }
-  return d.toISOString().slice(0, 10)
+  let cur = dateStr
+  for (let i = 0; i < n; i++) cur = prevTradingDay(cur)
+  return cur
 }
 
 // Bandar imbalance 5 hari trading SEBELUM entryDateStr (H-1..H-5)

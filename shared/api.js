@@ -100,6 +100,10 @@ export async function fetchDaily(sym, from, to) {
   const _from = from || today
   const _to   = to   || '2000-01-01'
 
+  // Guard: kalau lupa isi 'to', default '2000-01-01' fetch SELURUH histori
+  // (bisa 20+ thn, lambat). Warn supaya ketahuan saat dev.
+  if (!to) console.warn(`[api] fetchDaily(${sym}): 'to' kosong → fetch seluruh histori sejak 2000. Isi 'to' kalau hanya butuh rentang tertentu.`)
+
   const url = `${HOST_STOCKBIT}/chartbit/${sym}/price/daily?from=${_from}&to=${_to}&limit=0`
   const json = await _fetch(url, { headers: _headers() })
 

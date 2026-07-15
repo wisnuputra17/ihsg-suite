@@ -4,6 +4,12 @@
 // Edit file ini untuk tambah/ubah emiten — tidak perlu edit index.html
 // ============================================================
 
+// Fee per round-trip (%):
+//   DAY_TRADE = Mirae Day Trade (0.08 beli + 0.18 jual) — HANYA LQ-45 & intraday
+//   REGULER   = akun reguler (0.15 + 0.25) — untuk overnight (BSJP) / non-LQ45
+export const FEE_DAY_TRADE = 0.26
+export const FEE_REGULER   = 0.40
+
 export const EMITEN_CONFIG = [
   {
     sym: 'RAJA',

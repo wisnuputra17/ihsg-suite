@@ -100,7 +100,7 @@ export function calcSesi2Return(candles, entryTime, exitTime) {
 export function backtestORB({
   candles, gapThreshold = 0.5, orbDeadline = '09:15',
   exitOrb = '10:00', exitAvoid = '09:15',
-  slPct = null, fee = 0.26
+  slPct = null, fee = 0.26, slippagePct = 0
 }) {
   // Kelompokkan per hari
   const byDate = {}
@@ -170,7 +170,8 @@ export function backtestORB({
     }
 
     if (!exitPrice) continue
-    const ret = (exitPrice - entry) / entry * 100
+    // slippage: beli sedikit lebih mahal, jual sedikit lebih murah (2× per round-trip)
+    let ret = (exitPrice - entry) / entry * 100 - slippagePct * 2
     trades.push({ date, gap, type, ret, entry, exitPrice })
   }
 

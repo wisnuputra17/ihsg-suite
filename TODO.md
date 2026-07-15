@@ -237,7 +237,7 @@ Kalau ada yang baru muncul pas testing, kasih tau Claude di sesi manapun — "ta
 
 ## 🟡 Prioritas Sedang
 
-- [ ] **Slippage di backtest**
+- [x] ~~**Slippage di backtest**~~ — SELESAI (16 Jul): param slippagePct di backtestORB (2× per round-trip)
   - Backtest exit di harga persis (slLevel/close) — realita market order kena 1-2 tick lebih buruk
   - Estimasi dampak: -0.1~0.3% per trade × 150 trade/thn = -15~45%/thn dari return backtest
   - Fix: tambah parameter slippage 1 tick di shared/backtest.js
@@ -254,7 +254,7 @@ Kalau ada yang baru muncul pas testing, kasih tau Claude di sesi manapun — "ta
   - Clear browser cache = equity history hilang permanen
   - Fix: tombol Export JSON (download) + Import JSON di halaman utama
 
-- [ ] **Daftar libur bursa 2026**
+- [x] ~~**Daftar libur bursa 2026**~~ — SELESAI (16 Jul): shared/idx-calendar.js (IDX_HOLIDAYS_2026 + isTradingDay/prevTradingDay/nextTradingDay), BSJP _workdayBack pakai ini
   - getLastWorkday hanya skip Sabtu/Minggu — Lebaran/Nyepi bikin entry date BSJP salah
   - Fix: hardcode array tanggal libur bursa 2026 (~20 tanggal) di shared/monitor.js
 
@@ -275,6 +275,6 @@ Kalau ada yang baru muncul pas testing, kasih tau Claude di sesi manapun — "ta
 ## Struktur kode (minor, tidak urgent)
 
 - [ ] intraday-trading/index.html masih 1533 baris — pisah logic.js seperti chart
-- [ ] Fee 0.26 hardcode 3x di intraday-trading — pindah ke config.js sebagai FEE_PCT
-- [ ] fetchDaily default to='2000-01-01' — tambah guard max range atau warning
+- [x] ~~Fee 0.26 hardcode → config~~ — SELESAI (16 Jul): FEE_DAY_TRADE + FEE_REGULER di config.js
+- [x] ~~fetchDaily guard~~ — SELESAI (16 Jul): console.warn kalau 'to' kosong
 
