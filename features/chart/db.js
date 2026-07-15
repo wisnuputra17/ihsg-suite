@@ -66,6 +66,18 @@ export async function loadLpmCacheForSym(sym) {
  * @param {string} sym
  * @param {{date, buy, sell, net}[]} entries
  */
+/**
+ * Hapus SEMUA cache LPM untuk 1 simbol (dipakai saat cache tercemar
+ * data lama dari masa bug elemen-terakhir-bukan-sum) lalu kosongkan
+ * DB.lpmCache di memori supaya visible range difetch ulang bersih.
+ */
+export async function clearLpmCacheForSym(sym) {
+  const rows = await gsLoad(SHEET_LPM_CACHE)
+  const kept = rows.filter(r => r.sym !== sym)
+  await gsSave(SHEET_LPM_CACHE, kept)
+  DB.lpmCache = {}
+}
+
 export function appendLpmCache(sym, entries) {
   if (!entries.length) return
   const rows = entries.map(e => ({ sym, date: e.date, buy: e.buy, sell: e.sell, net: e.net }))

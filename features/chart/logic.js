@@ -8,7 +8,7 @@ import { onReady } from '../../shared/token.js'
   import { fmtRp, fmtVol } from '../../shared/format.js'
   import { fetchWithConfirm } from '../../shared/expensive-fetch.js'
   import { calcSMA, calcEMA, calcRSI, calcMACD, calcBollinger, calcATR, calcSupertrend, resampleWeekly, resampleMonthly } from '../../shared/indicators.js'
-  import { DB, savePrefs, loadPrefs, loadDrawings, addDrawing, removeDrawing, loadLpmCacheForSym, appendLpmCache } from './db.js'
+  import { DB, savePrefs, loadPrefs, loadDrawings, addDrawing, removeDrawing, loadLpmCacheForSym, appendLpmCache, clearLpmCacheForSym } from './db.js'
 
   let _loading = false
   let chart = null
@@ -96,7 +96,7 @@ import { onReady } from '../../shared/token.js'
     atr:        [{ key: 'length', label: 'Length', type: 'number' }],
     lpm:        [
       { key: 'mode',  label: 'Bentuk', type: 'select', options: [['bar', 'Bar (panel)'], ['line', 'Garis Kumulatif (overlay)']] },
-      { key: 'delta', label: 'Delta (vs hari sebelumnya)', type: 'checkbox' }
+      { key: 'delta', label: 'Delta (1 bar = HAKA − HAKI hari itu)', type: 'checkbox' }
     ]
   }
   const SETTINGS_LABELS = { ma: 'Moving Average', ema: 'EMA', bollinger: 'Bollinger Bands', supertrend: 'Supertrend', rsi: 'RSI', macd: 'MACD', atr: 'ATR', lpm: 'LPM' }
@@ -887,14 +887,38 @@ import { onReady } from '../../shared/token.js'
   const LPM_BATCH_DELAY    = 400
 
   function _lpmNeeded() {
-    return document.getElementById('ind-lpm').checked
+    // LPM hanya bermakna di timeframe 1D: cache per-tanggal (string date),
+    // sedangkan candle intraday pakai unix time & weekly/monthly tanggalnya
+    // tidak 1:1 dengan hari — mismatch skala waktu bikin render kacau.
+    return _activeTf === '1D' && document.getElementById('ind-lpm').checked
   }
 
   let _lpmDebounceTimer = null
   function _debouncedLpmUpdate() {
     clearTimeout(_lpmDebounceTimer)
     _lpmDebounceTimer = setTimeout(_updateLpmForVisibleRange, 300)
+    // tombol refetch hanya relevan saat LPM aktif di 1D
+    const btn = document.getElementById('lpm-refetch')
+    if (btn) btn.style.display = _lpmNeeded() ? '' : 'none'
   }
+
+  // ↻ LPM — hapus cache simbol ini & fetch ulang visible range.
+  // Untuk menyembuhkan cache tercemar dari masa bug elemen-terakhir-bukan-sum:
+  // entri lama berisi buy/sell ≈ 0 dan tidak pernah difetch ulang karena
+  // dianggap "sudah dicek".
+  document.getElementById('lpm-refetch')?.addEventListener('click', async () => {
+    const btn = document.getElementById('lpm-refetch')
+    if (!confirm(`Hapus cache LPM ${DB.sym} dan fetch ulang?\nCache lama bisa berisi nilai salah dari bug lama (nilai nyaris nol).`)) return
+    btn.disabled = true; btn.textContent = '…'
+    try {
+      await clearLpmCacheForSym(DB.sym)
+      _renderLpmFromCache()          // kosongkan tampilan dulu
+      await _updateLpmForVisibleRange() // fetch ulang bersih
+    } catch (e) {
+      console.warn('[chart] refetch LPM gagal:', e.message)
+    }
+    btn.disabled = false; btn.textContent = '↻ LPM'
+  })
 
   async function _updateLpmForVisibleRange() {
     if (!chart || !DB.daily.length || !_lpmNeeded()) {
@@ -975,7 +999,9 @@ import { onReady } from '../../shared/token.js'
    * Mode Bar + Tanpa Delta → 2 bar berdampingan per hari: HAKA (hijau, naik)
    *   dan HAKI (merah, turun) — KEDUANYA tampil utuh, tidak dikurangi.
    * Mode Bar + Delta        → 1 bar = HAKA − HAKI di HARI YANG SAMA.
-   * Mode Garis               → SELALU 1 garis dominasi % (HAKA/(HAKA+HAKI)*100).
+   * Mode Garis               → garis KUMULATIF net (Σ HAKA−HAKI), overlay pane 0
+   *   skala sendiri. CATATAN: hanya menjumlah tanggal yang ADA di cache — kalau
+   *   cache bolong, garis melompati hari (refetch penuh via tombol ↻ menyembuhkan).
    *   Delta tidak berlaku di mode ini (konsepnya cuma relevan utk Bar).
    */
   function _renderLpmFromCache() {
@@ -984,7 +1010,7 @@ import { onReady } from '../../shared/token.js'
     })
     _lpmBarSeries = _lpmHakaSeries = _lpmHakiSeries = _lpmOverlaySeries = null
 
-    if (!chart || !document.getElementById('ind-lpm').checked) {
+    if (!chart || !_lpmNeeded()) {
       _setPaneActiveHeight('lpm', false)
       if (DB.daily.length) _updateInfoAndLegend(DB.daily.length - 1)
       return
