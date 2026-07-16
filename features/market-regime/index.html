@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Market Regime — IHSG Suite</title>
+  <link rel="stylesheet" href="../../shared/ui.css">
+  <style>
+    .section { max-width: 960px; margin: 0 auto; padding: 16px; }
+    .regime-hero { background: var(--sink); border: 1px solid var(--line); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+    .regime-score { font-family: var(--f-mono); font-size: 42px; font-weight: 700; line-height: 1; }
+    .regime-band { font-family: var(--f-mono); font-size: 13px; font-weight: 700; margin-top: 4px; }
+    .regime-sub { font-family: var(--f-mono); font-size: 10px; color: var(--ghost); margin-top: 6px; }
+    .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+    .rcard { background: var(--sink); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; }
+    .rcard-label { font-family: var(--f-mono); font-size: 9px; color: var(--ghost); text-transform: uppercase; letter-spacing: .5px; }
+    .rcard-val { font-family: var(--f-mono); font-size: 18px; font-weight: 700; margin-top: 2px; }
+    .rcard-sub { font-family: var(--f-mono); font-size: 10px; color: var(--dim); margin-top: 2px; }
+    .sector-table { width: 100%; border-collapse: collapse; font-family: var(--f-mono); font-size: 11px; }
+    .sector-table th { background: var(--raised); color: var(--ghost); padding: 6px 10px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+    .sector-table th:first-child { text-align: left; }
+    .sector-table td { padding: 6px 10px; text-align: right; border-bottom: 1px solid var(--line); }
+    .sector-table td:first-child { text-align: left; font-weight: 600; }
+    .status-msg { font-family: var(--f-mono); font-size: 10px; color: var(--ghost); margin: 8px 0; min-height: 16px; }
+    .up { color: var(--live); } .down { color: var(--down); } .flat { color: var(--ghost); }
+    .config-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+    .config-select { font-family: var(--f-mono); font-size: 11px; background: var(--sink); border: 1px solid var(--line); color: var(--paper); border-radius: 4px; padding: 3px 6px; }
+  </style>
+</head>
+<body>
+  <div id="app-header"></div>
+  <div class="section">
+    <div class="config-row">
+      <span class="config-label" style="font-family:var(--f-mono);font-size:10px;color:var(--ghost)">Fokus emiten:</span>
+      <select class="config-select" id="focus-sym">
+        <option value="RAJA">RAJA (Energi)</option>
+        <option value="TPIA">TPIA (Basic Materials)</option>
+        <option value="MBMA">MBMA (Basic Materials)</option>
+        <option value="">— IHSG umum —</option>
+      </select>
+      <button class="btn btn-sm btn-primary" id="btn-refresh">Muat Ulang</button>
+    </div>
+
+    <div class="status-msg" id="status"></div>
+
+    <div class="regime-hero" id="hero" style="display:none">
+      <div style="display:flex;align-items:center;gap:16px">
+        <div>
+          <div class="regime-score" id="score">–</div>
+        </div>
+        <div>
+          <div class="regime-band" id="band">–</div>
+          <div class="regime-sub" id="hero-sub"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid3" id="cards" style="display:none">
+      <div class="rcard">
+        <div class="rcard-label">IHSG</div>
+        <div class="rcard-val" id="ihsg-trend">–</div>
+        <div class="rcard-sub" id="ihsg-sub"></div>
+      </div>
+      <div class="rcard">
+        <div class="rcard-label" id="sector-label">Sektor</div>
+        <div class="rcard-val" id="sector-trend">–</div>
+        <div class="rcard-sub" id="sector-sub"></div>
+      </div>
+      <div class="rcard">
+        <div class="rcard-label">Kekuatan Relatif (20d)</div>
+        <div class="rcard-val" id="rs-val">–</div>
+        <div class="rcard-sub" id="rs-sub"></div>
+      </div>
+    </div>
+
+    <h3 style="font-family:var(--f-mono);font-size:11px;color:var(--ghost);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 8px">Heatmap Sektor (momentum 20 hari)</h3>
+    <table class="sector-table" id="sector-table" style="display:none">
+      <thead><tr><th>Sektor</th><th>Close</th><th>vs MA20</th><th>Momentum 20d</th><th>Tren</th></tr></thead>
+      <tbody id="sector-body"></tbody>
+    </table>
+  </div>
+
+  <script type="module" src="./logic.js"></script>
+</body>
+</html>
