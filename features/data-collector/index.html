@@ -567,13 +567,15 @@
         const sectorSym = SECTOR_MAP[_currentSym] || null
         logProgress(progressEl, `Regime: fetch IHSG${sectorSym ? ' + ' + sectorSym : ''}…`, 'info')
         try {
+          // PITFALL fetchDaily: param ke-2 = tanggal BARU, ke-3 = tanggal LAMA
+          // (URL Stockbit from=baru&to=lama). Bug sebelumnya: terbalik → kosong.
           const histFrom = dailyAllSorted[0]?.date || from   // awal histori emiten
-          const ihsgRaw = await fetchDaily('IHSG', histFrom, to)
+          const ihsgRaw = await fetchDaily('IHSG', to, histFrom)
           const ihsgMap = {}
           for (const b of ihsgRaw) ihsgMap[b.date] = b.close
           let secMap = null
           if (sectorSym) {
-            const secRaw = await fetchDaily(sectorSym, histFrom, to)
+            const secRaw = await fetchDaily(sectorSym, to, histFrom)
             secMap = {}
             for (const b of secRaw) secMap[b.date] = b.close
           }
