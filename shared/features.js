@@ -93,13 +93,6 @@ export const FEATURES = [
     status: 'ready'
   },
   {
-    id:     'market-regime',
-    name:   'Market Regime',
-    desc:   'Kondisi pasar makro — tren IHSG, tren sektor, kekuatan relatif, dan heatmap 11 sektor IDX-IC. Konteks regime untuk keputusan trading.',
-    tags:   ['ihsg', 'sektor', 'regime', 'tren', 'makro', 'heatmap', 'idx-ic', 'market', 'benchmark'],
-    status: 'ready'
-  },
-  {
     id:     'fokus-emiten',
     name:   'Fokus Emiten',
     desc:   'Chart dengan indikator BUY/SELL hasil formula tervalidasi per emiten — dimulai dari Kunci RAJA.',

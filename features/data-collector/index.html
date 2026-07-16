@@ -184,6 +184,7 @@
   import { renderHeader, openTokenPopover, whenTokenReady } from '../../shared/header.js'
   import { bindSymSearch } from '../../shared/symsearch.js'
   import { calcRSI, calcMACD, calcSMA, calcBollinger, calcVWMA, calcVolumeProfilePOC, calcRSIDivergence } from '../../shared/indicators.js'
+  import { classifyTrend, momentum, relativeStrength, SECTOR_MAP } from '../../shared/regime.js'
   import { showProgress, hideProgress, setProgress, logProgress } from '../../shared/fetch-progress.js'
 
   // ============================================================
@@ -216,6 +217,7 @@
     { id: 'rsiDiv',    label: 'RSI Divergence',   group: 'fast', default: false },
     { id: 'foreignRatio', label: 'Foreign Net Ratio (% dari value harian)', group: 'fast', default: false },
     { id: 'bandarmology', label: 'Bandarmology (top-3 broker net 5 hari)',  group: 'slow', default: false },
+    { id: 'regime', label: 'Market Regime (tren IHSG + sektor emiten + kekuatan relatif)', group: 'fast', default: false },
   ]
 
   const _selected = new Set(INDICATOR_DEFS.filter(d => d.default).map(d => d.id))
@@ -559,6 +561,52 @@
         })
       }
 
+      if (_selected.has('regime')) {
+        // Fetch IHSG + sektor emiten (endpoint chartbit menerima simbol indeks IDX).
+        // Sektor otomatis dari SECTOR_MAP; kalau emiten tak terpetakan → IHSG saja.
+        const sectorSym = SECTOR_MAP[_currentSym] || null
+        logProgress(progressEl, `Regime: fetch IHSG${sectorSym ? ' + ' + sectorSym : ''}…`, 'info')
+        try {
+          const histFrom = dailyAllSorted[0]?.date || from   // awal histori emiten
+          const ihsgRaw = await fetchDaily('IHSG', histFrom, to)
+          const ihsgMap = {}
+          for (const b of ihsgRaw) ihsgMap[b.date] = b.close
+          let secMap = null
+          if (sectorSym) {
+            const secRaw = await fetchDaily(sectorSym, histFrom, to)
+            secMap = {}
+            for (const b of secRaw) secMap[b.date] = b.close
+          }
+          // Bangun array closes IHSG & sektor SEJAJAR dengan dailyAllSorted (by date)
+          const ihsgCloses = dailyAllSorted.map(d => ihsgMap[d.date] ?? null)
+          const secCloses  = secMap ? dailyAllSorted.map(d => secMap[d.date] ?? null) : null
+          dailyAllSorted.forEach((d, i) => {
+            // butuh histori valid sampai i (skip null)
+            const ihsgUpto = ihsgCloses.slice(0, i+1).filter(x => x != null)
+            if (ihsgUpto.length < 50) { d.regime = null; return }
+            const ihsgTrend = classifyTrend(ihsgUpto)
+            const ihsgMom = momentum(ihsgUpto, 20)
+            let sectorTrend = null, rs = null
+            if (secCloses) {
+              const secUpto = secCloses.slice(0, i+1).filter(x => x != null)
+              if (secUpto.length >= 50) {
+                sectorTrend = classifyTrend(secUpto)
+                // RS butuh dua array sejajar — pakai panjang minimum
+                const m = Math.min(ihsgUpto.length, secUpto.length)
+                rs = relativeStrength(secUpto.slice(-m), ihsgUpto.slice(-m), 20)
+              }
+            }
+            d.regime = {
+              ihsg: ihsgTrend, ihsgMom20: ihsgMom != null ? +ihsgMom.toFixed(2) : null,
+              sector: sectorSym, sectorTrend,
+              rs: rs?.rs || null, rsPct: rs?.ratio ?? null,
+            }
+          })
+        } catch (eReg) {
+          logProgress(progressEl, `Regime gagal: ${eReg.message}`, 'warn')
+        }
+      }
+
       // ── 3. FILTER ke rentang export yang dipilih user — PALING AKHIR,
       // setelah semua indikator selesai dihitung dgn basis histori penuh ──
       const daily = dailyAllSorted.filter(d => d.date >= from && d.date <= to)
@@ -805,6 +853,7 @@
     if (_selected.has('broker'))   cols.push('broker')
     if (_selected.has('lpm'))      cols.push('lpm')
     if (_selected.has('foreignRatio')) cols.push('foreignNetRatio')
+    if (_selected.has('regime')) cols.push('regime')
     if (_selected.has('bandarmology')) cols.push('bandarmology')
 
     const fmt = (v) => {
@@ -812,6 +861,7 @@
       if (typeof v === 'boolean') return v ? '✓' : '–'
       if (typeof v === 'number') return v.toLocaleString('id-ID', { maximumFractionDigits: 2 })
       if (typeof v === 'object') {
+        if (v.ihsg !== undefined) return `IHSG ${v.ihsg?.slice(0,4)||'?'}${v.sectorTrend ? ' / '+v.sectorTrend.slice(0,4) : ''}${v.rs ? ' ('+v.rs.slice(0,3)+')' : ''}`
         if (v.concentration !== undefined) return `${v.top3Buy?.[0]?.code||'?'} ${(v.concentration*100).toFixed(1)}%`
         return v.net !== undefined ? v.net.toLocaleString('id-ID') : JSON.stringify(v).slice(0, 30)
       }
