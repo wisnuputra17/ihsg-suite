@@ -61,9 +61,11 @@
    → watchlist saja. NET6 merah semua = normal (raw tanpa filter, pasar tertekan; kalibrasi
    RAJA raw −0.44 → terfilter positif). Top tabel by NET6 = mikro-cap tidur (WLB 26–44,
    flat 30–60, drift dari lompatan tak tereksekusi ala BNBR) — SUDAH ditolak.
-   → NEXT: **RATU duluan** (data intraday 30m 1.5thn + bandarmology sudah pernah di-export
-   — minta Wisnu upload ulang, uji kebangkitan formula lama di data terbaru), PTRO tunggu
-   export intraday, TINS/MDKA nyusul.
+   → RATU ✅ diuji (mati suri — lihat papan skor). **PTRO ✅ diuji 19 Jul: KANDIDAT v1
+   ditemukan** (hijau >3% entry sore, exit 09:15: n=69, net +2.24%, win 72, WLB 61,
+   MDD 6.6, survive crash Jan) — docs/ANALISA_BSJP_PTRO.md. BELUM final: (a) Q2+Jul win
+   50 n=14 (edge melunak? pantau), (b) butuh lapisan bandarmology → TUNGGU export Wisnu:
+   PTRO daily+imbalance format ratu_daily.json 2025-01-01→skrg. TINS/MDKA nyusul.
 2. Card BSJP TPIA v2 ke intraday-trading (formula final, belum diimplementasi)
 3. BNBR: kalau Wisnu kirim intraday 30m → uji eksekutabilitas hari hijau (ARA-lock analysis)
 4. PTRO: tunggu export intraday 30m 2025-07-01→now
