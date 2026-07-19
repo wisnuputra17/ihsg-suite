@@ -33,7 +33,7 @@
 - BSJP net turun +1.4→+0.87%/trade (tick relatif naik) — masih viable
 
 ## PAPAN SKOR EMITEN (5 dianalisa penuh + screener)
-- RAJA ✅ (3 formula) | TPIA ✅ sekunder | RATU ⏸️ edge meluruh bersama bear market — PANTAU, jangan tolak permanen | BUMI ❌ tick 0.67% makan edge | WIFI ❌ event-driven tanpa pola (swing)
+- RAJA ✅ (3 formula) | TPIA ✅ sekunder | RATU ⏸️ DIUJI PENUH 19 Jul (docs/ANALISA_BSJP_RATU.md): edge H1-2025 nyata (net +1.3–3.2%), mati sejak H2-2025, revival Q2-2026 nyata di gross (+0.59%) tapi biaya 0.60% memakan habis → mati suri; ambang bangkit = drift gross 60hr ≥0.9–1.0%, cek screener bulanan | BUMI ❌ tick 0.67% makan edge | WIFI ❌ event-driven tanpa pola (swing)
 - BNBR: drift-stlh-hijau +2.9% MENARIK tapi 3 red flag (WLB 36%, tick 1.18%, bias eksekusi ARA) → PENDING uji intraday: berapa % edge dari hari yang BISA dieksekusi (bukan ARA-lock)
 - PTRO: kandidat kuat screener (drift-hijau +1.077%), emiten.json SUDAH ditambah (+CDIA) → tunggu export intraday
 - Karakter: RAJA/RATU/PTRO/BNBR = momentum (drift stlh hijau>merah); TPIA/BUMI = kontrarian
@@ -68,7 +68,7 @@
 3. BNBR: kalau Wisnu kirim intraday 30m → uji eksekutabilitas hari hijau (ARA-lock analysis)
 4. PTRO: tunggu export intraday 30m 2025-07-01→now
 5. Scalping RAJA re-kalibrasi (tunggu data intraday post-split ~Sep 2026)
-6. Screener bulanan utk pantau kebangkitan RATU pasca-bear
+6. Screener bulanan pantau RATU: ambang aktivasi ulang = drift gross 60hr ≥0.9–1.0% & win ≥55% (sekarang 0.59 — belum). Detail docs/ANALISA_BSJP_RATU.md
 
 ## POLA KERJA WISNU (tersimpan di memory juga)
 Analisa karakter emiten DULU → tentukan indikator relevan + alasan → minta data BERTAHAP → proaktif kabari kalau butuh export tambahan. Fee: BSJP/overnight WAJIB 0.40 (bukan 0.26). Biaya riil = fee + tick slippage. Standar: WLB, state machine, temporal split ≤15pp, no look-ahead (broker data H-1, dayRet live ok).
