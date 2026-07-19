@@ -23,6 +23,9 @@
     .v-marginal { color: var(--wait); font-weight: 700; }
     .v-tidak { color: var(--down); font-weight: 700; }
     .note { font-family: var(--f-mono); font-size: 9px; color: var(--ghost); margin-top: 10px; line-height: 1.6; }
+    .bench { font-family: var(--f-mono); font-size: 11px; background: var(--raised); border: 1px solid var(--line);
+             border-radius: 4px; padding: 8px 10px; margin-bottom: 8px; line-height: 1.7; }
+    .bench b { color: var(--paper); }
   </style>
 </head>
 <body>
@@ -38,10 +41,11 @@
       <button class="btn btn-primary" id="btn-run">▶ Jalankan Screening</button>
       <span class="status-msg" id="status"></span>
     </div>
+    <div class="bench" id="bench" style="display:none"></div>
     <table class="scr-table" id="tbl" style="display:none">
       <thead><tr>
         <th>Emiten</th><th>Harga</th><th>Tick%</th><th>n</th>
-        <th>Drift Avg</th><th>Drift 6bln</th><th>Win%</th><th>Flat%</th><th>WLB</th>
+        <th>Drift Avg</th><th>Drift 6bln</th><th>α 6bln</th><th>Win%</th><th>Flat%</th><th>WLB</th>
         <th>Drift stlh Merah</th><th>Drift stlh Hijau</th>
         <th>Biaya Riil</th><th>NET</th><th>Verdict</th>
       </tr></thead>
@@ -49,8 +53,12 @@
     </table>
     <div class="note" id="note" style="display:none">
       <b>Drift 6bln</b> = drift 6 bulan terakhir; ↓ = edge MELURUH vs setahun (kasus RATU —
-      full-period menyesatkan), ↑ = edge menguat/bangkit. Utamakan emiten yang drift 6bln-nya
-      tetap sehat.<br>
+      full-period menyesatkan), ↑ = edge menguat/bangkit. Panah membandingkan emiten dengan
+      dirinya sendiri — saat pasar bear, panah ↓ bisa massal; itulah gunanya benchmark.<br>
+      <b>α 6bln</b> = drift 6bln emiten − drift 6bln IHSG (metode hitung identik). α positif =
+      emiten mengungguli pasar (alpha); drift positif dengan α negatif = kemungkinan cuma beta
+      (ikut arus pasar/recovery). Kandidat sejati: <b>drift 6bln positif DAN α positif</b> —
+      lalu tetap wajib pipeline biasa (intraday → bandarmology → temporal split).<br>
       <b>Drift stlh Merah/Hijau</b> = drift overnight setelah hari merah vs hijau — langsung menunjukkan karakter:
       kontrarian (merah &gt; hijau, keluarga TPIA) atau momentum (hijau &gt; merah, keluarga RAJA).<br>
       <b>Biaya riil</b> = fee reguler 0.40% + 1 tick slippage exit. <b>NET</b> = drift avg − biaya.<br>
@@ -85,6 +93,27 @@ function wlb(w, n, z = 1.96) {
   if (!n) return 0
   const p = w/n, dd = 1 + z*z/n, cc = p + z*z/(2*n)
   return (cc - z*Math.sqrt(p*(1-p)/n + z*z/(4*n*n))) / dd
+}
+
+// Benchmark IHSG — drift overnight indeks dengan metode identik screenOne,
+// supaya perbandingan apple-to-apple (solusi bear/recovery bias: baca drift
+// emiten RELATIF terhadap IHSG, bukan absolut).
+async function benchIHSG() {
+  const to = new Date(Date.now() + 7*3600*1000).toISOString().slice(0, 10)
+  const from = new Date(Date.now() - 380*86400*1000).toISOString().slice(0, 10)
+  const daily = await fetchDaily('IHSG', to, from)   // param: (sym, BARU, LAMA)
+  if (!daily || daily.length < 60) throw new Error('data IHSG < 60 hari')
+  const asc = [...daily].sort((a, b) => a.date < b.date ? -1 : 1)
+  const cut6 = new Date(Date.now() - 183*86400*1000).toISOString().slice(0, 10)
+  const all = [], d6 = []
+  for (let i = 1; i < asc.length; i++) {
+    if (!asc[i-1].close || !asc[i].open) continue
+    const d = (asc[i].open - asc[i-1].close) / asc[i-1].close * 100
+    all.push(d)
+    if (asc[i].date >= cut6) d6.push(d)
+  }
+  const mean = a => a.length ? a.reduce((s,x)=>s+x,0)/a.length : null
+  return { avg: mean(all), avg6: d6.length >= 30 ? mean(d6) : null, n: all.length }
 }
 
 async function screenOne(sym) {
@@ -141,6 +170,29 @@ async function run() {
   $('btn-run').disabled = true
   $('tbl').style.display = 'table'
   $('note').style.display = 'block'
+
+  // 1) Benchmark IHSG dulu — baseline untuk membaca drift emiten secara relatif
+  let bench = null
+  $('bench').style.display = 'block'
+  $('status').textContent = 'Memuat benchmark IHSG…'
+  try {
+    bench = await benchIHSG()
+    const arah = bench.avg6 != null && bench.avg != null
+      ? (bench.avg6 > bench.avg + 0.05 ? ' ↑ (recovery)' : bench.avg6 < bench.avg - 0.05 ? ' <span class="down">↓</span>' : ' →')
+      : ''
+    $('bench').innerHTML =
+      `<b>BENCHMARK IHSG</b> · drift overnight 12bln: ` +
+      `<span class="${(bench.avg ?? 0) >= 0 ? 'up' : 'down'}">${fmtPct(bench.avg, 3)}</span>` +
+      ` · 6bln: <span class="${(bench.avg6 ?? 0) >= 0 ? 'up' : 'down'}">${fmtPct(bench.avg6, 3)}</span>${arah}` +
+      ` <span class="dim">(n=${bench.n})</span><br>` +
+      `<span class="dim">Baca drift emiten RELATIF thd baris ini. Kolom α 6bln = drift 6bln emiten − IHSG: ` +
+      `kandidat sejati = drift 6bln POSITIF dan α POSITIF (alpha, bukan sekadar ikut pasar).</span>`
+  } catch (e) {
+    $('bench').innerHTML = `<b>BENCHMARK IHSG</b> <span class="down">gagal dimuat: ${e.message}</span>` +
+      ` <span class="dim">— kolom α kosong; drift emiten terbaca absolut (hati-hati bias pasar).</span>`
+  }
+  await new Promise(r => setTimeout(r, 250))
+
   const body = $('tbody')
   body.innerHTML = ''
   const results = []
@@ -157,9 +209,10 @@ async function run() {
   for (const r of results) {
     const tr = document.createElement('tr')
     if (r.error) {
-      tr.innerHTML = `<td>${r.sym}</td><td colspan="13" class="dim">gagal: ${r.error}</td>`
+      tr.innerHTML = `<td>${r.sym}</td><td colspan="14" class="dim">gagal: ${r.error}</td>`
     } else {
       const [vLabel, vClass] = verdictOf(r)
+      const alpha = (bench && bench.avg6 != null && r.avg6 != null) ? r.avg6 - bench.avg6 : null
       tr.innerHTML =
         `<td>${r.sym}</td>` +
         `<td>${r.price.toLocaleString('id-ID')}</td>` +
@@ -167,6 +220,7 @@ async function run() {
         `<td class="dim">${r.n}</td>` +
         `<td class="${r.avg >= 0 ? 'up' : 'down'}">${fmtPct(r.avg, 3)}</td>` +
         `<td class="${(r.avg6 ?? 0) >= 0 ? 'up' : 'down'}">${fmtPct(r.avg6, 3)}${r.avg6 != null ? (r.avg6 > r.avg + 0.1 ? ' ↑' : r.avg6 < r.avg - 0.1 ? ' <span class=down>↓</span>' : '') : ''}</td>` +
+        `<td class="${(alpha ?? 0) >= 0 ? 'up' : 'down'}"><b>${fmtPct(alpha, 3)}</b></td>` +
         `<td>${r.win.toFixed(0)}%</td>` +
         `<td class="dim">${r.flat.toFixed(0)}%</td>` +
         `<td>${r.wlb.toFixed(0)}%</td>` +
