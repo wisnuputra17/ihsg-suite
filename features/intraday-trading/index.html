@@ -457,6 +457,153 @@ async function _fetchBandarImbalance(entryDateStr) {
 }
 
 // ============================================================
+// BSJP PTRO v1 — MASA PERCOBAAN (docs/ANALISA_BSJP_PTRO.md)
+//   Entry 16:00 HANYA jika PTRO hijau > +3% saat sore (dayRet live)
+//   Exit besok 09:15 FIX · n=69 (18bln) · WLB 61 · avg +2.24% · MDD 6.6%
+//   Bandarmology TIDAK dipakai (diuji 19 Jul: netral, WLB malah turun)
+// ============================================================
+const PTRO_TH   = 3        // syarat hijau > +3%
+const PTRO_EXIT = '09:15'
+let _ptroAlerted = null     // tanggal terakhir alert sinyal dibunyikan
+
+async function _fetchPtroBsjp() {
+  if (!TOKEN.isSet()) return
+  try {
+    const now      = Date.now()
+    const wib      = new Date(now + 7*3600*1000)
+    const todayStr = wib.toISOString().slice(0, 10)
+    const timeNow  = _wibTime()
+    const dow      = wib.getUTCDay()
+    const isWeekend = dow === 0 || dow === 6
+    function lastWorkday(fromDate) {
+      const d = new Date(fromDate + 'T07:00:00Z')
+      do { d.setUTCDate(d.getUTCDate() - 1) } while (d.getUTCDay() === 0 || d.getUTCDay() === 6)
+      return d.toISOString().slice(0, 10)
+    }
+    let entryDateStr
+    if (isWeekend)              entryDateStr = lastWorkday(todayStr)
+    else if (timeNow >= '16:00') entryDateStr = todayStr
+    else                         entryDateStr = lastWorkday(todayStr)
+
+    // daily hari entry → dayRet final + harga entry (close)
+    let entryRow = null
+    try {
+      const from4 = new Date(new Date(entryDateStr+'T07:00:00Z').getTime()-4*86400*1000).toISOString().slice(0,10)
+      const dl = await fetchDaily('PTRO', entryDateStr, from4)
+      if (dl && dl.length && dl[0].date === entryDateStr) entryRow = dl[0]
+    } catch(e) {}
+    const dayRetEntry = entryRow && entryRow.open ? (entryRow.close-entryRow.open)/entryRow.open*100 : null
+    const signalEntry = dayRetEntry != null && dayRetEntry > PTRO_TH
+    const entryPrice  = entryRow ? entryRow.close : null
+
+    // dayRet live HARI INI (precheck sore, sebelum 16:00)
+    let dayRetLive = null
+    if (!isWeekend && entryDateStr !== todayStr) {
+      try {
+        const from7 = new Date(now - 7*86400*1000).toISOString().slice(0,10)
+        const dT = await fetchDaily('PTRO', todayStr, from7)
+        if (dT && dT.length && dT[0].date === todayStr && dT[0].open)
+          dayRetLive = (dT[0].close-dT[0].open)/dT[0].open*100
+      } catch(e) {}
+    }
+
+    // exit besok 09:15
+    let exitPrice = null, tradeReturn = null
+    const isExitDay = !isWeekend && entryDateStr !== todayStr
+    if (isExitDay && signalEntry && entryPrice && timeNow >= PTRO_EXIT) {
+      try {
+        const toTs   = Math.floor(now / 1000)
+        const fromTs = Math.floor(new Date(todayStr+'T01:00:00Z').getTime() / 1000)
+        const raw = await fetchIntraday('PTRO', toTs, fromTs, 1)
+        if (raw && raw.length) {
+          const s = [...raw].sort((a,b) => a.unix-b.unix)
+          const ec = s.filter(x => (x.datetime||'').slice(11,16) <= PTRO_EXIT)
+          exitPrice = ec.length ? ec[ec.length-1].close : null
+          if (exitPrice) tradeReturn = (exitPrice-entryPrice)/entryPrice*100
+        }
+      } catch(e) {}
+    }
+
+    _renderPtroBsjp({ todayStr, timeNow, isWeekend, entryDateStr, dayRetEntry,
+                      signalEntry, entryPrice, dayRetLive, exitPrice, tradeReturn, isExitDay })
+  } catch(e) { console.warn('[bsjp-ptro]', e.message) }
+}
+
+function _renderPtroBsjp(d) {
+  const fmt = v => v ? v.toLocaleString('id-ID') : '–'
+  const $v = (id, val) => { const el=document.getElementById(id); if (el) el.textContent = val || '–' }
+  const setStep = (id, state, icon) => {
+    const el=document.getElementById('pb-step-'+id); if (el) el.className='step-row '+state
+    const ic=document.getElementById('pb-icon-'+id); if (ic) ic.textContent=icon
+  }
+  const setBanner = (type, text) => {
+    const b=document.getElementById('pb-banner'); if (!b) return
+    b.className='signal-banner '+(type?type+'-banner':'')
+    b.style.display=type?'block':'none'
+    b.textContent=text||''
+  }
+  const ref=document.getElementById('pb-refresh')
+  if (ref) ref.textContent = d.isWeekend ? 'Weekend' : 'Update: '+d.timeNow+' WIB'
+
+  // ── Panel keputusan sore ini ──
+  const pre = document.getElementById('pb-precheck')
+  if (pre) {
+    if (!d.isWeekend && d.entryDateStr !== d.todayStr && d.timeNow < '16:00') {
+      const v = d.dayRetLive
+      const ok = v != null && v > PTRO_TH
+      const borderline = v != null && v > PTRO_TH - 0.5 && v <= PTRO_TH + 0.5
+      const vtxt = v != null ? `${v>=0?'+':''}${v.toFixed(2)}%` : 'belum ada data'
+      const verdict = ok
+        ? '<span style="color:var(--live);font-weight:700">🟢 AMBIL POSISI 16:00</span>'
+        : v == null
+          ? '<span style="color:#f59e0b;font-weight:700">⚠ Data belum lengkap</span>'
+          : '<span style="color:var(--down);font-weight:700">⛔ SKIP SORE INI</span>'
+      pre.style.display = 'block'
+      pre.innerHTML = `
+        <div style="color:var(--ghost);font-weight:700;margin-bottom:4px">CEK ENTRY SORE INI (${d.todayStr})</div>
+        <div>${ok?'✅':'❌'} PTRO hari ini (live): <b>${vtxt}</b> <span style="color:var(--ghost)">syarat &gt; +${PTRO_TH}%</span></div>
+        ${borderline ? '<div style="color:#f59e0b">⚠ Di zona rawan ±0.5% dari ambang — keputusan final cek 15:55, harga bisa berubah</div>' : ''}
+        <div style="margin-top:4px">${verdict}</div>`
+      // alert sekali per hari, hanya menjelang closing (sinyal sudah matang)
+      if (ok && d.timeNow >= '15:30' && _ptroAlerted !== d.todayStr) {
+        _ptroAlerted = d.todayStr
+        _playAlert('iep_confirmed')
+      }
+    } else pre.style.display = 'none'
+  }
+
+  // ── SKIP: hari entry tidak memenuhi syarat ──
+  if (!d.signalEntry) {
+    setStep('entry','skip','⚪'); setStep('exit','pending','○')
+    $v('pb-entry-price','SKIP')
+    $v('pb-dayret', d.dayRetEntry != null ? `${d.dayRetEntry>=0?'+':''}${d.dayRetEntry.toFixed(2)}%` : '–')
+    const box=document.getElementById('pb-result-box'); if (box) box.style.display='none'
+    setBanner('avoid', `⛔ SKIP hari entry ${d.entryDateStr} — hijau ${d.dayRetEntry!=null?d.dayRetEntry.toFixed(2):'?'}% (syarat > +${PTRO_TH}%)`)
+    return
+  }
+
+  // ── Posisi terbuka ──
+  setStep('entry','done','✓')
+  $v('pb-entry-price', fmt(d.entryPrice))
+  $v('pb-dayret', `+${d.dayRetEntry.toFixed(2)}%`)
+
+  if (d.tradeReturn != null) {
+    setStep('exit','done','✓')
+    const box=document.getElementById('pb-result-box')
+    if (box) box.style.display='block'
+    const r=document.getElementById('pb-result-ret')
+    if (r) { r.textContent=`${d.tradeReturn>=0?'+':''}${d.tradeReturn.toFixed(2)}%`
+             r.style.color=d.tradeReturn>=0?'var(--live)':'var(--down)' }
+    $v('pb-result-meta', `Entry ${fmt(d.entryPrice)} (${d.entryDateStr}) → Exit ${fmt(d.exitPrice)} @ ${PTRO_EXIT} · gross sebelum fee 0.40%`)
+    setBanner('entry', `✅ TRADE SELESAI — ${d.tradeReturn>=0?'+':''}${d.tradeReturn.toFixed(2)}% (catat utk evaluasi masa percobaan!)`)
+  } else {
+    setStep('exit', d.isExitDay ? 'active' : 'pending', d.isExitDay ? '⏳' : '📅')
+    const when = d.isWeekend ? 'Senin' : (d.isExitDay ? 'HARI INI' : 'besok')
+    setBanner('entry', `🌙 POSISI TERBUKA — Exit ${when} jam ${PTRO_EXIT} FIX`)
+  }
+}
+
+// ============================================================
 // ALERT SUARA
 // ============================================================
 let _alertEnabled = true
@@ -1169,6 +1316,67 @@ function _buildBsjpCards() {
       </div>
     </div>
 
+    <div class="it-card" id="bsjp-ptro-card">
+      <div class="card-header">
+        <span class="card-sym">PTRO</span>
+        <span class="card-badge">BSJP</span>
+        <span class="card-gap-label" style="margin-left:auto;font-family:var(--f-mono);font-size:10px;font-weight:700;color:#f59e0b">MASA PERCOBAAN</span>
+      </div>
+
+      <div class="signal-banner" id="pb-banner"></div>
+
+      <!-- Panel keputusan sore ini -->
+      <div id="pb-precheck" style="display:none;margin:8px 12px;padding:8px 10px;border-radius:4px;
+           background:var(--sink);border:1px solid var(--line);font-family:var(--f-mono);font-size:10px;line-height:1.7"></div>
+
+      <div class="step-row" id="pb-step-entry">
+        <span class="step-icon" id="pb-icon-entry">○</span>
+        <div class="step-body">
+          <div class="step-label">16:00 ENTRY Lelang Penutupan</div>
+          <div class="step-details">
+            <div class="step-kv"><span class="step-key">Harga entry</span><span class="step-val" id="pb-entry-price">–</span></div>
+            <div class="step-kv"><span class="step-key">Hijau hari entry</span><span class="step-val" id="pb-dayret">–</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="step-row pending" id="pb-step-exit">
+        <span class="step-icon" id="pb-icon-exit">○</span>
+        <div class="step-body">
+          <div class="step-label" id="pb-exit-label">Exit besok 09:15 FIX</div>
+          <div class="step-details">
+            <div class="step-kv"><span class="step-key">Jam exit</span><span class="step-val warn">09:15</span></div>
+            <div class="step-kv"><span class="step-key">Statistik</span><span class="step-val">win 72% · avg +2.24%</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="result-box" id="pb-result-box" style="display:none">
+        <div class="result-ret" id="pb-result-ret">–</div>
+        <div class="result-meta" id="pb-result-meta">–</div>
+      </div>
+
+      <div style="margin:8px 12px;padding:8px 10px;border-radius:4px;background:var(--raised);
+                  border:1px solid var(--line);font-family:var(--f-mono);font-size:10px;">
+        <div style="color:var(--ghost);margin-bottom:4px;font-weight:700">Formula v1 (19 Jul 2026, 18 bulan, no look-ahead)</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;color:var(--dim)">
+          <span>n≈47/thn</span><span>WLB 61%</span><span>avg +2.24%</span>
+          <span>MDD 6.6%</span><span>fee 0.40%</span>
+        </div>
+        <div style="color:var(--ghost);margin-top:4px">Entry hanya jika: PTRO hijau &gt; +3% saat sore · exit 09:15 fix · bandarmology TIDAK dipakai (terbukti netral)</div>
+        <div style="color:#f59e0b;margin-top:4px">⚠ MASA PERCOBAAN: paper trade / posisi kecil 1-2 bln. Naikkan HANYA jika win live ≈65-70%. Survive crash Jan, tapi Q2+Jul win 50% (n=14).</div>
+      </div>
+
+      <div class="card-footer">
+        <div class="card-params">
+          <span class="param-tag">dayRet &gt; +3%</span>
+          <span class="param-tag">exit 09:15</span>
+          <span class="param-tag">tanpa bandar</span>
+        </div>
+        <span id="pb-refresh">–</span>
+      </div>
+    </div>
+
     <!-- Info card BSJP -->
     <div class="it-card" style="padding:0">
       <div class="card-header">
@@ -1609,13 +1817,14 @@ function _startBsjp() {
   if (_bsjpTimer) clearInterval(_bsjpTimer)
   _buildBsjpCards()
   _fetchBsjpMonitor()
+  _fetchPtroBsjp()
   // Cek tiap menit HANYA untuk update entry 16:00 dan hasil trade pagi
   // Foreign fetch dilakukan sekali saat jam >= 19:00 (data sudah final di Stockbit)
   _bsjpTimer = setInterval(() => {
     const t = _wibTime()
     // Jam bursa atau jam 19:00 (fetch foreign)
-    if (t >= '08:00' && t <= '17:00') { _fetchBsjpMonitor(); return }
-    if (t >= '19:00' && t <= '19:05') { _fetchBsjpMonitor(); return }
+    if (t >= '08:00' && t <= '17:00') { _fetchBsjpMonitor(); _fetchPtroBsjp(); return }
+    if (t >= '19:00' && t <= '19:05') { _fetchBsjpMonitor(); _fetchPtroBsjp(); return }
   }, 60*1000)
 }
 // _startBsjp sudah di-init di atas bersama _start

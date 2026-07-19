@@ -18,7 +18,7 @@ export const FEATURES = [
   {
     id:     'intraday-trading',
     name:   'Intraday Trading',
-    desc:   'Monitor real-time IEP → ORB → Exit untuk RAJA dan MBMA — checklist per emiten dengan parameter formula tervalidasi dan alert suara.',
+    desc:   'Monitor real-time IEP → ORB → Exit (RAJA, MBMA, TPIA) + kartu BSJP sore (RAJA E-Bandar v3, PTRO v1 masa percobaan) — checklist per emiten dengan parameter formula tervalidasi dan alert suara.',
     tags:   ['intraday', 'ORB', 'IEP', 'alert', 'monitor', 'raja', 'mbma', 'real-time', 'sinyal'],
     status: 'ready'
   },
