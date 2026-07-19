@@ -44,3 +44,14 @@ Paper trade / posisi kecil 1–2 bulan. Naikkan ukuran HANYA jika win live ≈65
 Pantau bulanan bersama ambang RATU. Alasan: WLB 61 di bawah RAJA (64.5) + Q2+Jul
 win 50 (n=14, edge mungkin melunak).
 Pembanding: BSJP RAJA WLB 64.5 avg +1.83 MDD 7.4 | TPIA WLB 69.2 avg +0.61.
+
+## INTRADAY PTRO — DITOLAK (19 Jul 2026, framework STEP 3 lengkap)
+Entry 09:00 open, ORB close-based 5 candle (shared/orb.js), grid deadline+exit+threshold:
+- Distribusi gap: MEDIAN +0.73% (!) — edge PTRO terdistribusi OVERNIGHT, bukan siang
+- GAP UP (58% hari): makin siang makin negatif (09:30 +0.18 → close −0.24, win 34-42%)
+- STABIL: tipis (+0.1-0.3 gross), tidak menutup fee
+- GAP DOWN (kandidat terbaik): SEMUA varian WLB < 50 (maks 47 @gap<−1 n=33) → ambang
+  merah framework. Tail check FATAL: 5 hari terbaik = 108% total profit (tanpa itu RUGI)
+- Fee DT 0.26 vs REG 0.40 tidak mengubah vonis
+KESIMPULAN: PTRO satu arah — BSJP only. Intraday PTRO masuk daftar JANGAN-DIUJI-ULANG.
+(Kontras RAJA: edge siang; tiap emiten beda karakter.)

@@ -67,6 +67,8 @@
    TIDAK menambah nilai (imb≤0 tetap win 69; filter bikin WLB 61→59) → v1 FINAL berdiri
    sendiri, price action murni ala TPIA. STATUS: MASA PERCOBAAN — paper/kecil 1-2 bln,
    naikkan hanya jika win live ≈65-70. Imbalance PTRO → daftar jangan-diuji-ulang.
+   INTRADAY PTRO ❌ DITOLAK 19 Jul (WLB<50 semua cabang; 5 hari terbaik=108% profit;
+   median gap +0.73 = edge-nya overnight, sudah dipanen BSJP) → jangan-diuji-ulang.
    TINS/MDKA nyusul.
 2. Card BSJP TPIA v2 ke intraday-trading (formula final, belum diimplementasi)
 3. BNBR: kalau Wisnu kirim intraday 30m → uji eksekutabilitas hari hijau (ARA-lock analysis)
