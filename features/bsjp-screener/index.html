@@ -16,6 +16,11 @@
     .scr-table th { background: var(--raised); color: var(--ghost); padding: 6px 8px; text-align: right;
                     border-bottom: 1px solid var(--line); white-space: nowrap; cursor: default; font-size: 9px; text-transform: uppercase; }
     .scr-table th:first-child { text-align: left; }
+    .scr-table th[data-key] { cursor: pointer; }
+    .scr-table th[data-key]:hover { color: var(--paper); }
+    .scr-table th.sorted { color: var(--paper); }
+    .scr-table th.sorted::after { content: ' ▼'; font-size: 8px; }
+    .scr-table th.sorted.asc::after { content: ' ▲'; }
     .scr-table td { padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
     .scr-table td:first-child { text-align: left; font-weight: 700; }
     .up { color: var(--live); } .down { color: var(--down); } .dim { color: var(--ghost); }
@@ -46,10 +51,10 @@
     <div class="bench" id="bench" style="display:none"></div>
     <table class="scr-table" id="tbl" style="display:none">
       <thead><tr>
-        <th>Emiten</th><th>Harga</th><th>Tick%</th><th>n</th>
-        <th>Drift Avg</th><th>Drift 6bln</th><th>α 6bln</th><th>Win%</th><th>Flat%</th><th>WLB</th>
-        <th>Drift stlh Merah</th><th>Drift stlh Hijau</th>
-        <th>Biaya Riil</th><th>NET</th><th>NET 6bln</th><th>Verdict</th>
+        <th data-key="sym">Emiten</th><th data-key="price">Harga</th><th data-key="tickPct">Tick%</th><th data-key="n">n</th>
+        <th data-key="avg">Drift Avg</th><th data-key="avg6">Drift 6bln</th><th data-key="alpha">α 6bln</th><th data-key="win">Win%</th><th data-key="flat">Flat%</th><th data-key="wlb">WLB</th>
+        <th data-key="dRed">Drift stlh Merah</th><th data-key="dGreen">Drift stlh Hijau</th>
+        <th data-key="cost">Biaya Riil</th><th data-key="net">NET</th><th data-key="net6">NET 6bln</th><th>Verdict</th>
       </tr></thead>
       <tbody id="tbody"></tbody>
     </table>
@@ -167,6 +172,9 @@ function verdictOf(r) {
 const fmtPct = (x, d=2) => x == null ? '–' : (x >= 0 ? '+' : '') + x.toFixed(d) + '%'
 
 let STOP = false
+let RESULTS = []                 // hasil scan terakhir — bisa di-sort ulang tanpa re-scan
+let BENCH = null                 // benchmark IHSG terakhir
+let SORT = { key: 'net6', dir: -1 }
 
 async function run(symList) {
   const syms = symList ?? $('syms').value.split(/[\s,;]+/).map(s => s.trim().toUpperCase()).filter(Boolean)
@@ -179,19 +187,19 @@ async function run(symList) {
   $('note').style.display = 'block'
 
   // 1) Benchmark IHSG dulu — baseline untuk membaca drift emiten secara relatif
-  let bench = null
+  BENCH = null
   $('bench').style.display = 'block'
   $('status').textContent = 'Memuat benchmark IHSG…'
   try {
-    bench = await benchIHSG()
-    const arah = bench.avg6 != null && bench.avg != null
-      ? (bench.avg6 > bench.avg + 0.05 ? ' ↑ (recovery)' : bench.avg6 < bench.avg - 0.05 ? ' <span class="down">↓</span>' : ' →')
+    BENCH = await benchIHSG()
+    const arah = BENCH.avg6 != null && BENCH.avg != null
+      ? (BENCH.avg6 > BENCH.avg + 0.05 ? ' ↑ (recovery)' : BENCH.avg6 < BENCH.avg - 0.05 ? ' <span class="down">↓</span>' : ' →')
       : ''
     $('bench').innerHTML =
       `<b>BENCHMARK IHSG</b> · drift overnight 12bln: ` +
-      `<span class="${(bench.avg ?? 0) >= 0 ? 'up' : 'down'}">${fmtPct(bench.avg, 3)}</span>` +
-      ` · 6bln: <span class="${(bench.avg6 ?? 0) >= 0 ? 'up' : 'down'}">${fmtPct(bench.avg6, 3)}</span>${arah}` +
-      ` <span class="dim">(n=${bench.n})</span><br>` +
+      `<span class="${(BENCH.avg ?? 0) >= 0 ? 'up' : 'down'}">${fmtPct(BENCH.avg, 3)}</span>` +
+      ` · 6bln: <span class="${(BENCH.avg6 ?? 0) >= 0 ? 'up' : 'down'}">${fmtPct(BENCH.avg6, 3)}</span>${arah}` +
+      ` <span class="dim">(n=${BENCH.n})</span><br>` +
       `<span class="dim">Baca drift emiten RELATIF thd baris ini. Kolom α 6bln = drift 6bln emiten − IHSG: ` +
       `kandidat sejati = drift 6bln POSITIF dan α POSITIF (alpha, bukan sekadar ikut pasar).</span>`
   } catch (e) {
@@ -225,16 +233,43 @@ async function run(symList) {
     }
     await new Promise(r => setTimeout(r, 350))
   }
-  // urut berdasarkan NET 6bln — pelajaran RATU & CDIA: full-period bisa terkontaminasi
-  // rezim lama / periode IPO. Fallback ke NET 12bln kalau data 6bln kurang.
-  results.sort((a, b) => ((b.net6 ?? b.net) ?? -999) - ((a.net6 ?? a.net) ?? -999))
+  // alpha dihitung sekali di sini (bukan saat render) supaya bisa jadi kolom sort
   for (const r of results) {
+    if (!r.error) r.alpha = (BENCH && BENCH.avg6 != null && r.avg6 != null) ? r.avg6 - BENCH.avg6 : null
+  }
+  RESULTS = results
+  SORT = { key: 'net6', dir: -1 }   // default: NET 6bln — pelajaran RATU & CDIA:
+                                    // full-period bisa terkontaminasi rezim lama / periode IPO
+  renderTable()
+  // (render dipindah ke renderTable() di bawah — bisa dipanggil ulang saat sortir)
+  if (!STOP) $('status').textContent = `Selesai — ${results.filter(r => !r.error).length}/${syms.length} emiten. Urut berdasarkan NET 6bln.`
+  $('btn-run').disabled = false
+  $('btn-all').disabled = false
+  $('btn-stop').style.display = 'none'
+}
+
+function renderTable() {
+  const body = $('tbody')
+  body.innerHTML = ''
+  const { key, dir } = SORT
+  const sorted = [...RESULTS].sort((a, b) => {
+    if (a.error && b.error) return 0
+    if (a.error) return 1              // baris error selalu di bawah
+    if (b.error) return -1
+    const va = a[key], vb = b[key]
+    if (va == null && vb == null) return 0
+    if (va == null) return 1           // null selalu di bawah, apapun arahnya
+    if (vb == null) return -1
+    if (typeof va === 'string') return dir * va.localeCompare(vb)
+    return dir * (va - vb)
+  })
+  for (const r of sorted) {
     const tr = document.createElement('tr')
     if (r.error) {
       tr.innerHTML = `<td>${r.sym}</td><td colspan="15" class="dim">gagal: ${r.error}</td>`
     } else {
       const [vLabel, vClass] = verdictOf(r)
-      const alpha = (bench && bench.avg6 != null && r.avg6 != null) ? r.avg6 - bench.avg6 : null
+      const alpha = r.alpha
       tr.innerHTML =
         `<td>${r.sym}</td>` +
         `<td>${r.price.toLocaleString('id-ID')}</td>` +
@@ -255,11 +290,22 @@ async function run(symList) {
     }
     body.appendChild(tr)
   }
-  if (!STOP) $('status').textContent = `Selesai — ${results.filter(r => !r.error).length}/${syms.length} emiten. Urut berdasarkan NET 6bln.`
-  $('btn-run').disabled = false
-  $('btn-all').disabled = false
-  $('btn-stop').style.display = 'none'
+  // indikator kolom aktif
+  document.querySelectorAll('.scr-table th[data-key]').forEach(th => {
+    th.classList.toggle('sorted', th.dataset.key === key)
+    th.classList.toggle('asc', th.dataset.key === key && dir === 1)
+  })
 }
+
+// Klik header = sortir kolom itu; klik lagi = balik arah. Tanpa re-scan.
+document.querySelectorAll('.scr-table th[data-key]').forEach(th => {
+  th.addEventListener('click', () => {
+    if (!RESULTS.length) return
+    const key = th.dataset.key
+    SORT = { key, dir: SORT.key === key ? -SORT.dir : (key === 'sym' ? 1 : -1) }
+    renderTable()
+  })
+})
 
 async function runAll() {
   $('btn-all').disabled = true
