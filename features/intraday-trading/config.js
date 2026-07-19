@@ -13,6 +13,13 @@ export const FEE_REGULER   = 0.40
 export const EMITEN_CONFIG = [
   {
     sym: 'RAJA',
+    // ⚠️ POST-SPLIT (Jul 2026, ~1:5, harga 4400→885): tick sekarang 5 = 0.56%.
+    // SL 0.3% (2.6 poin) < 1 tick → TIDAK bisa dieksekusi presisi; SL riil
+    // via roundToTick jadi ~-0.56% minimum. Gap threshold ±0.5% juga ≈ 1 tick.
+    // Formula scalping perlu RE-KALIBRASI dgn data intraday post-split
+    // (butuh ~1-2 bulan data baru). Sampai itu: perlakukan sinyal dgn hati-hati,
+    // SL efektif = max(SL%, 1 tick). BSJP & swing TIDAK terdampak (filter %-based,
+    // MACD swing sudah dikalibrasi ulang → 20).
     name: 'Rukun Raharja',
     gap_threshold: 0.5,
     orb_deadline: '09:15',

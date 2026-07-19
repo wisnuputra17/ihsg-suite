@@ -208,7 +208,7 @@ import { isMarketHours } from '../../shared/monitor.js'
     {
       sym: 'RAJA',
       indicatorName: 'Kunci RAJA',
-      summary: 'Entry: Connors RSI ≤15. Max 3 posisi, min jarak 14 hari. Exit per posisi: Trailing stop 30% (basis close harian). Exit semua: MACD hist>100. CATATAN 15 Jul 2026: filter "Asing Net Buy" DIHAPUS dari syarat entry — replikasi backtest membuktikan filter itu justru merusak (WLB 69.9%→54.8%, win 90%→78%; entry terbaik 2021-2022 terjadi saat asing masih jual). Asing net sell kini hanya info marker.',
+      summary: 'Entry: Connors RSI ≤15. Max 3 posisi, min jarak 14 hari. Exit per posisi: Trailing stop 30% (basis close harian). Exit semua: MACD hist>20 (post-split Jul 2026, setara 100 skala lama). CATATAN 15 Jul 2026: filter "Asing Net Buy" DIHAPUS dari syarat entry — replikasi backtest membuktikan filter itu justru merusak (WLB 69.9%→54.8%, win 90%→78%; entry terbaik 2021-2022 terjadi saat asing masih jual). Asing net sell kini hanya info marker.',
       stat: { n: 20, wlb: '69.9%', horizon: 'per-trade, avg hold ~184 hari kalender' },
       rules: [
         { type: 'entry', text: 'Connors RSI ≤ 15' },
@@ -216,7 +216,7 @@ import { isMarketHours } from '../../shared/monitor.js'
         { type: 'entry', text: 'Max 3 posisi terbuka bersamaan' },
         { type: 'entry', text: 'Min jarak 14 hari dari entry sebelumnya' },
         { type: 'exit',  text: 'Trailing stop 30% dari highest tiap posisi (independen)' },
-        { type: 'exit',  text: 'MACD histogram > 100 → EXIT SEMUA posisi sekaligus' },
+        { type: 'exit',  text: 'MACD histogram > 20 → EXIT SEMUA posisi (kalibrasi post-split Jul 2026; setara 100 di skala harga lama)' },
       ],
       // Hitung indikator turunan, lalu jalankan state machine MULTI-POSISI
       compute(daily) {
@@ -251,7 +251,13 @@ import { isMarketHours } from '../../shared/monitor.js'
         const MAX_POS      = 3
         const MIN_GAP_DAYS = 14   // hari kalender minimum antar entry
         const TRAIL_PCT    = 30
-        const MACD_AVOID   = 100
+        // ⚠️ SPLIT-SENSITIVE: MACD hist berskala HARGA. RAJA stock split ~1:5
+        // (Jul 2026, 4400→885) → data Stockbit di-adjust → hist mengecil 5x.
+        // Threshold lama 100 TIDAK PERNAH tercapai lagi (max skala baru: 56)
+        // → exit-all mati diam-diam. Kalibrasi ulang 19 Jul 2026: 20 (=100/5),
+        // tervalidasi replikasi: n=20 win90% WLB70% avg+101% exitMACD=8 ✓
+        // (persis formula asli). Kalau RAJA split lagi → threshold WAJIB dibagi rasio.
+        const MACD_AVOID   = 20
         const CRSI_THRESH  = 15
 
         let positions = []        // [{entryIdx, entryPrice, highest}]
