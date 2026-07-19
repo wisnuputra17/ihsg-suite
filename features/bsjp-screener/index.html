@@ -41,13 +41,16 @@
     <table class="scr-table" id="tbl" style="display:none">
       <thead><tr>
         <th>Emiten</th><th>Harga</th><th>Tick%</th><th>n</th>
-        <th>Drift Avg</th><th>Win%</th><th>Flat%</th><th>WLB</th>
+        <th>Drift Avg</th><th>Drift 6bln</th><th>Win%</th><th>Flat%</th><th>WLB</th>
         <th>Drift stlh Merah</th><th>Drift stlh Hijau</th>
         <th>Biaya Riil</th><th>NET</th><th>Verdict</th>
       </tr></thead>
       <tbody id="tbody"></tbody>
     </table>
     <div class="note" id="note" style="display:none">
+      <b>Drift 6bln</b> = drift 6 bulan terakhir; ↓ = edge MELURUH vs setahun (kasus RATU —
+      full-period menyesatkan), ↑ = edge menguat/bangkit. Utamakan emiten yang drift 6bln-nya
+      tetap sehat.<br>
       <b>Drift stlh Merah/Hijau</b> = drift overnight setelah hari merah vs hijau — langsung menunjukkan karakter:
       kontrarian (merah &gt; hijau, keluarga TPIA) atau momentum (hijau &gt; merah, keluarga RAJA).<br>
       <b>Biaya riil</b> = fee reguler 0.40% + 1 tick slippage exit. <b>NET</b> = drift avg − biaya.<br>
@@ -103,6 +106,15 @@ async function screenOne(sym) {
   }
   const n = drifts.length
   const avg = drifts.reduce((s, x) => s + x, 0) / n
+  // drift 6 bulan terakhir — deteksi edge meluruh/bangkit (pelajaran RATU:
+  // full-period bisa menyesatkan kalau rezim sudah berubah)
+  const cut6 = new Date(Date.now() - 183*86400*1000).toISOString().slice(0, 10)
+  const d6 = []
+  for (let i = 1; i < asc.length; i++) {
+    if (asc[i].date < cut6) continue
+    if (asc[i-1].close && asc[i].open) d6.push((asc[i].open - asc[i-1].close) / asc[i-1].close * 100)
+  }
+  const avg6 = d6.length >= 30 ? d6.reduce((s, x) => s + x, 0) / d6.length : null
   const w = drifts.filter(x => x > 0).length
   const flat = drifts.filter(x => x === 0).length
   const price = asc[asc.length-1].close
@@ -110,8 +122,9 @@ async function screenOne(sym) {
   const cost = FEE + tickPct
   const net = avg - cost
   const mean = a => a.length ? a.reduce((s,x)=>s+x,0)/a.length : null
-  return { sym, price, tickPct, n, avg, win: w/n*100, flat: flat/n*100,
-           wlb: wlb(w, n)*100, dRed: mean(afterRed), dGreen: mean(afterGreen), cost, net }
+  return { sym, price, tickPct, n, avg, avg6, win: w/n*100, flat: flat/n*100,
+           wlb: wlb(w, n)*100, dRed: mean(afterRed), dGreen: mean(afterGreen), cost, net,
+           net6: avg6 != null ? avg6 - cost : null }
 }
 
 function verdictOf(r) {
@@ -144,7 +157,7 @@ async function run() {
   for (const r of results) {
     const tr = document.createElement('tr')
     if (r.error) {
-      tr.innerHTML = `<td>${r.sym}</td><td colspan="12" class="dim">gagal: ${r.error}</td>`
+      tr.innerHTML = `<td>${r.sym}</td><td colspan="13" class="dim">gagal: ${r.error}</td>`
     } else {
       const [vLabel, vClass] = verdictOf(r)
       tr.innerHTML =
@@ -153,6 +166,7 @@ async function run() {
         `<td class="${r.tickPct > 0.5 ? 'down' : 'dim'}">${r.tickPct.toFixed(2)}%</td>` +
         `<td class="dim">${r.n}</td>` +
         `<td class="${r.avg >= 0 ? 'up' : 'down'}">${fmtPct(r.avg, 3)}</td>` +
+        `<td class="${(r.avg6 ?? 0) >= 0 ? 'up' : 'down'}">${fmtPct(r.avg6, 3)}${r.avg6 != null ? (r.avg6 > r.avg + 0.1 ? ' ↑' : r.avg6 < r.avg - 0.1 ? ' <span class=down>↓</span>' : '') : ''}</td>` +
         `<td>${r.win.toFixed(0)}%</td>` +
         `<td class="dim">${r.flat.toFixed(0)}%</td>` +
         `<td>${r.wlb.toFixed(0)}%</td>` +
