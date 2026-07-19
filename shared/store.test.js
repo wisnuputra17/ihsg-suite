@@ -18,7 +18,7 @@ class LocalStorageMock {
 }
 globalThis.localStorage = new LocalStorageMock()
 
-const { TOKEN, setEmitenInfo, has, SYMS, LQ45, IDX80, FCA_LIST, EMITEN_INFO } =
+const { TOKEN, setEmitenInfo, addEmiten, has, SYMS, LQ45, IDX80, FCA_LIST, EMITEN_INFO } =
   await import('./store.js')
 
 // ============================================================
@@ -129,4 +129,34 @@ test('setEmitenInfo: emiten tanpa field "indexes" tidak crash, dianggap tidak ma
   })
   assert.deepEqual(store.EMITEN_INFO.XXXX.indexes, [])
   assert.equal(store.LQ45.includes('XXXX'), false)
+})
+
+// ============================================================
+// addEmiten — merge runtime untuk kode di luar snapshot emiten.json
+// ============================================================
+
+test('addEmiten: bentuk response fetchEmitenInfo (indexes array) masuk dgn benar', async () => {
+  const store = await import('./store.js')
+  store.addEmiten('ZZZ1', { name: 'Zeta Uji Tbk.', sector: 'Energi', indexes: ['LQ45', 'IHSG'], tradeable: 1 })
+  assert.equal(store.EMITEN_INFO.ZZZ1.name, 'Zeta Uji Tbk.')
+  assert.deepEqual(store.EMITEN_INFO.ZZZ1.indexes, ['LQ45', 'IHSG'])
+  assert.ok(store.SYMS.includes('ZZZ1'))
+  assert.ok(store.LQ45.includes('ZZZ1'))
+})
+
+test('addEmiten: indexes string dipecah, default tradeable=1, name fallback kode', async () => {
+  const store = await import('./store.js')
+  store.addEmiten('ZZZ2', { indexes: 'IDX80,IHSG' })
+  assert.equal(store.EMITEN_INFO.ZZZ2.name, 'ZZZ2')
+  assert.deepEqual(store.EMITEN_INFO.ZZZ2.indexes, ['IDX80', 'IHSG'])
+  assert.equal(store.EMITEN_INFO.ZZZ2.tradeable, 1)
+  assert.ok(store.IDX80.includes('ZZZ2'))
+})
+
+test('addEmiten: dipanggil dua kali tidak menduplikasi SYMS', async () => {
+  const store = await import('./store.js')
+  store.addEmiten('ZZZ3', {})
+  store.addEmiten('ZZZ3', { name: 'Update' })
+  assert.equal(store.SYMS.filter(s => s === 'ZZZ3').length, 1)
+  assert.equal(store.EMITEN_INFO.ZZZ3.name, 'Update')
 })

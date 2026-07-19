@@ -22,13 +22,36 @@
  *   )
  */
 
-import { EMITEN_INFO } from './store.js'
+import { EMITEN_INFO, addEmiten } from './store.js'
+import { fetchEmitenInfo } from './api.js'
+
+/**
+ * Pastikan 1 emiten ada di EMITEN_INFO. Kalau tidak ada (kode di luar
+ * snapshot emiten.json — listing baru, dsb.), ambil info langsung dari
+ * Stockbit dan merge ke store, supaya SEMUA fitur (data-collector, haka,
+ * broker-analyzer, chart, ranking) langsung mengenalnya tanpa perlu
+ * menunggu emiten.json diperbarui. Gagal fetch → tetap lanjut dengan
+ * kode mentah (fitur-fitur memang menerima kode bebas).
+ */
+export async function ensureEmiten(code) {
+  if (!code || EMITEN_INFO[code]) return
+  try {
+    const info = await fetchEmitenInfo(code)
+    if (info && (info.name || info.symbol)) addEmiten(code, info)
+  } catch (e) {
+    console.warn('[symsearch] info emiten', code, 'tidak bisa diambil:', e.message)
+  }
+}
 
 export function bindSymSearch(inputEl, dropdownEl, onSelect) {
   inputEl.addEventListener('input', () => _render(inputEl.value.trim()))
   inputEl.addEventListener('focus', () => { if (inputEl.value.trim()) _render(inputEl.value.trim()) })
   inputEl.addEventListener('keydown', e => {
-    if (e.key === 'Enter') { dropdownEl.classList.add('hidden'); onSelect(inputEl.value.trim().toUpperCase()) }
+    if (e.key === 'Enter') {
+      dropdownEl.classList.add('hidden')
+      const code = inputEl.value.trim().toUpperCase()
+      ensureEmiten(code).then(() => onSelect(code))
+    }
     if (e.key === 'Escape') dropdownEl.classList.add('hidden')
   })
   document.addEventListener('click', e => {
@@ -48,8 +71,22 @@ export function bindSymSearch(inputEl, dropdownEl, onSelect) {
     const results = [...codeMatches, ...nameMatches].slice(0, 30)
 
     if (!results.length) {
-      dropdownEl.innerHTML = `<div class="sym-dropdown-empty">Tidak ditemukan</div>`
+      // Kode tak dikenal ≠ jalan buntu: tawarkan pakai langsung — info
+      // akan diambil dari Stockbit saat dipilih (kasus listing baru
+      // yang belum masuk snapshot emiten.json: DEWA, COIN, YUPI, dst).
+      const q6 = /^[A-Z0-9]{2,6}$/.test(q)
+      dropdownEl.innerHTML = q6
+        ? `<div class="sym-option" data-code="${q}">
+             <span class="sym-option-code">${q}</span>
+             <span class="sym-option-name">— tidak ada di database, pakai &amp; ambil info dari Stockbit</span>
+           </div>`
+        : `<div class="sym-dropdown-empty">Tidak ditemukan</div>`
       dropdownEl.classList.remove('hidden')
+      if (q6) dropdownEl.querySelector('.sym-option').addEventListener('click', () => {
+        inputEl.value = q
+        dropdownEl.classList.add('hidden')
+        ensureEmiten(q).then(() => onSelect(q))
+      })
       return
     }
 

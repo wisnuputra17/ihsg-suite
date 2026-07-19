@@ -147,6 +147,29 @@ export function setEmitenInfo(rawJson) {
   FCA_LIST     = fca
 }
 
+/**
+ * Tambah/merge 1 emiten ke EMITEN_INFO saat runtime — dipakai ensureEmiten()
+ * (symsearch) untuk kode di luar snapshot emiten.json. Menerima bentuk
+ * response fetchEmitenInfo (indexes bisa array/string) maupun entry manual.
+ */
+export function addEmiten(code, e = {}) {
+  const indexArr = Array.isArray(e.indexes) ? e.indexes
+                 : e.indexes ? String(e.indexes).split(',') : []
+  EMITEN_INFO[code] = {
+    name:       e.name || code,
+    sector:     e.sector || '',
+    sub_sector: e.sub_sector || '',
+    indexes:    indexArr,
+    tradeable:  e.tradeable ?? 1,
+    type:       e.type || 'Saham',
+    updated:    e.updated || new Date().toISOString().slice(0, 10)
+  }
+  if (!SYMS.includes(code)) SYMS.push(code)
+  if (indexArr.includes('LQ45')  && !LQ45.includes(code))  LQ45.push(code)
+  if (indexArr.includes('IDX80') && !IDX80.includes(code)) IDX80.push(code)
+  if (e.tradeable === 0) FCA_LIST.add(code)
+}
+
 export function setMarketStatus(v) { MARKET_STATUS = v }
 export function setIHSG(v)         { IHSG = v }
 
