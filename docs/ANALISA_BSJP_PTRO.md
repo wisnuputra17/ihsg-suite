@@ -1,4 +1,4 @@
-# ANALISA BSJP PTRO — 19 Jul 2026 (KANDIDAT v1, BELUM FINAL)
+# ANALISA BSJP PTRO — 19 Jul 2026 (FORMULA v1 — STATUS: MASA PERCOBAAN)
 
 **Data:** intraday 30m 2025-01-02 → 2026-07-17 (360 hari, 116.048 candle, RSI+MACD).
 Split ter-adjust rapi (dicek: tak ada lompatan >35% antar close). Entry = close candle
@@ -30,8 +30,17 @@ Kumulatif 18bln: +155% (simple sum, net)
 2. Threshold 3% & exit 09:15 dipilih dari grid pasca-lihat-data (selection bias ringan;
    dimitigasi pola monotonik + split lolos, tapi butuh konfirmasi independen).
 
-## LANGKAH LANJUT
-Uji lapisan bandarmology (resep RAJA): imbalance H-1 s/d H-5 pada subset hijau >3%.
-→ BUTUH export: PTRO daily + broker imbalance format ratu_daily.json, 2025-01-01 → skrg.
-Hasil uji: lift WLB → naik kelas RAJA; netral → v1 berdiri sendiri (kelas TPIA+).
+## UJI BANDARMOLOGY (19 Jul, data daily+imbalance 361 hari) — TIDAK MENAMBAH NILAI
+Pada 69 malam sinyal, imbalance H-1 (window 5d):
+- imb > 0 : n=33 net +3.016% win 76% WLB 59
+- imb ≤ 0 : n=36 net +1.530% win 69% WLB 53  ← tetap untung tebal!
+- Spearman imbalance vs net: +0.138 (gradien lemah) | concentration: tidak jelas arah
+Memfilter = buang malam profitable, n 69→33, WLB TURUN 61→59 (Wilson menghukum n kecil
+lebih dari hadiah win). → v1 BERDIRI SENDIRI tanpa bandar — satu keluarga dgn TPIA
+(price action murni). Imbalance PTRO masuk daftar JANGAN-DIUJI-ULANG.
+
+## STATUS: MASA PERCOBAAN
+Paper trade / posisi kecil 1–2 bulan. Naikkan ukuran HANYA jika win live ≈65–70%.
+Pantau bulanan bersama ambang RATU. Alasan: WLB 61 di bawah RAJA (64.5) + Q2+Jul
+win 50 (n=14, edge mungkin melunak).
 Pembanding: BSJP RAJA WLB 64.5 avg +1.83 MDD 7.4 | TPIA WLB 69.2 avg +0.61.

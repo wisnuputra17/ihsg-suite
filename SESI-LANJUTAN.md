@@ -63,9 +63,11 @@
    flat 30–60, drift dari lompatan tak tereksekusi ala BNBR) — SUDAH ditolak.
    → RATU ✅ diuji (mati suri — lihat papan skor). **PTRO ✅ diuji 19 Jul: KANDIDAT v1
    ditemukan** (hijau >3% entry sore, exit 09:15: n=69, net +2.24%, win 72, WLB 61,
-   MDD 6.6, survive crash Jan) — docs/ANALISA_BSJP_PTRO.md. BELUM final: (a) Q2+Jul win
-   50 n=14 (edge melunak? pantau), (b) butuh lapisan bandarmology → TUNGGU export Wisnu:
-   PTRO daily+imbalance format ratu_daily.json 2025-01-01→skrg. TINS/MDKA nyusul.
+   MDD 6.6, survive crash Jan) — docs/ANALISA_BSJP_PTRO.md. Bandarmology DIUJI 19 Jul:
+   TIDAK menambah nilai (imb≤0 tetap win 69; filter bikin WLB 61→59) → v1 FINAL berdiri
+   sendiri, price action murni ala TPIA. STATUS: MASA PERCOBAAN — paper/kecil 1-2 bln,
+   naikkan hanya jika win live ≈65-70. Imbalance PTRO → daftar jangan-diuji-ulang.
+   TINS/MDKA nyusul.
 2. Card BSJP TPIA v2 ke intraday-trading (formula final, belum diimplementasi)
 3. BNBR: kalau Wisnu kirim intraday 30m → uji eksekutabilitas hari hijau (ARA-lock analysis)
 4. PTRO: tunggu export intraday 30m 2025-07-01→now
