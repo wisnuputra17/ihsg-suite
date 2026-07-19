@@ -51,10 +51,19 @@
 - Kombinasi AND umumnya memotong n tanpa nambah edge; OR bisa menang (TPIA v2)
 
 ## PENDING / LANGKAH BERIKUT
-1. ~~Benchmark IHSG di screener~~ ✅ SELESAI 19 Jul (commit b7f8ac4): strip benchmark
-   (drift 12bln+6bln IHSG, metode identik screenOne) + kolom **α 6bln** (drift6 emiten −
-   drift6 IHSG). Verdict tak diubah. → LANGKAH BERIKUT: Wisnu jalankan ulang screening
-   penuh; kandidat sejati = drift6 positif DAN α positif (aturan metodologi #3).
+1. ~~Benchmark IHSG di screener~~ ✅ SELESAI 19 Jul + scan penuh ~800 emiten SUDAH
+   dijalankan (screener kini: benchmark IHSG, kolom α 6bln, NET 6bln, sort per kolom,
+   tombol Scan Semua — commit b7f8ac4/6e32d5d/5f44f7c).
+   **HASIL SCAN (sort WLB): RATU #1 se-IHSG** (WLB 56, win 63, tick 0.20, flat 24, α+0.291)
+   → sinyal kebangkitan pasca-bear; PTRO #2 (WLB 56, hijau +1.077 vs merah +0.217 =
+   karakter momentum filterable). SHORTLIST: RATU, PTRO, TINS, MDKA. Ditolak: GZCO/APEX/
+   BRMS (tick 0.67–0.92 — pelajaran BUMI). JARR "LAYAK" 12bln tapi NET6 −0.37 + flat 31
+   → watchlist saja. NET6 merah semua = normal (raw tanpa filter, pasar tertekan; kalibrasi
+   RAJA raw −0.44 → terfilter positif). Top tabel by NET6 = mikro-cap tidur (WLB 26–44,
+   flat 30–60, drift dari lompatan tak tereksekusi ala BNBR) — SUDAH ditolak.
+   → NEXT: **RATU duluan** (data intraday 30m 1.5thn + bandarmology sudah pernah di-export
+   — minta Wisnu upload ulang, uji kebangkitan formula lama di data terbaru), PTRO tunggu
+   export intraday, TINS/MDKA nyusul.
 2. Card BSJP TPIA v2 ke intraday-trading (formula final, belum diimplementasi)
 3. BNBR: kalau Wisnu kirim intraday 30m → uji eksekutabilitas hari hijau (ARA-lock analysis)
 4. PTRO: tunggu export intraday 30m 2025-07-01→now
