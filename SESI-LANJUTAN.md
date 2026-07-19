@@ -3,8 +3,21 @@
 > **GITHUB PAT: TIDAK ditulis di sini (repo PUBLIC — PAT ter-commit = bahaya + auto-revoked
 > oleh GitHub). Wisnu akan paste PAT di chat awal sesi. Clone:**
 > `git clone https://wisnuputra17:<PAT>@github.com/wisnuputra17/ihsg-suite.git`
-> Konteks pasar: IHSG penurunan TERPARAH dalam sejarah 6 bulan terakhir (Jan–Jul 2026).
-> Semua drift/edge overnight tertekan — baca hasil RELATIF thd pasar, bukan absolut.
+> Konteks pasar: setelah bear terparah Jan–Jul 2026 (bottom ~5.744 pada 2 Jul), IHSG
+> RECOVERY sejak ~13 Jul (S&P pertahankan BBB) → 6.108 (16 Jul). Volume masih tipis
+> (<Rp15T), rupiah ~18rb, risiko MSCI masih terbuka. Status: bear market rally sampai
+> terbukti sebaliknya. Baca hasil RELATIF thd pasar (pakai benchmark IHSG di screener).
+
+## ATURAN METODOLOGI (keputusan Wisnu 19 Jul — JANGAN dilanggar sesi baru)
+1. Formula "tahan bear" TIDAK dicari lewat sinyal regime/makro — resepnya filter mikro
+   yang lolos temporal split (split implisit sudah menguji bear vs non-bear). Standar
+   sama untuk semua formula baru; tidak ada "sinyal recovery" tambahan.
+2. DILARANG formula khusus recovery dari data pendek (n~10 hari = nol nilai statistik).
+   Monitoring edge formula aktif pasca-recovery = boleh, tapi BUKAN dasar ubah formula/sizing.
+3. Kandidat screener saat recovery = drift 6bln POSITIF dan MELEBIHI drift IHSG (alpha,
+   bukan beta) → baru masuk pipeline biasa: intraday → bandarmology bertahap → temporal split.
+4. Foreign flow = konteks saja, BUKAN kandidat filter (gagal di RAJA/TPIA/RATU — sudah
+   di daftar jangan-diuji-ulang).
 
 ## FORMULA AKTIF (jangan diubah tanpa re-backtest)
 | Formula | Isi | Stats | Status |
@@ -38,7 +51,10 @@
 - Kombinasi AND umumnya memotong n tanpa nambah edge; OR bisa menang (TPIA v2)
 
 ## PENDING / LANGKAH BERIKUT
-1. **Benchmark IHSG di screener** (baris IHSG drift 12bln+6bln di atas tabel — solusi bear market bias, Wisnu kesulitan baca panah ↓ massal) ← PRIORITAS, tinggal kerjakan
+1. ~~Benchmark IHSG di screener~~ ✅ SELESAI 19 Jul (commit b7f8ac4): strip benchmark
+   (drift 12bln+6bln IHSG, metode identik screenOne) + kolom **α 6bln** (drift6 emiten −
+   drift6 IHSG). Verdict tak diubah. → LANGKAH BERIKUT: Wisnu jalankan ulang screening
+   penuh; kandidat sejati = drift6 positif DAN α positif (aturan metodologi #3).
 2. Card BSJP TPIA v2 ke intraday-trading (formula final, belum diimplementasi)
 3. BNBR: kalau Wisnu kirim intraday 30m → uji eksekutabilitas hari hijau (ARA-lock analysis)
 4. PTRO: tunggu export intraday 30m 2025-07-01→now
