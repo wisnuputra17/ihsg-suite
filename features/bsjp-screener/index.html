@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BSJP Screener — IHSG Suite</title>
+  <link rel="stylesheet" href="../../shared/ui.css">
+  <style>
+    .section { max-width: 1100px; margin: 0 auto; padding: 16px; }
+    .intro { font-family: var(--f-mono); font-size: 10px; color: var(--ghost); line-height: 1.6; margin-bottom: 12px; }
+    .sym-input { width: 100%; font-family: var(--f-mono); font-size: 11px; background: var(--sink);
+                 border: 1px solid var(--line); color: var(--paper); border-radius: 4px; padding: 8px; min-height: 54px; }
+    .controls { display: flex; gap: 8px; align-items: center; margin: 10px 0; flex-wrap: wrap; }
+    .status-msg { font-family: var(--f-mono); font-size: 10px; color: var(--ghost); min-height: 16px; margin: 6px 0; }
+    .scr-table { width: 100%; border-collapse: collapse; font-family: var(--f-mono); font-size: 11px; }
+    .scr-table th { background: var(--raised); color: var(--ghost); padding: 6px 8px; text-align: right;
+                    border-bottom: 1px solid var(--line); white-space: nowrap; cursor: default; font-size: 9px; text-transform: uppercase; }
+    .scr-table th:first-child { text-align: left; }
+    .scr-table td { padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+    .scr-table td:first-child { text-align: left; font-weight: 700; }
+    .up { color: var(--live); } .down { color: var(--down); } .dim { color: var(--ghost); }
+    .v-layak { color: var(--live); font-weight: 700; }
+    .v-marginal { color: var(--wait); font-weight: 700; }
+    .v-tidak { color: var(--down); font-weight: 700; }
+    .note { font-family: var(--f-mono); font-size: 9px; color: var(--ghost); margin-top: 10px; line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <div id="app-header"></div>
+  <div class="section">
+    <div class="intro">
+      Screening kelayakan <b>BSJP</b> (Beli Sore Jual Pagi) — menghitung overnight drift dari data daily
+      (close → open besok = proxy exit 09:00), lalu membandingkannya dengan struktur biaya per emiten
+      (fee 0.40% + slippage 1 tick). Emiten murah dengan tick besar otomatis tersaring keluar (kasus BUMI).
+    </div>
+    <textarea class="sym-input" id="syms" spellcheck="false">RAJA, TPIA, RATU, CDIA, PANI, PTRO, BRPT, CUAN, MEDC, PGEO</textarea>
+    <div class="controls">
+      <button class="btn btn-primary" id="btn-run">▶ Jalankan Screening</button>
+      <span class="status-msg" id="status"></span>
+    </div>
+    <table class="scr-table" id="tbl" style="display:none">
+      <thead><tr>
+        <th>Emiten</th><th>Harga</th><th>Tick%</th><th>n</th>
+        <th>Drift Avg</th><th>Win%</th><th>Flat%</th><th>WLB</th>
+        <th>Drift stlh Merah</th><th>Drift stlh Hijau</th>
+        <th>Biaya Riil</th><th>NET</th><th>Verdict</th>
+      </tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div class="note" id="note" style="display:none">
+      <b>Drift stlh Merah/Hijau</b> = drift overnight setelah hari merah vs hijau — langsung menunjukkan karakter:
+      kontrarian (merah &gt; hijau, keluarga TPIA) atau momentum (hijau &gt; merah, keluarga RAJA).<br>
+      <b>Biaya riil</b> = fee reguler 0.40% + 1 tick slippage exit. <b>NET</b> = drift avg − biaya.<br>
+      Verdict: <span class="v-layak">LAYAK</span> NET &gt; +0.3% &amp; win ≥ 52% ·
+      <span class="v-marginal">MARGINAL</span> NET 0…+0.3% ·
+      <span class="v-tidak">TIDAK</span> NET &lt; 0.<br>
+      ⚠️ Ini screening tahap-1 (data daily, TANPA filter). Kalibrasi dari emiten yang sudah
+      dianalisa penuh: RAJA raw NET −0.44% namun formula TERFILTER (imbalance+dayRet) mencapai
+      net +1.4%/trade — jadi <b>NET negatif tipis ≠ vonis mati</b> kalau ada sinyal filter kuat
+      (lihat kolom drift Merah/Hijau: selisih besar = ada karakter yang bisa difilter).
+      Sebaliknya <b>NET positif tanpa filter = kandidat istimewa</b> (lebih baik dari RAJA raw).
+      BUMI raw NET −0.61% + tick 0.67% = memang tidak tertolong. Kandidat menarik tetap wajib
+      analisa penuh (intraday + bandarmology + temporal split) sebelum jadi formula.
+    </div>
+  </div>
+
+  <script type="module">
+import { renderHeader } from '../../shared/header.js'
+import { onReady }      from '../../shared/token.js'
+import { fetchDaily }   from '../../shared/api.js'
+import { tickSize }     from '../../shared/idx-calendar.js'
+
+renderHeader(document.getElementById('app-header'), [
+  { label: 'IHSG Suite', href: '../../index.html' },
+  { label: 'BSJP Screener' },
+])
+
+const $ = id => document.getElementById(id)
+const FEE = 0.40
+
+function wlb(w, n, z = 1.96) {
+  if (!n) return 0
+  const p = w/n, dd = 1 + z*z/n, cc = p + z*z/(2*n)
+  return (cc - z*Math.sqrt(p*(1-p)/n + z*z/(4*n*n))) / dd
+}
+
+async function screenOne(sym) {
+  const to = new Date(Date.now() + 7*3600*1000).toISOString().slice(0, 10)
+  const from = new Date(Date.now() - 380*86400*1000).toISOString().slice(0, 10)
+  const daily = await fetchDaily(sym, to, from)   // param: (sym, BARU, LAMA)
+  if (!daily || daily.length < 60) throw new Error('data < 60 hari')
+  const asc = [...daily].sort((a, b) => a.date < b.date ? -1 : 1)
+
+  const drifts = [], afterRed = [], afterGreen = []
+  for (let i = 1; i < asc.length; i++) {
+    const prev = asc[i-1], cur = asc[i]
+    if (!prev.close || !cur.open) continue
+    const d = (cur.open - prev.close) / prev.close * 100
+    drifts.push(d)
+    const prevRet = prev.open ? (prev.close - prev.open) / prev.open : 0
+    if (prevRet < 0) afterRed.push(d)
+    else if (prevRet > 0) afterGreen.push(d)
+  }
+  const n = drifts.length
+  const avg = drifts.reduce((s, x) => s + x, 0) / n
+  const w = drifts.filter(x => x > 0).length
+  const flat = drifts.filter(x => x === 0).length
+  const price = asc[asc.length-1].close
+  const tickPct = tickSize(price) / price * 100
+  const cost = FEE + tickPct
+  const net = avg - cost
+  const mean = a => a.length ? a.reduce((s,x)=>s+x,0)/a.length : null
+  return { sym, price, tickPct, n, avg, win: w/n*100, flat: flat/n*100,
+           wlb: wlb(w, n)*100, dRed: mean(afterRed), dGreen: mean(afterGreen), cost, net }
+}
+
+function verdictOf(r) {
+  if (r.net > 0.3 && r.win >= 52) return ['LAYAK', 'v-layak']
+  if (r.net >= 0) return ['MARGINAL', 'v-marginal']
+  return ['TIDAK', 'v-tidak']
+}
+
+const fmtPct = (x, d=2) => x == null ? '–' : (x >= 0 ? '+' : '') + x.toFixed(d) + '%'
+
+async function run() {
+  const syms = $('syms').value.split(/[\s,;]+/).map(s => s.trim().toUpperCase()).filter(Boolean)
+  if (!syms.length) return
+  $('btn-run').disabled = true
+  $('tbl').style.display = 'table'
+  $('note').style.display = 'block'
+  const body = $('tbody')
+  body.innerHTML = ''
+  const results = []
+  for (let i = 0; i < syms.length; i++) {
+    $('status').textContent = `Memuat ${syms[i]} (${i+1}/${syms.length})…`
+    try {
+      results.push(await screenOne(syms[i]))
+    } catch (e) {
+      results.push({ sym: syms[i], error: e.message })
+    }
+    await new Promise(r => setTimeout(r, 250))
+  }
+  results.sort((a, b) => (b.net ?? -999) - (a.net ?? -999))
+  for (const r of results) {
+    const tr = document.createElement('tr')
+    if (r.error) {
+      tr.innerHTML = `<td>${r.sym}</td><td colspan="12" class="dim">gagal: ${r.error}</td>`
+    } else {
+      const [vLabel, vClass] = verdictOf(r)
+      tr.innerHTML =
+        `<td>${r.sym}</td>` +
+        `<td>${r.price.toLocaleString('id-ID')}</td>` +
+        `<td class="${r.tickPct > 0.5 ? 'down' : 'dim'}">${r.tickPct.toFixed(2)}%</td>` +
+        `<td class="dim">${r.n}</td>` +
+        `<td class="${r.avg >= 0 ? 'up' : 'down'}">${fmtPct(r.avg, 3)}</td>` +
+        `<td>${r.win.toFixed(0)}%</td>` +
+        `<td class="dim">${r.flat.toFixed(0)}%</td>` +
+        `<td>${r.wlb.toFixed(0)}%</td>` +
+        `<td class="${(r.dRed ?? 0) >= 0 ? 'up' : 'down'}">${fmtPct(r.dRed, 3)}</td>` +
+        `<td class="${(r.dGreen ?? 0) >= 0 ? 'up' : 'down'}">${fmtPct(r.dGreen, 3)}</td>` +
+        `<td class="dim">${r.cost.toFixed(2)}%</td>` +
+        `<td class="${r.net >= 0 ? 'up' : 'down'}"><b>${fmtPct(r.net, 2)}</b></td>` +
+        `<td class="${vClass}">${vLabel}</td>`
+    }
+    body.appendChild(tr)
+  }
+  $('status').textContent = `Selesai — ${results.filter(r => !r.error).length}/${syms.length} emiten. Urut berdasarkan NET.`
+  $('btn-run').disabled = false
+}
+
+$('btn-run').addEventListener('click', run)
+onReady(() => {})
+  </script>
+</body>
+</html>

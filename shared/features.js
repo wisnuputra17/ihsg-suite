@@ -93,6 +93,13 @@ export const FEATURES = [
     status: 'ready'
   },
   {
+    id:     'bsjp-screener',
+    name:   'BSJP Screener',
+    desc:   'Screening kelayakan BSJP lintas emiten — overnight drift (close→open besok) vs struktur biaya (fee + tick size). Ranking otomatis, karakter momentum/kontrarian per emiten.',
+    tags:   ['bsjp', 'screener', 'overnight', 'drift', 'tick', 'ranking', 'beli sore jual pagi'],
+    status: 'ready'
+  },
+  {
     id:     'fokus-emiten',
     name:   'Fokus Emiten',
     desc:   'Chart dengan indikator BUY/SELL hasil formula tervalidasi per emiten — dimulai dari Kunci RAJA.',
