@@ -8,6 +8,11 @@
 > (<Rp15T), rupiah ~18rb, risiko MSCI masih terbuka. Status: bear market rally sampai
 > terbukti sebaliknya. Baca hasil RELATIF thd pasar (pakai benchmark IHSG di screener).
 
+## METODE BARU 19 Jul: DEKOMPOSISI MALAM/SIANG DULUAN
+Untuk emiten baru: hitung dulu rata2 return malam (close→open) vs siang (open→close)
+per periode. Langsung menunjukkan wilayah berburu (BSJP vs intraday) — hemat token,
+hindari grid search di wilayah mati. PTRO & TINS: malam. RAJA: siang.
+
 ## ATURAN METODOLOGI (keputusan Wisnu 19 Jul — JANGAN dilanggar sesi baru)
 1. Formula "tahan bear" TIDAK dicari lewat sinyal regime/makro — resepnya filter mikro
    yang lolos temporal split (split implisit sudah menguji bear vs non-bear). Standar
@@ -69,7 +74,9 @@
    naikkan hanya jika win live ≈65-70. Imbalance PTRO → daftar jangan-diuji-ulang.
    INTRADAY PTRO ❌ DITOLAK 19 Jul (WLB<50 semua cabang; 5 hari terbaik=108% profit;
    median gap +0.73 = edge-nya overnight, sudah dipanen BSJP) → jangan-diuji-ulang.
-   TINS/MDKA nyusul.
+   TINS ❌ DITOLAK DUA ARAH 19 Jul (docs/ANALISA_TINS.md): makhluk malam spt PTRO tapi
+   drift +0.65 < biaya 0.68, filter momentum maks WLB 44 → jangan-diuji-ulang.
+   Sisa shortlist: MDKA.
 2. Card BSJP TPIA v2 ke intraday-trading (formula final, belum diimplementasi)
 3. BNBR: kalau Wisnu kirim intraday 30m → uji eksekutabilitas hari hijau (ARA-lock analysis)
 4. PTRO: tunggu export intraday 30m 2025-07-01→now
