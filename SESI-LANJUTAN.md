@@ -1,5 +1,8 @@
 # HANDOFF SESI — per 19 Jul 2026
 > Untuk Claude sesi baru: baca ini + ANALISA_RAJA_PROJECT.md (project knowledge).
+> **GITHUB PAT: TIDAK ditulis di sini (repo PUBLIC — PAT ter-commit = bahaya + auto-revoked
+> oleh GitHub). Wisnu akan paste PAT di chat awal sesi. Clone:**
+> `git clone https://wisnuputra17:<PAT>@github.com/wisnuputra17/ihsg-suite.git`
 > Konteks pasar: IHSG penurunan TERPARAH dalam sejarah 6 bulan terakhir (Jan–Jul 2026).
 > Semua drift/edge overnight tertekan — baca hasil RELATIF thd pasar, bukan absolut.
 
