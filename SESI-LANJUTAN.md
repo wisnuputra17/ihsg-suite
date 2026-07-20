@@ -76,7 +76,10 @@ hindari grid search di wilayah mati. PTRO & TINS: malam. RAJA: siang.
    median gap +0.73 = edge-nya overnight, sudah dipanen BSJP) → jangan-diuji-ulang.
    TINS ❌ DITOLAK DUA ARAH 19 Jul (docs/ANALISA_TINS.md): makhluk malam spt PTRO tapi
    drift +0.65 < biaya 0.68, filter momentum maks WLB 44 → jangan-diuji-ulang.
-   Sisa shortlist: MDKA.
+   APEX ❌ DITOLAK 20 Jul (docs/ANALISA_APEX.md): makhluk malam, gross +0.70 vs biaya
+   1.13 (tick 0.73%!), WLB maks 34, split 33/67, tail 147% — struktural, tanpa pantauan,
+   export intraday TIDAK direkomendasikan → jangan-diuji-ulang.
+   Sisa shortlist: MDKA (Wisnu: sudah pernah dianalisa — konfirmasi status/hasilnya).
 2. Card BSJP TPIA v2 ke intraday-trading (formula final, belum diimplementasi)
 3. BNBR: kalau Wisnu kirim intraday 30m → uji eksekutabilitas hari hijau (ARA-lock analysis)
 5. Scalping RAJA re-kalibrasi (tunggu data intraday post-split ~Sep 2026)
