@@ -68,11 +68,12 @@
       besok (proxy konservatif; 09:15 diuji di pipeline dgn data intraday). Spesifikasi
       dikunci di muka, n&lt;15 tidak diperingkat, KANDIDAT = WLB net ≥50 &amp; gap split ≤20pp —
       dan tetap WAJIB pipeline penuh sebelum jadi formula.<br>
-      <b>Mode 🌊 Swing</b> = screener KARAKTER (bukan performa!): riwayat ≥3thn, bukan
-      downtrend struktural (ret3y≥0 atau ≥40% waktu &gt;MA200), ≥10 episode −30% dari
-      high-60hr, median pulih +120hr positif, likuiditas ≥Rp2M/hari. Hukum tick TIDAK
-      berlaku di swing. KANDIDAT = calon Kunci baru → formula dicari per emiten via
-      grid framework + temporal split (JANGAN baca med. pulih sbg return formula).<br>
+      <b>Mode 🌊 Swing v2</b> = screener KARAKTER (bukan performa!). Gerbang: riwayat ≥3thn ·
+      bukan downtrend struktural · 10 ≤ episode −30% dgn ≤4/thn (buang gorengan serial) ·
+      <b>win% episode +120hr ≥75</b> (pelajaran INDY: median pulih ≠ konsistensi menang) ·
+      med. pulih 0..+100% (lebih = profil pump, wilayah Cacing/Naga) · likuiditas ≥Rp10M
+      (skala Defence). MaxDD = informasi jejak kolaps sekuler. Hukum tick TIDAK berlaku di
+      swing. KANDIDAT → formula per emiten via grid framework + temporal split.<br>
       <b>α 6bln</b> = drift 6bln emiten − drift 6bln IHSG (metode hitung identik). α positif =
       emiten mengungguli pasar (alpha); drift positif dengan α negatif = kemungkinan cuma beta
       (ikut arus pasar/recovery). Kandidat sejati: <b>drift 6bln positif DAN α positif</b> —
@@ -254,11 +255,19 @@ async function screenSwing(sym) {
       if (!inZone) { eps.push(i); inZone = true }
     } else inZone = false
   }
-  // median pulih +120 hari dari awal episode
+  // median pulih +120 hari dari awal episode + WIN% episode (pelajaran INDY:
+  // median pulih ≠ konsistensi menang — Kunci butuh win episode sangat tinggi)
   const recs = []
   for (const i of eps) if (i + 120 < n && closes[i]) recs.push((closes[i+120]/closes[i] - 1)*100)
   recs.sort((a, b) => a - b)
   const rec120 = recs.length ? recs[Math.floor(recs.length/2)] : null
+  const winEp = recs.length ? recs.filter(x => x > 0).length / recs.length * 100 : null
+
+  // max drawdown jendela penuh (informasional — jejak kolaps sekuler ala INDY
+  // yang lolos dari jendela ret-3thn)
+  let pk = 0, maxDD = 0
+  for (const cl of closes) { pk = Math.max(pk, cl); maxDD = Math.min(maxDD, cl/pk - 1) }
+  maxDD *= 100
 
   // likuiditas: median nilai transaksi 6 bulan terakhir
   const vals = asc.slice(-126).map(r => (r.close||0) * (r.volume||0)).filter(v => v > 0).sort((a,b)=>a-b)
@@ -269,17 +278,21 @@ async function screenSwing(sym) {
     .map(r => (r.high - r.low)/r.close*100).sort((a,b)=>a-b)
   const rangePct = rng.length ? rng[Math.floor(rng.length/2)] : null
 
+  // GERBANG v2 (dikunci 20 Jul pasca-INDY & scan #1)
   const fails = []
   if (years < 3) fails.push('riwayat<3thn')
   const structDown = !((ret3y != null && ret3y >= 0) || (aboveMA200 != null && aboveMA200 >= 40))
   if (structDown) fails.push('downtrend struktural')
   if (eps.length < 10) fails.push('episode<10')
+  if (eps.length / years > 4) fails.push('>4 ep/thn (gorengan serial)')
   if (rec120 == null || rec120 <= 0) fails.push('pulih≤0')
-  if (liq < 2e9) fails.push('likuiditas<2M')
+  else if (rec120 > 100) fails.push('profil pump >+100% (wilayah Cacing/Naga)')
+  if (winEp == null || winEp < 75) fails.push('win episode<75%')
+  if (liq < 10e9) fails.push('likuiditas<10M (skala Defence)')
 
   return { sym, price, tickPct,
            sw: { years, aboveMA200, ret3y, nEp: eps.length, nRec: recs.length,
-                 rec120, liq, rangePct, eligible: fails.length === 0, fails } }
+                 rec120, winEp, maxDD, liq, rangePct, eligible: fails.length === 0, fails } }
 }
 
 function verdictOf(r) {
@@ -296,7 +309,7 @@ let BENCH = null                 // benchmark IHSG terakhir
 let MODE = 'drift'               // 'drift' | 'event' (satu scan overnight) | 'swing' (scan terpisah 5thn)
 let SCAN_KIND = null             // 'overnight' | 'swing' — jenis scan yang menghasilkan RESULTS
 const SORTS = { drift: { key: 'net6', dir: -1 }, event: { key: 'ev_wlb', dir: -1 },
-                swing: { key: 'sw_rec120', dir: -1 } }
+                swing: { key: 'sw_winEp', dir: -1 } }
 
 const HEADS = {
   drift: `<tr>
@@ -308,7 +321,8 @@ const HEADS = {
   swing: `<tr>
     <th data-key="sym">Emiten</th><th data-key="price">Harga</th><th data-key="tickPct">Tick%</th>
     <th data-key="sw_years">Riwayat</th><th data-key="sw_ret3y">Ret 3thn</th><th data-key="sw_aboveMA200">%&gt;MA200</th>
-    <th data-key="sw_nEp">Episode −30%</th><th data-key="sw_rec120">Med. Pulih +120hr</th>
+    <th data-key="sw_maxDD">MaxDD</th>
+    <th data-key="sw_nEp">Episode −30%</th><th data-key="sw_winEp">Win% Ep +120</th><th data-key="sw_rec120">Med. Pulih +120hr</th>
     <th data-key="sw_liq">Likuiditas</th><th data-key="sw_rangePct">Range%</th><th>Status</th>
   </tr>`,
   event: `<tr>
@@ -396,7 +410,7 @@ async function run(symList) {
   RESULTS = results
   SORTS.drift = { key: 'net6', dir: -1 }   // pelajaran RATU & CDIA
   SORTS.event = { key: 'ev_wlb', dir: -1 } // permintaan: peringkat WLB (net)
-  SORTS.swing = { key: 'sw_rec120', dir: -1 }
+  SORTS.swing = { key: 'sw_winEp', dir: -1 }
   renderTable()
   // (render dipindah ke renderTable() di bawah — bisa dipanggil ulang saat sortir)
   if (!STOP) $('status').textContent = `Selesai — ${results.filter(r => !r.error).length}/${syms.length} emiten. Urut berdasarkan NET 6bln.`
@@ -435,7 +449,7 @@ function renderTable() {
     if (typeof va === 'string') return dir * va.localeCompare(vb)
     return dir * (va - vb)
   })
-  const nCols = MODE === 'drift' ? 15 : 10
+  const nCols = MODE === 'drift' ? 15 : MODE === 'swing' ? 12 : 10
   const fmtB = v => v == null ? '–' : 'Rp' + (v/1e9).toFixed(1) + ' M'
   const fmtPrice = v => v != null ? v.toLocaleString('id-ID') : '–'
   const fmtTick = v => (v != null && isFinite(v)) ? v.toFixed(2) + '%' : '–'
@@ -455,8 +469,10 @@ function renderTable() {
         `<td class="dim">${s.years.toFixed(1)} thn</td>` +
         `<td class="${(s.ret3y ?? 0) >= 0 ? 'up' : 'down'}">${fmtPct(s.ret3y, 0)}</td>` +
         `<td class="dim">${s.aboveMA200 != null ? s.aboveMA200.toFixed(0)+'%' : '–'}</td>` +
+        `<td class="dim">${s.maxDD != null ? s.maxDD.toFixed(0)+'%' : '–'}</td>` +
         `<td>${s.nEp}</td>` +
-        `<td class="${(s.rec120 ?? 0) >= 0 ? 'up' : 'down'}"><b>${fmtPct(s.rec120, 1)}</b> <span class="dim">(n=${s.nRec})</span></td>` +
+        `<td class="${(s.winEp ?? 0) >= 75 ? 'up' : 'down'}"><b>${s.winEp != null ? s.winEp.toFixed(0)+'%' : '–'}</b></td>` +
+        `<td class="${(s.rec120 ?? 0) >= 0 ? 'up' : 'down'}">${fmtPct(s.rec120, 1)} <span class="dim">(n=${s.nRec})</span></td>` +
         `<td class="dim">${fmtB(s.liq)}</td>` +
         `<td class="dim">${s.rangePct != null ? s.rangePct.toFixed(1)+'%' : '–'}</td>` +
         `<td>${status}</td>`
