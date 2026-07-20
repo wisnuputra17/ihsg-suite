@@ -1782,7 +1782,17 @@ async function _fetchBsjpMonitor() {
         foreignReady = (fb + fs) > 0
 
         // dayRet hari entry → filter SKIP (formula E)
-        if (d.open) dayRetEntry = (d.close - d.open) / d.open * 100
+        // Patokan v-eksekutabel (20 Jul): candle <=15:50 dari sortEntry — angka
+        // yang tersedia saat trader memutuskan; mencegah flip lelang penutupan
+        // (kasus PTRO 20 Jul). BELUM divalidasi ulang di data RAJA — ambang -3%
+        // di ekor distribusi (risiko flip << PTRO); validasi final menumpang
+        // re-kalibrasi Sep. Fallback: daily close (perilaku lama).
+        const _sOpen  = sortEntry.find(x => (x.datetime||'').slice(11,16) >= '09:00')
+        let _s1550 = null
+        for (const x of sortEntry) { const tt=(x.datetime||'').slice(11,16); if (tt >= '09:00' && tt <= '15:50') _s1550 = x }
+        if (_sOpen && _sOpen.open && _s1550 && _s1550.close)
+          dayRetEntry = (_s1550.close - _sOpen.open) / _sOpen.open * 100
+        else if (d.open) dayRetEntry = (d.close - d.open) / d.open * 100
 
         if (foreignReady) {
           netForeign = fb - fs
@@ -1945,7 +1955,7 @@ function _renderBsjpMonitor(d) {
       $v('bsjp-exit-label','Exit Senin jam '+d.exitTime)
       $v('bsjp-exit-time', d.exitTime)
       $v('bsjp-exit-stat', KONDISI_STAT[d.kategori]||'–')
-      setBanner('entry','🌙 POSISI TERBUKA (weekend) — Exit Senin jam '+d.exitTime+' · '+(KONDISI_STAT[d.kategori]||''))
+      setBanner('entry','🌙 SINYAL AKTIF (posisi formula, weekend) — Exit Senin jam '+d.exitTime+' · '+(KONDISI_STAT[d.kategori]||''))
     } else {
       setStep('foreign','active','⏳')
       $v('bsjp-net-foreign', 'Data dari hari entry ('+d.entryDateStr+')')
@@ -2033,10 +2043,10 @@ function _renderBsjpMonitor(d) {
     setStep('entry','done','✓')
     setStep('foreign','done','✓')
     setStep('exit','active','⏰')
-    $v('bsjp-exit-label','POSISI TERBUKA — Exit hari ini '+d.exitTime)
+    $v('bsjp-exit-label','SINYAL AKTIF (posisi formula) — Exit hari ini '+d.exitTime)
     $v('bsjp-exit-time', d.exitTime)
     $v('bsjp-exit-stat', d.kategori ? (KONDISI_STAT[d.kategori]||'–') : '–')
-    setBanner('entry','⏰ POSISI BSJP AKTIF — Exit hari ini jam '+d.exitTime)
+    setBanner('entry','⏰ SINYAL BSJP AKTIF (posisi formula) — Exit hari ini jam '+d.exitTime)
   } else if (t >= '16:00' && t < '19:00') {
     setStep('foreign','active','⏳')
     $v('bsjp-net-foreign', 'Menunggu data Stockbit...')

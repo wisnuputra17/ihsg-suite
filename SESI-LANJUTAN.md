@@ -98,6 +98,7 @@ hindari grid search di wilayah mati. PTRO & TINS: malam. RAJA: siang.
    tail-driven (profil APEX market-wide). HIPOTESIS VOLUME-SURGE DITOLAK PERMANEN
    → jangan-diuji-ulang. Mode tetap dipertahankan sbg pemantau berkala (ekspektasi: kosong). Hasil akhir perburuan scan 800 emiten: 1 formula baru (PTRO v1
    masa percobaan) + 1 pantauan (RATU) + 3 penolakan terdokumentasi (TINS/APEX/MDKA).
+1a. **RAJA card** ikut dipatok 15:50 (20 Jul): dayRet dari sortEntry ≤15:50, fallback daily; label 'SINYAL AKTIF (posisi formula)'. CATATAN: varian 15:50 BELUM divalidasi di data RAJA (ambang −3% = ekor, risiko flip << PTRO) → validasi menumpang re-kalibrasi Sep (data intraday post-split sudah dibutuhkan agenda itu)
 1b. **PTRO v1.1** (20 Jul, dari bug report Wisnu): sinyal kartu dipatok harga 15:50 (WLB 60, flip live↔final imaterial 2+3/70) — precheck & final konsisten; CLV TPIA juga dipindah ke intraday ≤15:50 (= spek asli); label kartu dijujurkan 'SINYAL AKTIF (posisi formula)'. Detail di docs/ANALISA_BSJP_PTRO.md
 2. ~~Card BSJP TPIA v2~~ ✅ SELESAI 20 Jul: panel OR (MACD intraday via calcMACD 1m + CLV live), SKIP jendela MSCI (DEFINISI=ASUMSI — fungsi TPIA_MSCI; koreksi bila spek asli ketemu), exit 09:00 open, badge net-tipis
 5. Scalping RAJA re-kalibrasi (tunggu data intraday post-split ~Sep 2026)
