@@ -139,7 +139,8 @@ async function screenOne(sym) {
   const from = new Date(Date.now() - 380*86400*1000).toISOString().slice(0, 10)
   const daily = await fetchDaily(sym, to, from)   // param: (sym, BARU, LAMA)
   if (!daily || daily.length < 60) throw new Error('data < 60 hari')
-  const asc = [...daily].sort((a, b) => a.date < b.date ? -1 : 1)
+  const asc = daily.filter(r => r.close != null && r.close > 0).sort((a, b) => a.date < b.date ? -1 : 1)
+  if (asc.length < 60) throw new Error('data valid < 60 hari (banyak close kosong)')
 
   const drifts = [], afterRed = [], afterGreen = []
   for (let i = 1; i < asc.length; i++) {
@@ -219,7 +220,9 @@ async function screenSwing(sym) {
   const from = new Date(Date.now() - 5*365*86400*1000).toISOString().slice(0, 10)
   const daily = await fetchDaily(sym, to, from)   // (sym, BARU, LAMA)
   if (!daily || daily.length < 250) throw new Error('data < 1 thn')
-  const asc = [...daily].sort((a, b) => a.date < b.date ? -1 : 1)
+  // buang baris close kosong (saham suspensi punya ekor null → crash & statistik sampah)
+  const asc = daily.filter(r => r.close != null && r.close > 0).sort((a, b) => a.date < b.date ? -1 : 1)
+  if (asc.length < 250) throw new Error('data valid < 1 thn (banyak close kosong)')
   const n = asc.length
   const years = n / 247
   const closes = asc.map(r => r.close)
@@ -434,6 +437,8 @@ function renderTable() {
   })
   const nCols = MODE === 'drift' ? 15 : 10
   const fmtB = v => v == null ? '–' : 'Rp' + (v/1e9).toFixed(1) + ' M'
+  const fmtPrice = v => v != null ? v.toLocaleString('id-ID') : '–'
+  const fmtTick = v => (v != null && isFinite(v)) ? v.toFixed(2) + '%' : '–'
   for (const r of sorted) {
     const tr = document.createElement('tr')
     if (r.error) {
@@ -445,8 +450,8 @@ function renderTable() {
         : `<span class="dim">${s.fails.join(' · ')}</span>`
       tr.innerHTML =
         `<td${s.eligible ? '' : ' class="dim"'}>${r.sym}</td>` +
-        `<td>${r.price.toLocaleString('id-ID')}</td>` +
-        `<td class="dim">${r.tickPct.toFixed(2)}%</td>` +
+        `<td>${fmtPrice(r.price)}</td>` +
+        `<td class="dim">${fmtTick(r.tickPct)}</td>` +
         `<td class="dim">${s.years.toFixed(1)} thn</td>` +
         `<td class="${(s.ret3y ?? 0) >= 0 ? 'up' : 'down'}">${fmtPct(s.ret3y, 0)}</td>` +
         `<td class="dim">${s.aboveMA200 != null ? s.aboveMA200.toFixed(0)+'%' : '–'}</td>` +
@@ -467,8 +472,8 @@ function renderTable() {
             : '<span class="dim">–</span>'
         tr.innerHTML =
           `<td${e.eligible ? '' : ' class="dim"'}>${r.sym}</td>` +
-          `<td>${r.price.toLocaleString('id-ID')}</td>` +
-          `<td class="${r.tickPct > 0.5 ? 'down' : 'dim'}">${r.tickPct.toFixed(2)}%</td>` +
+          `<td>${fmtPrice(r.price)}</td>` +
+          `<td class="${(r.tickPct ?? 0) > 0.5 ? 'down' : 'dim'}">${fmtTick(r.tickPct)}</td>` +
           `<td class="${e.eligible ? '' : 'dim'}">${e.nS}</td>` +
           `<td class="${e.gross >= 0 ? 'up' : 'down'}">${fmtPct(e.gross, 2)}</td>` +
           `<td class="${e.net >= 0 ? 'up' : 'down'}"><b>${fmtPct(e.net, 2)}</b></td>` +
@@ -483,8 +488,8 @@ function renderTable() {
       const alpha = r.alpha
       tr.innerHTML =
         `<td>${r.sym}</td>` +
-        `<td>${r.price.toLocaleString('id-ID')}</td>` +
-        `<td class="${r.tickPct > 0.5 ? 'down' : 'dim'}">${r.tickPct.toFixed(2)}%</td>` +
+        `<td>${fmtPrice(r.price)}</td>` +
+        `<td class="${(r.tickPct ?? 0) > 0.5 ? 'down' : 'dim'}">${fmtTick(r.tickPct)}</td>` +
         `<td class="dim">${r.n}</td>` +
         `<td class="${r.avg >= 0 ? 'up' : 'down'}">${fmtPct(r.avg, 3)}</td>` +
         `<td class="${(r.avg6 ?? 0) >= 0 ? 'up' : 'down'}">${fmtPct(r.avg6, 3)}${r.avg6 != null ? (r.avg6 > r.avg + 0.1 ? ' ↑' : r.avg6 < r.avg - 0.1 ? ' <span class=down>↓</span>' : '') : ''}</td>` +
