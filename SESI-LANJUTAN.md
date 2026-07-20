@@ -79,7 +79,9 @@ hindari grid search di wilayah mati. PTRO & TINS: malam. RAJA: siang.
    APEX ❌ DITOLAK 20 Jul (docs/ANALISA_APEX.md): makhluk malam, gross +0.70 vs biaya
    1.13 (tick 0.73%!), WLB maks 34, split 33/67, tail 147% — struktural, tanpa pantauan,
    export intraday TIDAK direkomendasikan → jangan-diuji-ulang.
-   Sisa shortlist: MDKA (Wisnu: sudah pernah dianalisa — konfirmasi status/hasilnya).
+   MDKA ❌ GUGUR (analisa Wisnu sendiri, dikonfirmasi 20 Jul — detail tidak di repo).
+   SHORTLIST TUTUP. Hasil akhir perburuan scan 800 emiten: 1 formula baru (PTRO v1
+   masa percobaan) + 1 pantauan (RATU) + 3 penolakan terdokumentasi (TINS/APEX/MDKA).
 2. Card BSJP TPIA v2 ke intraday-trading (formula final, belum diimplementasi)
 3. BNBR: kalau Wisnu kirim intraday 30m → uji eksekutabilitas hari hijau (ARA-lock analysis)
 5. Scalping RAJA re-kalibrasi (tunggu data intraday post-split ~Sep 2026)
