@@ -55,3 +55,13 @@ Entry 09:00 open, ORB close-based 5 candle (shared/orb.js), grid deadline+exit+t
 - Fee DT 0.26 vs REG 0.40 tidak mengubah vonis
 KESIMPULAN: PTRO satu arah — BSJP only. Intraday PTRO masuk daftar JANGAN-DIUJI-ULANG.
 (Kontras RAJA: edge siang; tiap emiten beda karakter.)
+
+## v1.1 — SPESIFIKASI OPERASIONAL EKSEKUTABEL (20 Jul, dari laporan bug Wisnu)
+Kasus 20 Jul: precheck 15:55 SKIP, lelang penutupan menggeser close melewati +3% →
+kartu (v1, sinyal=close final) mengklaim posisi yang tidak diambil. Kuantifikasi:
+flip live↔final hanya 2 masuk + 3 keluar dari ~70 sinyal / 18 bln = IMATERIAL.
+**v1.1: sinyal = dayRet dari harga 15:50** (angka yang tersedia saat memutuskan):
+n=70, net +2.175%, win 71%, WLB 60, split 77/66 — praktis identik v1 (WLB 61).
+Kartu dipatok ke definisi ini (precheck & evaluasi final konsisten, flip mustahil).
+Entry price tetap close resmi (harga fill lelang). Label kartu dijujurkan:
+"SINYAL AKTIF (posisi formula)" — kartu memonitor formula, bukan posisi trader.

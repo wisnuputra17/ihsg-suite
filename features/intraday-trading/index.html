@@ -467,6 +467,25 @@ const PTRO_TH   = 3        // syarat hijau > +3%
 const PTRO_EXIT = '09:15'
 let _ptroAlerted = null     // tanggal terakhir alert sinyal dibunyikan
 
+// v1.1 EKSEKUTABEL (20 Jul): sinyal dipatok ke posisi harga 15:50 (candle 1m
+// terakhir sebelum lelang penutupan) — angka yang benar2 tersedia saat trader
+// memutuskan. Divalidasi ulang: n=70 net+2.175 win71 WLB60 (vs v1 final-close
+// WLB61; flip live↔final hanya 2+3 malam dlm 18bln = imaterial). Menghapus
+// kasus "SKIP di 15:55 tapi kartu klaim posisi" (lelang penutupan menggeser close).
+async function _ptroDayRet1550(dayStr) {
+  try {
+    const fromTs = Math.floor(new Date(dayStr+'T01:00:00Z').getTime()/1000)
+    const raw = await fetchIntraday('PTRO', fromTs + 9*3600, fromTs, 1)
+    if (!raw || !raw.length) return null
+    const s = [...raw].sort((a,b) => a.unix - b.unix)
+    const op = s.find(x => (x.datetime||'').slice(11,16) >= '09:00')
+    let last = null
+    for (const x of s) { const t=(x.datetime||'').slice(11,16); if (t >= '09:00' && t <= '15:50') last = x }
+    if (!op || !op.open || !last || !last.close) return null
+    return (last.close - op.open) / op.open * 100
+  } catch(e) { return null }
+}
+
 async function _fetchPtroBsjp() {
   if (!TOKEN.isSet()) return
   try {
@@ -486,26 +505,32 @@ async function _fetchPtroBsjp() {
     else if (timeNow >= '16:00') entryDateStr = todayStr
     else                         entryDateStr = lastWorkday(todayStr)
 
-    // daily hari entry → dayRet final + harga entry (close)
+    // harga entry = close resmi (harga fill lelang penutupan)
     let entryRow = null
     try {
       const from4 = new Date(new Date(entryDateStr+'T07:00:00Z').getTime()-4*86400*1000).toISOString().slice(0,10)
       const dl = await fetchDaily('PTRO', entryDateStr, from4)
       if (dl && dl.length && dl[0].date === entryDateStr) entryRow = dl[0]
     } catch(e) {}
-    const dayRetEntry = entryRow && entryRow.open ? (entryRow.close-entryRow.open)/entryRow.open*100 : null
-    const signalEntry = dayRetEntry != null && dayRetEntry > PTRO_TH
+    // SINYAL v1.1: dari posisi harga 15:50 (BUKAN close final) — konsisten
+    // dengan apa yang trader lihat saat memutuskan
+    const dayRetEntry = await _ptroDayRet1550(entryDateStr)
+    const signalEntry = dayRetEntry != null && dayRetEntry > PTRO_TH && entryRow != null
     const entryPrice  = entryRow ? entryRow.close : null
 
-    // dayRet live HARI INI (precheck sore, sebelum 16:00)
+    // dayRet live HARI INI (precheck sore). Setelah 15:50 → pakai angka patokan
+    // formula (candle 15:50, sama dgn evaluasi final) supaya tak ada flip.
     let dayRetLive = null
     if (!isWeekend && entryDateStr !== todayStr) {
-      try {
-        const from7 = new Date(now - 7*86400*1000).toISOString().slice(0,10)
-        const dT = await fetchDaily('PTRO', todayStr, from7)
-        if (dT && dT.length && dT[0].date === todayStr && dT[0].open)
-          dayRetLive = (dT[0].close-dT[0].open)/dT[0].open*100
-      } catch(e) {}
+      if (timeNow >= '15:50') dayRetLive = await _ptroDayRet1550(todayStr)
+      if (dayRetLive == null) {
+        try {
+          const from7 = new Date(now - 7*86400*1000).toISOString().slice(0,10)
+          const dT = await fetchDaily('PTRO', todayStr, from7)
+          if (dT && dT.length && dT[0].date === todayStr && dT[0].open)
+            dayRetLive = (dT[0].close-dT[0].open)/dT[0].open*100
+        } catch(e) {}
+      }
     }
 
     // exit besok 09:15
@@ -561,7 +586,7 @@ function _renderPtroBsjp(d) {
           : '<span style="color:var(--down);font-weight:700">⛔ SKIP SORE INI</span>'
       pre.style.display = 'block'
       pre.innerHTML = `
-        <div style="color:var(--ghost);font-weight:700;margin-bottom:4px">CEK ENTRY SORE INI (${d.todayStr})</div>
+        <div style="color:var(--ghost);font-weight:700;margin-bottom:4px">CEK ENTRY SORE INI (${d.todayStr}) — patokan formula: harga 15:50 (v1.1)</div>
         <div>${ok?'✅':'❌'} PTRO hari ini (live): <b>${vtxt}</b> <span style="color:var(--ghost)">syarat &gt; +${PTRO_TH}%</span></div>
         ${borderline ? '<div style="color:#f59e0b">⚠ Di zona rawan ±0.5% dari ambang — keputusan final cek 15:55, harga bisa berubah</div>' : ''}
         <div style="margin-top:4px">${verdict}</div>`
@@ -596,11 +621,11 @@ function _renderPtroBsjp(d) {
     if (r) { r.textContent=`${d.tradeReturn>=0?'+':''}${d.tradeReturn.toFixed(2)}%`
              r.style.color=d.tradeReturn>=0?'var(--live)':'var(--down)' }
     $v('pb-result-meta', `Entry ${fmt(d.entryPrice)} (${d.entryDateStr}) → Exit ${fmt(d.exitPrice)} @ ${PTRO_EXIT} · gross sebelum fee 0.40%`)
-    setBanner('entry', `✅ TRADE SELESAI — ${d.tradeReturn>=0?'+':''}${d.tradeReturn.toFixed(2)}% (catat utk evaluasi masa percobaan!)`)
+    setBanner('entry', `✅ HASIL FORMULA — ${d.tradeReturn>=0?'+':''}${d.tradeReturn.toFixed(2)}% (catat HANYA jika kamu benar-benar entry)`)
   } else {
     setStep('exit', d.isExitDay ? 'active' : 'pending', d.isExitDay ? '⏳' : '📅')
     const when = d.isWeekend ? 'Senin' : (d.isExitDay ? 'HARI INI' : 'besok')
-    setBanner('entry', `🌙 POSISI TERBUKA — Exit ${when} jam ${PTRO_EXIT} FIX`)
+    setBanner('entry', `🌙 SINYAL AKTIF (posisi formula — jika kamu entry 16:00) — Exit ${when} ${PTRO_EXIT} FIX`)
   }
 }
 
@@ -650,25 +675,31 @@ async function _fetchTpiaBsjp() {
     const clvOf = r => (r && r.high != null && r.low != null && r.high !== r.low)
       ? (r.close - r.low) / (r.high - r.low) : null
 
-    // MACD hist intraday utk hari tertentu (candle 1m, hist terakhir <= 15:55)
-    async function macdHistAt(dayStr) {
+    // MACD hist + CLV intraday utk hari tertentu — SEMUA dari candle <= 15:50
+    // (patokan keputusan trader; spesifikasi asli TPIA memang "cek 15:55",
+    // BUKAN close final — mencegah flip oleh lelang penutupan spt kasus PTRO 20 Jul)
+    async function intradayAt(dayStr) {
       try {
         const fromTs = Math.floor(new Date(dayStr+'T01:00:00Z').getTime()/1000)
-        const toTs   = fromTs + 9*3600
-        const raw = await fetchIntraday('TPIA', toTs, fromTs, 1)
-        if (!raw || raw.length < 40) return null
+        const raw = await fetchIntraday('TPIA', fromTs + 9*3600, fromTs, 1)
+        if (!raw || raw.length < 40) return { macd: null, clv: null }
         const s = [...raw].sort((a,b) => a.unix - b.unix)
-          .filter(x => { const t=(x.datetime||'').slice(11,16); return t >= '09:00' && t <= '15:55' })
-        if (s.length < 40) return null
+          .filter(x => { const t=(x.datetime||'').slice(11,16); return t >= '09:00' && t <= '15:50' })
+        if (s.length < 40) return { macd: null, clv: null }
         const { hist } = calcMACD(s.map(x => x.close))
-        for (let i = hist.length-1; i >= 0; i--) if (hist[i] != null) return hist[i]
-        return null
-      } catch(e) { return null }
+        let macd = null
+        for (let i = hist.length-1; i >= 0; i--) if (hist[i] != null) { macd = hist[i]; break }
+        const hi = Math.max(...s.map(x => x.high)), lo = Math.min(...s.map(x => x.low))
+        const last = s[s.length-1].close
+        const clv = (hi !== lo) ? (last - lo) / (hi - lo) : null
+        return { macd, clv }
+      } catch(e) { return { macd: null, clv: null } }
     }
 
-    // kondisi FINAL hari entry
-    const entryMacd = await macdHistAt(entryDateStr)
-    const entryClv  = clvOf(entryRow)
+    // kondisi FINAL hari entry (dari candle <= 15:50 — konsisten dgn keputusan)
+    const iv = await intradayAt(entryDateStr)
+    const entryMacd = iv.macd
+    const entryClv  = iv.clv
     const condMacd  = entryMacd != null && entryMacd < 0
     const condClv   = entryClv  != null && entryClv  < 0.3
     const msciEntry = TPIA_MSCI(entryDateStr)
@@ -684,7 +715,8 @@ async function _fetchTpiaBsjp() {
         const dT = await fetchDaily('TPIA', todayStr, from7)
         if (dT && dT.length && dT[0].date === todayStr) todayRow = dT[0]
       } catch(e) {}
-      live = { macd: await macdHistAt(todayStr), clv: clvOf(todayRow),
+      const ivL = await intradayAt(todayStr)
+      live = { macd: ivL.macd, clv: ivL.clv != null ? ivL.clv : clvOf(todayRow),
                msci: TPIA_MSCI(todayStr) }
     }
 
@@ -781,11 +813,11 @@ function _renderTpiaBsjp(d) {
     if (r) { r.textContent=`${d.tradeReturn>=0?'+':''}${d.tradeReturn.toFixed(2)}%`
              r.style.color=d.tradeReturn>=0?'var(--live)':'var(--down)' }
     $v('tb-result-meta', `Entry ${fmt(d.entryPrice)} (${d.entryDateStr}) → Open ${fmt(d.exitPrice)} · gross sebelum fee 0.40%`)
-    setBanner('entry', `✅ TRADE SELESAI — ${d.tradeReturn>=0?'+':''}${d.tradeReturn.toFixed(2)}%`)
+    setBanner('entry', `✅ HASIL FORMULA — ${d.tradeReturn>=0?'+':''}${d.tradeReturn.toFixed(2)}% (catat HANYA jika benar-benar entry)`)
   } else {
     setStep('exit', d.isExitDay ? 'active' : 'pending', d.isExitDay ? '⏳' : '📅')
     const when = d.isWeekend ? 'Senin' : (d.isExitDay ? 'HARI INI' : 'besok')
-    setBanner('entry', `🌙 POSISI TERBUKA — JUAL ${when} di OPEN 09:00 (pasang pre-opening 08:45)`)
+    setBanner('entry', `🌙 SINYAL AKTIF (posisi formula — jika kamu entry 16:00) — JUAL ${when} di OPEN 09:00 (pre-opening 08:45)`)
   }
 }
 
