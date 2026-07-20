@@ -83,7 +83,12 @@ hindari grid search di wilayah mati. PTRO & TINS: malam. RAJA: siang.
    GZCO ❌ DITOLAK 20 Jul (docs/ANALISA_GZCO.md): spesies APEX lebih ekstrem — tail
    345%, WLB maks 27, H2-2025 = artefak musim pump. Hukum kristal: tick ≥0.6% = gerbang
    mati BSJP (BUMI/TINS/APEX/GZCO) → screener kolom tick merah = tolak otomatis.
-   SHORTLIST TUTUP. Hasil akhir perburuan scan 800 emiten: 1 formula baru (PTRO v1
+   SHORTLIST TUTUP.
+   **MODE EVENT di screener** ✅ dibangun 20 Jul (commit 77a77cc): sinyal hijau>3% +
+   vol≥3x avg20, entry close → exit OPEN besok (proxy; 09:15 di pipeline), WLB NET,
+   n<15 tak diperingkat, KANDIDAT = WLB≥50 & gap split ≤20pp. Sekaligus: Win/WLB mode
+   drift DINETKAN (fix cacat GZCO — win gross menyesatkan di tick mahal).
+   → Wisnu: jalankan Scan Semua, buka lensa ⚡ Event, kirim hasilnya. Hasil akhir perburuan scan 800 emiten: 1 formula baru (PTRO v1
    masa percobaan) + 1 pantauan (RATU) + 3 penolakan terdokumentasi (TINS/APEX/MDKA).
 2. Card BSJP TPIA v2 ke intraday-trading (formula final, belum diimplementasi)
 3. BNBR: kalau Wisnu kirim intraday 30m → uji eksekutabilitas hari hijau (ARA-lock analysis)
