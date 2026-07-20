@@ -39,7 +39,7 @@ hindari grid search di wilayah mati. PTRO & TINS: malam. RAJA: siang.
 
 ## PAPAN SKOR EMITEN (5 dianalisa penuh + screener)
 - RAJA ✅ (3 formula) | TPIA ✅ sekunder | RATU ⏸️ DIUJI PENUH 19 Jul (docs/ANALISA_BSJP_RATU.md): edge H1-2025 nyata (net +1.3–3.2%), mati sejak H2-2025, revival Q2-2026 nyata di gross (+0.59%) tapi biaya 0.60% memakan habis → mati suri; ambang bangkit = drift gross 60hr ≥0.9–1.0%, cek screener bulanan | BUMI ❌ tick 0.67% makan edge | WIFI ❌ event-driven tanpa pola (swing)
-- BNBR: drift-stlh-hijau +2.9% MENARIK tapi 3 red flag (WLB 36%, tick 1.18%, bias eksekusi ARA) → PENDING uji intraday: berapa % edge dari hari yang BISA dieksekusi (bukan ARA-lock)
+- BNBR ❌ DITUTUP 20 Jul TANPA analisa baru (keputusan Wisnu): tick 1.18% = terdalam di zona mati hukum tick (gerbang ~0.6%, preseden BUMI/TINS/APEX/GZCO) + WLB 36 sudah red flag. Skenario terbaik uji ARA-lock pun hanya mengubah 'lotere tak terbeli' jadi 'lotere terbeli' — vonis sama. Penolakan harus murah → jangan-diuji-ulang
 - PTRO: kandidat kuat screener (drift-hijau +1.077%), emiten.json SUDAH ditambah (+CDIA) → tunggu export intraday
 - Karakter: RAJA/RATU/PTRO/BNBR = momentum (drift stlh hijau>merah); TPIA/BUMI = kontrarian
 
@@ -94,7 +94,6 @@ hindari grid search di wilayah mati. PTRO & TINS: malam. RAJA: siang.
    → jangan-diuji-ulang. Mode tetap dipertahankan sbg pemantau berkala (ekspektasi: kosong). Hasil akhir perburuan scan 800 emiten: 1 formula baru (PTRO v1
    masa percobaan) + 1 pantauan (RATU) + 3 penolakan terdokumentasi (TINS/APEX/MDKA).
 2. ~~Card BSJP TPIA v2~~ ✅ SELESAI 20 Jul: panel OR (MACD intraday via calcMACD 1m + CLV live), SKIP jendela MSCI (DEFINISI=ASUMSI — fungsi TPIA_MSCI; koreksi bila spek asli ketemu), exit 09:00 open, badge net-tipis
-3. BNBR: kalau Wisnu kirim intraday 30m → uji eksekutabilitas hari hijau (ARA-lock analysis)
 5. Scalping RAJA re-kalibrasi (tunggu data intraday post-split ~Sep 2026)
 6. Screener bulanan pantau RATU: ambang aktivasi ulang = drift gross 60hr ≥0.9–1.0% & win ≥55% (sekarang 0.59 — belum). Detail docs/ANALISA_BSJP_RATU.md
 
