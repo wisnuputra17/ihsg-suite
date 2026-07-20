@@ -83,6 +83,10 @@ tembakan per hipotesis per emiten, hasil didokumentasikan apa pun vonisnya.
 3. Kontrarian sore (MACD<0 OR CLV<0.3) — **✓ TPIA v2**
 4. Imbalance bandar — ✓ horizon 1 malam (kaki RAJA BSJP); horizon swing/multi-bulan
    DILARANG uji ulang (merusak; daftar kumulatif)
+5a. Protokol eksplorasi 60/40 (INDY, 20 Jul): ~16 aturan train-only, TIDAK ADA yang
+   lolos train → holdout INDY (2024-07-05→) MASIH DISEGEL utk keluarga baru. Temuan
+   kunci: ilusi base-rate jejak-kaki (docs/ANALISA_SWING_INDY.md lampiran). INDY
+   ditutup utk semua keluarga harga-murni harian.
 5. Kontraksi volatilitas (squeeze BB-P20 dlm 5hr → breakout high-20, trail 10-25) —
    spek v1.1 TERKUNCI (amandemen 1x: serentak→berurutan, degenerasi mekanis, diungkap).
    Kontrol mean-reverter: LOLOS (tak ada hadiah palsu; maks WLB 35). TEMUAN: frekuensi
@@ -90,7 +94,7 @@ tembakan per hipotesis per emiten, hasil didokumentasikan apa pun vonisnya.
    keranjang pra-daftar (MEDC, BUVA, INCO, +1 pilihan Wisnu; preseden alat:
    runBacktestMulti). Gerbang pool: WLB net ≥50, split ≤15pp, uji konsentrasi
    (tak boleh 1 emiten dominasi kemenangan). STATUS: tunggu keputusan/export Wisnu.
-6. Rezim MA — TERBUKA, belum dispesifikasi
+6. Rezim MA / ikut-tren — diuji di INDY (train 60%): whipsaw fatal (cross MA50 win 7%). TERBUKA utk emiten lain berkarakter trending; di INDY tertutup
 7. Karakter anti-IHSG / hedge — TERBUKA, belum dispesifikasi
 8. Pola teknikal bernama (H&S, cup-handle, triangle) — DITOLAK di gerbang: definisi
    lentur (6-8 derajat bebas), bias belakang, n langka; fenomena intinya diserap

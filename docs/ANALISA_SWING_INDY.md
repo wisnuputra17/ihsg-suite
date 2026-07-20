@@ -20,3 +20,21 @@ win sangat tinggi (RAJA: n=20 win 90 = langka). → Gerbang screener swing di-up
 kolom win% episode (+60/120hr) ≥75, frekuensi ≤4 ep/thn, bendera pump med>+100%,
 likuiditas ≥Rp10M, dan ret-jendela-penuh (tutup celah kolaps di luar 3thn).
 Ekspektasi jujur: kolam hasil scan ketat bisa KOSONG — dan itu jawaban sah.
+
+## LAMPIRAN — PROTOKOL EKSPLORASI 60/40 (20 Jul, permintaan Wisnu)
+Train = 2021-07-01→2024-07-04 (726 hr) | **HOLDOUT DISEGEL 2024-07-05→akhir — TIDAK
+PERNAH DITEMBAKKAN** (tak ada aturan lolos train; segel masih perawan utk keluarga
+hipotesis yang benar2 baru; keluarga CRSI/episode SUDAH terbakar di seluruh data).
+
+Anatomi kenaikan train: 15 lonjakan +15%/≤20hr; jejak kaki: 71% lahir dekat dasar-20
+(baseline 21%), di bawah MA pendek, netral MA200. → ILUSI BASE-RATE terbukti:
+P(dekat-dasar|lonjakan) tinggi ≠ P(lonjakan|dekat-dasar) — semua varian entry
+dekat-dasar (exit waktu 5-20hr, +filter red5/vol/distMA20, target, trailing) KALAH
+dari entry acak (WLB 15-23 vs acak 26; avg negatif semua).
+Keluarga ikut-tren: cross MA50 win 7% (!), MA20 win 23% (whipsaw), Donchian/rezim
+n=4-6. INDY = whipsaw utk tren + pisau jatuh utk washout, di horizon harian.
+
+KESIMPULAN: INDY DITUTUP utk seluruh keluarga harga-murni horizon harian (validasi
+independen atas penolakan awal, via jalur eksplorasi bebas). Pelajaran protokol:
+eksplorasi sah sebagai pabrik hipotesis; train membunuh ilusi SEBELUM holdout —
+"guru tidak boleh merangkap penguji".
