@@ -74,6 +74,28 @@ hindari grid search di wilayah mati. PTRO & TINS: malam. RAJA: siang.
   (n jujur; diverifikasi harness). Jangan buka ulang perburuan tanpa kandidat lolos
   v2.1 atau hipotesis struktural pra-data.
 
+## LEDGER KELUARGA HIPOTESIS (peta perjalanan panjang — 20 Jul 2026)
+Aturan main: ide baru boleh kapan pun, TAPI spek dikunci SEBELUM lihat data, satu
+tembakan per hipotesis per emiten, hasil didokumentasikan apa pun vonisnya.
+1. Mean-reversion kapitulasi (CRSI/episode −30) — **DITUTUP**: RAJA anomali tunggal
+   (INDY/BIPI/DSNG gugur; docs/ANALISA_SWING_*)
+2. Momentum overnight (hijau>threshold) — **✓ PTRO v1.1** (masa percobaan)
+3. Kontrarian sore (MACD<0 OR CLV<0.3) — **✓ TPIA v2**
+4. Imbalance bandar — ✓ horizon 1 malam (kaki RAJA BSJP); horizon swing/multi-bulan
+   DILARANG uji ulang (merusak; daftar kumulatif)
+5. Kontraksi volatilitas (squeeze BB-P20 dlm 5hr → breakout high-20, trail 10-25) —
+   spek v1.1 TERKUNCI (amandemen 1x: serentak→berurutan, degenerasi mekanis, diungkap).
+   Kontrol mean-reverter: LOLOS (tak ada hadiah palsu; maks WLB 35). TEMUAN: frekuensi
+   1-2 sinyal/thn/emiten → per-emiten mustahil n≥30 → satu2nya jalur sah = POOLING
+   keranjang pra-daftar (MEDC, BUVA, INCO, +1 pilihan Wisnu; preseden alat:
+   runBacktestMulti). Gerbang pool: WLB net ≥50, split ≤15pp, uji konsentrasi
+   (tak boleh 1 emiten dominasi kemenangan). STATUS: tunggu keputusan/export Wisnu.
+6. Rezim MA — TERBUKA, belum dispesifikasi
+7. Karakter anti-IHSG / hedge — TERBUKA, belum dispesifikasi
+8. Pola teknikal bernama (H&S, cup-handle, triangle) — DITOLAK di gerbang: definisi
+   lentur (6-8 derajat bebas), bias belakang, n langka; fenomena intinya diserap
+   keluarga #5
+
 ## IDE DIPERTIMBANGKAN & TIDAK DILANJUTKAN (jangan usulkan ulang kecuali Wisnu minta)
 - "Formula Sambung" BSJP→intraday RAJA (irisan 09:15, hemat fee 0.40 di hari overlap):
   secara teknis valid & aditif, TAPI Wisnu putuskan 20 Jul TIDAK dilanjutkan — terlalu
