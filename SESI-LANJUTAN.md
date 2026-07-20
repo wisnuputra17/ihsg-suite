@@ -58,8 +58,14 @@ hindari grid search di wilayah mati. PTRO & TINS: malam. RAJA: siang.
 - Keputusan Wisnu 20 Jul (dari diskusi FOMO): Kunci RAJA TIDAK ditambah syarat
   hijau/konfirmasi breakout (varian sudah kalah di 15+ uji; entry emas = kapitulasi).
   Konviksi tanpa sinyal = jalur Defence dgn label jujur, bukan hibrida.
-- → NEXT: Wisnu jalankan Scan Semua di mode Swing, kirim hasil → shortlist →
-  export daily 5thn per kandidat → grid search formula.
+- Scan Swing #1 SELESAI 20 Jul: papan atas = spesies pump (PIPA +600%, KOTA 34 ep —
+  gerbang v1 bocor). Kandidat tengah-tabel: INDY (utama), INCO (marginal), MBSS
+  (likuiditas tipis), PANI (watchlist). PTRO/TPIA lolos tapi DITUNDA (konsentrasi dgn BSJP).
+- **INDY ❌ DITOLAK 20 Jul** (docs/ANALISA_SWING_INDY.md): karakter nyata (episode −30%
+  hold 60hr: win 75% avg +25.9%!) tapi n=12 → WLB 46.8 < 50. MACD exit-all merusak
+  (DNA ≠ RAJA). Pelajaran: median pulih ≠ konsistensi menang.
+- → NEXT: upgrade gerbang screener swing v2 (win% episode ≥75, ≤4 ep/thn, bendera
+  pump, likuiditas ≥10M, ret jendela penuh) → scan ulang → ekspektasi jujur: bisa kosong.
 
 ## IDE DIPERTIMBANGKAN & TIDAK DILANJUTKAN (jangan usulkan ulang kecuali Wisnu minta)
 - "Formula Sambung" BSJP→intraday RAJA (irisan 09:15, hemat fee 0.40 di hari overlap):
