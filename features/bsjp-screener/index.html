@@ -46,6 +46,7 @@
       <span style="font-family:var(--f-mono);font-size:10px;color:var(--ghost)">Mode:</span>
       <button class="btn" id="btn-mode-drift" style="font-weight:700">📉 Drift</button>
       <button class="btn" id="btn-mode-event">⚡ Event (hijau&gt;3% + vol≥3x)</button>
+      <button class="btn" id="btn-mode-swing">🌊 Swing (karakter mean-reverter)</button>
       <button class="btn btn-primary" id="btn-run">▶ Jalankan Screening</button>
       <button class="btn" id="btn-all">⛃ Scan Semua Emiten IHSG</button>
       <button class="btn" id="btn-stop" style="display:none">⏹ Stop</button>
@@ -67,6 +68,11 @@
       besok (proxy konservatif; 09:15 diuji di pipeline dgn data intraday). Spesifikasi
       dikunci di muka, n&lt;15 tidak diperingkat, KANDIDAT = WLB net ≥50 &amp; gap split ≤20pp —
       dan tetap WAJIB pipeline penuh sebelum jadi formula.<br>
+      <b>Mode 🌊 Swing</b> = screener KARAKTER (bukan performa!): riwayat ≥3thn, bukan
+      downtrend struktural (ret3y≥0 atau ≥40% waktu &gt;MA200), ≥10 episode −30% dari
+      high-60hr, median pulih +120hr positif, likuiditas ≥Rp2M/hari. Hukum tick TIDAK
+      berlaku di swing. KANDIDAT = calon Kunci baru → formula dicari per emiten via
+      grid framework + temporal split (JANGAN baca med. pulih sbg return formula).<br>
       <b>α 6bln</b> = drift 6bln emiten − drift 6bln IHSG (metode hitung identik). α positif =
       emiten mengungguli pasar (alpha); drift positif dengan α negatif = kemungkinan cuma beta
       (ikut arus pasar/recovery). Kandidat sejati: <b>drift 6bln positif DAN α positif</b> —
@@ -198,6 +204,81 @@ async function screenOne(sym) {
            net6: avg6 != null ? avg6 - cost : null, ev }
 }
 
+// ── MODE SWING: screener KARAKTER mean-reverter (calon Kunci baru) ──
+// Mengukur DNA emiten dari daily 5 tahun, BUKAN performa formula (n episode
+// belasan → backtest mini di 800 emiten = pabrik juara kebetulan; formula dicari
+// per emiten shortlist via grid framework + temporal split). Spesifikasi dikunci:
+//   episode = close turun ≥30% dari high-60hr (hari pertama masuk zona)
+//   pulih   = median return +120 hari bursa dari awal episode
+//   gerbang = riwayat ≥3thn · bukan downtrend struktural (ret3y≥0 ATAU ≥40%
+//             waktu di atas MA200) · episode ≥10 · median pulih > 0 ·
+//             likuiditas median ≥ Rp2M/hari. Hukum tick TIDAK berlaku (swing
+//             ~1-3 trade/thn, biaya teramortisasi).
+async function screenSwing(sym) {
+  const to = new Date(Date.now() + 7*3600*1000).toISOString().slice(0, 10)
+  const from = new Date(Date.now() - 5*365*86400*1000).toISOString().slice(0, 10)
+  const daily = await fetchDaily(sym, to, from)   // (sym, BARU, LAMA)
+  if (!daily || daily.length < 250) throw new Error('data < 1 thn')
+  const asc = [...daily].sort((a, b) => a.date < b.date ? -1 : 1)
+  const n = asc.length
+  const years = n / 247
+  const closes = asc.map(r => r.close)
+  const price = closes[n-1]
+  const tickPct = tickSize(price) / price * 100
+
+  // MA200 & % waktu di atasnya
+  let above = 0, maN = 0
+  let sum = 0
+  for (let i = 0; i < n; i++) {
+    sum += closes[i]
+    if (i >= 200) sum -= closes[i-200]
+    if (i >= 199) { maN++; if (closes[i] > sum/200) above++ }
+  }
+  const aboveMA200 = maN ? above/maN*100 : null
+
+  // return 3 tahun (atau sepanjang data kalau < 3thn)
+  const i3y = Math.max(0, n - 3*247)
+  const ret3y = closes[i3y] ? (price/closes[i3y] - 1)*100 : null
+
+  // episode kapitulasi: masuk zona dd<=-30% dari high-60 (excl hari ini)
+  const eps = []
+  let inZone = false
+  for (let i = 60; i < n; i++) {
+    let hi = 0
+    for (let j = i-60; j < i; j++) if (closes[j] > hi) hi = closes[j]
+    const dd = hi ? closes[i]/hi - 1 : 0
+    if (dd <= -0.30) {
+      if (!inZone) { eps.push(i); inZone = true }
+    } else inZone = false
+  }
+  // median pulih +120 hari dari awal episode
+  const recs = []
+  for (const i of eps) if (i + 120 < n && closes[i]) recs.push((closes[i+120]/closes[i] - 1)*100)
+  recs.sort((a, b) => a - b)
+  const rec120 = recs.length ? recs[Math.floor(recs.length/2)] : null
+
+  // likuiditas: median nilai transaksi 6 bulan terakhir
+  const vals = asc.slice(-126).map(r => (r.close||0) * (r.volume||0)).filter(v => v > 0).sort((a,b)=>a-b)
+  const liq = vals.length ? vals[Math.floor(vals.length/2)] : 0
+
+  // volatilitas: median range harian 1 thn (informasional)
+  const rng = asc.slice(-252).filter(r => r.high && r.low && r.close)
+    .map(r => (r.high - r.low)/r.close*100).sort((a,b)=>a-b)
+  const rangePct = rng.length ? rng[Math.floor(rng.length/2)] : null
+
+  const fails = []
+  if (years < 3) fails.push('riwayat<3thn')
+  const structDown = !((ret3y != null && ret3y >= 0) || (aboveMA200 != null && aboveMA200 >= 40))
+  if (structDown) fails.push('downtrend struktural')
+  if (eps.length < 10) fails.push('episode<10')
+  if (rec120 == null || rec120 <= 0) fails.push('pulih≤0')
+  if (liq < 2e9) fails.push('likuiditas<2M')
+
+  return { sym, price, tickPct,
+           sw: { years, aboveMA200, ret3y, nEp: eps.length, nRec: recs.length,
+                 rec120, liq, rangePct, eligible: fails.length === 0, fails } }
+}
+
 function verdictOf(r) {
   if (r.net > 0.3 && r.win >= 52) return ['LAYAK', 'v-layak']
   if (r.net >= 0) return ['MARGINAL', 'v-marginal']
@@ -209,8 +290,10 @@ const fmtPct = (x, d=2) => x == null ? '–' : (x >= 0 ? '+' : '') + x.toFixed(d
 let STOP = false
 let RESULTS = []                 // hasil scan terakhir — bisa di-sort ulang tanpa re-scan
 let BENCH = null                 // benchmark IHSG terakhir
-let MODE = 'drift'               // 'drift' | 'event' — satu scan, dua lensa
-const SORTS = { drift: { key: 'net6', dir: -1 }, event: { key: 'ev_wlb', dir: -1 } }
+let MODE = 'drift'               // 'drift' | 'event' (satu scan overnight) | 'swing' (scan terpisah 5thn)
+let SCAN_KIND = null             // 'overnight' | 'swing' — jenis scan yang menghasilkan RESULTS
+const SORTS = { drift: { key: 'net6', dir: -1 }, event: { key: 'ev_wlb', dir: -1 },
+                swing: { key: 'sw_rec120', dir: -1 } }
 
 const HEADS = {
   drift: `<tr>
@@ -218,6 +301,12 @@ const HEADS = {
     <th data-key="avg">Drift Avg</th><th data-key="avg6">Drift 6bln</th><th data-key="alpha">α 6bln</th><th data-key="win">Win% net</th><th data-key="flat">Flat%</th><th data-key="wlb">WLB net</th>
     <th data-key="dRed">Drift stlh Merah</th><th data-key="dGreen">Drift stlh Hijau</th>
     <th data-key="cost">Biaya Riil</th><th data-key="net">NET</th><th data-key="net6">NET 6bln</th><th>Verdict</th>
+  </tr>`,
+  swing: `<tr>
+    <th data-key="sym">Emiten</th><th data-key="price">Harga</th><th data-key="tickPct">Tick%</th>
+    <th data-key="sw_years">Riwayat</th><th data-key="sw_ret3y">Ret 3thn</th><th data-key="sw_aboveMA200">%&gt;MA200</th>
+    <th data-key="sw_nEp">Episode −30%</th><th data-key="sw_rec120">Med. Pulih +120hr</th>
+    <th data-key="sw_liq">Likuiditas</th><th data-key="sw_rangePct">Range%</th><th>Status</th>
   </tr>`,
   event: `<tr>
     <th data-key="sym">Emiten</th><th data-key="price">Harga</th><th data-key="tickPct">Tick%</th>
@@ -227,7 +316,11 @@ const HEADS = {
   </tr>`,
 }
 function buildHead() { const t=$('thead'); if (t) t.innerHTML = HEADS[MODE]; bindSortHandlers() }
-function getVal(r, key) { return key.startsWith('ev_') ? (r.ev ? r.ev[key.slice(3)] : null) : r[key] }
+function getVal(r, key) {
+  if (key.startsWith('ev_')) return r.ev ? r.ev[key.slice(3)] : null
+  if (key.startsWith('sw_')) return r.sw ? r.sw[key.slice(3)] : null
+  return r[key]
+}
 
 async function run(symList) {
   const syms = symList ?? $('syms').value.split(/[\s,;]+/).map(s => s.trim().toUpperCase()).filter(Boolean)
@@ -239,6 +332,12 @@ async function run(symList) {
   $('tbl').style.display = 'table'
   $('note').style.display = 'block'
 
+  const kind = MODE === 'swing' ? 'swing' : 'overnight'
+  SCAN_KIND = kind
+  if (kind === 'swing') {
+    $('bench').style.display = 'none'
+    $('status').textContent = 'Scan Swing (daily 5 tahun per emiten)…'
+  } else {
   // 1) Benchmark IHSG dulu — baseline untuk membaca drift emiten secara relatif
   BENCH = null
   $('bench').style.display = 'block'
@@ -260,6 +359,7 @@ async function run(symList) {
       ` <span class="dim">— kolom α kosong; drift emiten terbaca absolut (hati-hati bias pasar).</span>`
   }
   await new Promise(r => setTimeout(r, 250))
+  }
 
   const body = $('tbody')
   body.innerHTML = ''
@@ -270,7 +370,7 @@ async function run(symList) {
     let attempt = 0
     while (true) {
       try {
-        results.push(await screenOne(syms[i]))
+        results.push(await (kind === 'swing' ? screenSwing(syms[i]) : screenOne(syms[i])))
         break
       } catch (e) {
         if (e.message === 'RATE_LIMITED' && attempt < 3 && !STOP) {
@@ -287,12 +387,13 @@ async function run(symList) {
     await new Promise(r => setTimeout(r, 350))
   }
   // alpha dihitung sekali di sini (bukan saat render) supaya bisa jadi kolom sort
-  for (const r of results) {
+  if (kind !== 'swing') for (const r of results) {
     if (!r.error) r.alpha = (BENCH && BENCH.avg6 != null && r.avg6 != null) ? r.avg6 - BENCH.avg6 : null
   }
   RESULTS = results
   SORTS.drift = { key: 'net6', dir: -1 }   // pelajaran RATU & CDIA
   SORTS.event = { key: 'ev_wlb', dir: -1 } // permintaan: peringkat WLB (net)
+  SORTS.swing = { key: 'sw_rec120', dir: -1 }
   renderTable()
   // (render dipindah ke renderTable() di bawah — bisa dipanggil ulang saat sortir)
   if (!STOP) $('status').textContent = `Selesai — ${results.filter(r => !r.error).length}/${syms.length} emiten. Urut berdasarkan NET 6bln.`
@@ -305,10 +406,19 @@ function renderTable() {
   buildHead()
   const body = $('tbody')
   body.innerHTML = ''
+  // guard: lensa & jenis scan harus cocok (swing = scan terpisah 5 tahun)
+  const wantSwing = MODE === 'swing'
+  if (RESULTS.length && ((wantSwing && SCAN_KIND !== 'swing') || (!wantSwing && SCAN_KIND === 'swing'))) {
+    const tr = document.createElement('tr')
+    tr.innerHTML = `<td colspan="16" class="dim">Hasil scan saat ini adalah scan ${SCAN_KIND === 'swing' ? 'Swing' : 'overnight (Drift/Event)'} — pindah mode lalu ▶ Jalankan Screening / Scan Semua lagi untuk lensa ini.</td>`
+    body.appendChild(tr)
+    return
+  }
   const { key, dir } = SORTS[MODE]
   const rank = r => {
     if (r.error) return 2
     if (MODE === 'event') return (r.ev && r.ev.eligible) ? 0 : 1  // n<15 / tanpa sinyal → bawah
+    if (MODE === 'swing') return (r.sw && r.sw.eligible) ? 0 : 1  // gagal gerbang → bawah
     return 0
   }
   const sorted = [...RESULTS].sort((a, b) => {
@@ -323,10 +433,28 @@ function renderTable() {
     return dir * (va - vb)
   })
   const nCols = MODE === 'drift' ? 15 : 10
+  const fmtB = v => v == null ? '–' : 'Rp' + (v/1e9).toFixed(1) + ' M'
   for (const r of sorted) {
     const tr = document.createElement('tr')
     if (r.error) {
       tr.innerHTML = `<td>${r.sym}</td><td colspan="${nCols}" class="dim">gagal: ${r.error}</td>`
+    } else if (MODE === 'swing') {
+      const s = r.sw
+      const status = s.eligible
+        ? '<span class="v-layak">KANDIDAT → pipeline swing</span>'
+        : `<span class="dim">${s.fails.join(' · ')}</span>`
+      tr.innerHTML =
+        `<td${s.eligible ? '' : ' class="dim"'}>${r.sym}</td>` +
+        `<td>${r.price.toLocaleString('id-ID')}</td>` +
+        `<td class="dim">${r.tickPct.toFixed(2)}%</td>` +
+        `<td class="dim">${s.years.toFixed(1)} thn</td>` +
+        `<td class="${(s.ret3y ?? 0) >= 0 ? 'up' : 'down'}">${fmtPct(s.ret3y, 0)}</td>` +
+        `<td class="dim">${s.aboveMA200 != null ? s.aboveMA200.toFixed(0)+'%' : '–'}</td>` +
+        `<td>${s.nEp}</td>` +
+        `<td class="${(s.rec120 ?? 0) >= 0 ? 'up' : 'down'}"><b>${fmtPct(s.rec120, 1)}</b> <span class="dim">(n=${s.nRec})</span></td>` +
+        `<td class="dim">${fmtB(s.liq)}</td>` +
+        `<td class="dim">${s.rangePct != null ? s.rangePct.toFixed(1)+'%' : '–'}</td>` +
+        `<td>${status}</td>`
     } else if (MODE === 'event') {
       const e = r.ev
       if (!e) {
@@ -395,6 +523,7 @@ function setMode(m) {
   MODE = m
   $('btn-mode-drift').style.fontWeight = m === 'drift' ? '700' : '400'
   $('btn-mode-event').style.fontWeight = m === 'event' ? '700' : '400'
+  $('btn-mode-swing').style.fontWeight = m === 'swing' ? '700' : '400'
   $('bench').style.display = (m === 'drift' && BENCH != null) ? 'block' : 'none'
   if (RESULTS.length) renderTable(); else buildHead()
 }
@@ -422,6 +551,7 @@ async function runAll() {
 $('btn-run').addEventListener('click', () => run())
 $('btn-mode-drift').addEventListener('click', () => setMode('drift'))
 $('btn-mode-event').addEventListener('click', () => setMode('event'))
+$('btn-mode-swing').addEventListener('click', () => setMode('swing'))
 buildHead()
 $('btn-all').addEventListener('click', runAll)
 $('btn-stop').addEventListener('click', () => { STOP = true })
