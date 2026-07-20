@@ -64,8 +64,15 @@ hindari grid search di wilayah mati. PTRO & TINS: malam. RAJA: siang.
 - **INDY ❌ DITOLAK 20 Jul** (docs/ANALISA_SWING_INDY.md): karakter nyata (episode −30%
   hold 60hr: win 75% avg +25.9%!) tapi n=12 → WLB 46.8 < 50. MACD exit-all merusak
   (DNA ≠ RAJA). Pelajaran: median pulih ≠ konsistensi menang.
-- → NEXT: upgrade gerbang screener swing v2 (win% episode ≥75, ≤4 ep/thn, bendera
-  pump, likuiditas ≥10M, ret jendela penuh) → scan ulang → ekspektasi jujur: bisa kosong.
+- Scan v2 SELESAI: RAJA muncul #8 (win ep 89) = validasi gerbang. Shortlist: BIPI, MEDC, DSNG.
+- **BIPI ❌ & DSNG ❌ DITOLAK 20 Jul → PERBURUAN KUNCI KEDUA DITUTUP**
+  (docs/ANALISA_SWING_BIPI_DSNG.md): episode bergerombol menggelembungkan n —
+  BIPI 13→4 independen (plus sirkularitas horizon-120 & lantai gocap), DSNG 12→5
+  (win independen 50% @60/90hr). Kesimpulan: kapitulasi independen langka di mana pun;
+  **Kunci RAJA = anomali tunggal (terbukti data)**. MEDC TIDAK dilanjutkan (penyakit
+  aritmetika sama hampir pasti). Screener di-patch v2.1: de-cluster ≥60 hari bursa
+  (n jujur; diverifikasi harness). Jangan buka ulang perburuan tanpa kandidat lolos
+  v2.1 atau hipotesis struktural pra-data.
 
 ## IDE DIPERTIMBANGKAN & TIDAK DILANJUTKAN (jangan usulkan ulang kecuali Wisnu minta)
 - "Formula Sambung" BSJP→intraday RAJA (irisan 09:15, hemat fee 0.40 di hari overlap):

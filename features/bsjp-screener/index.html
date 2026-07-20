@@ -69,7 +69,7 @@
       dikunci di muka, n&lt;15 tidak diperingkat, KANDIDAT = WLB net ≥50 &amp; gap split ≤20pp —
       dan tetap WAJIB pipeline penuh sebelum jadi formula.<br>
       <b>Mode 🌊 Swing v2</b> = screener KARAKTER (bukan performa!). Gerbang: riwayat ≥3thn ·
-      bukan downtrend struktural · 10 ≤ episode −30% dgn ≤4/thn (buang gorengan serial) ·
+      bukan downtrend struktural · 10 ≤ episode −30% INDEPENDEN (de-cluster ≥60 hari bursa — gerombolan satu dasar dihitung satu) dgn ≤4/thn ·
       <b>win% episode +120hr ≥75</b> (pelajaran INDY: median pulih ≠ konsistensi menang) ·
       med. pulih 0..+100% (lebih = profil pump, wilayah Cacing/Naga) · likuiditas ≥Rp10M
       (skala Defence). MaxDD = informasi jejak kolaps sekuler. Hukum tick TIDAK berlaku di
@@ -244,17 +244,23 @@ async function screenSwing(sym) {
   const i3y = Math.max(0, n - 3*247)
   const ret3y = closes[i3y] ? (price/closes[i3y] - 1)*100 : null
 
-  // episode kapitulasi: masuk zona dd<=-30% dari high-60 (excl hari ini)
-  const eps = []
+  // episode kapitulasi: masuk zona dd<=-30% dari high-60 (excl hari ini),
+  // lalu DE-CLUSTER: hanya peristiwa berjarak >=60 hari bursa yang dihitung
+  // independen (pelajaran BIPI/DSNG 20 Jul: gerombolan entry dari satu dasar
+  // menggelembungkan n — 12 "episode" DSNG = 5 peristiwa nyata; WLB butuh
+  // sampel independen)
+  const rawEps = []
   let inZone = false
   for (let i = 60; i < n; i++) {
     let hi = 0
     for (let j = i-60; j < i; j++) if (closes[j] > hi) hi = closes[j]
     const dd = hi ? closes[i]/hi - 1 : 0
     if (dd <= -0.30) {
-      if (!inZone) { eps.push(i); inZone = true }
+      if (!inZone) { rawEps.push(i); inZone = true }
     } else inZone = false
   }
+  const eps = []
+  for (const i of rawEps) if (!eps.length || i - eps[eps.length-1] >= 60) eps.push(i)
   // median pulih +120 hari dari awal episode + WIN% episode (pelajaran INDY:
   // median pulih ≠ konsistensi menang — Kunci butuh win episode sangat tinggi)
   const recs = []
