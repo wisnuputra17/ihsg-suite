@@ -278,6 +278,7 @@ import { prevTradingDay, isTradingDay, roundToTick } from '../../shared/idx-cale
 import { computeOrbFromIntraday, hasOrbBreakup } from '../../shared/orb.js'
 import { onReady }     from '../../shared/token.js'
 import { fetchIntraday, fetchDaily, fetchBroker } from '../../shared/api.js'
+import { calcMACD } from '../../shared/indicators.js'
 import { TOKEN } from '../../shared/store.js'
 import { gsLoad, gsSave, gsAppend } from '../../shared/indexeddb.js'
 
@@ -600,6 +601,191 @@ function _renderPtroBsjp(d) {
     setStep('exit', d.isExitDay ? 'active' : 'pending', d.isExitDay ? '⏳' : '📅')
     const when = d.isWeekend ? 'Senin' : (d.isExitDay ? 'HARI INI' : 'besok')
     setBanner('entry', `🌙 POSISI TERBUKA — Exit ${when} jam ${PTRO_EXIT} FIX`)
+  }
+}
+
+// ============================================================
+// BSJP TPIA v2 — SEKUNDER, NET TIPIS (formula final, handoff 19 Jul)
+//   Entry 16:00 HANYA jika (cek 15:55): MACD hist intraday < 0 ATAU CLV < 0.3
+//   Exit besok 09:00 di OPEN (jual pre-opening) · n=146 · WLB 69.2 · avg +0.61
+//   net ~+0.16 (tipis!) · MDD 10.3 · bandarmology TIDAK dipakai (menurunkan WLB)
+//   SKIP jendela MSCI. DEFINISI JENDELA = ASUMSI (analisa asli tidak mencatat
+//   tanggalnya): bulan review Feb/Mei/Agu/Nov tgl >=15 s/d akhir bulan, plus
+//   tgl <=4 bulan berikutnya. Koreksi fungsi ini bila spesifikasi asli ditemukan.
+// ============================================================
+function TPIA_MSCI(dateStr) {
+  const mo = +dateStr.slice(5,7), day = +dateStr.slice(8,10)
+  if ([2,5,8,11].includes(mo) && day >= 15) return true
+  if ([3,6,9,12].includes(mo) && day <= 4)  return true
+  return false
+}
+let _tpiaAlerted = null
+
+async function _fetchTpiaBsjp() {
+  if (!TOKEN.isSet()) return
+  try {
+    const now      = Date.now()
+    const wib      = new Date(now + 7*3600*1000)
+    const todayStr = wib.toISOString().slice(0, 10)
+    const timeNow  = _wibTime()
+    const dow      = wib.getUTCDay()
+    const isWeekend = dow === 0 || dow === 6
+    function lastWorkday(fromDate) {
+      const d = new Date(fromDate + 'T07:00:00Z')
+      do { d.setUTCDate(d.getUTCDate() - 1) } while (d.getUTCDay() === 0 || d.getUTCDay() === 6)
+      return d.toISOString().slice(0, 10)
+    }
+    let entryDateStr
+    if (isWeekend)              entryDateStr = lastWorkday(todayStr)
+    else if (timeNow >= '16:00') entryDateStr = todayStr
+    else                         entryDateStr = lastWorkday(todayStr)
+
+    // daily hari entry → OHLC utk CLV final + harga entry
+    let entryRow = null
+    try {
+      const from4 = new Date(new Date(entryDateStr+'T07:00:00Z').getTime()-4*86400*1000).toISOString().slice(0,10)
+      const dl = await fetchDaily('TPIA', entryDateStr, from4)
+      if (dl && dl.length && dl[0].date === entryDateStr) entryRow = dl[0]
+    } catch(e) {}
+    const clvOf = r => (r && r.high != null && r.low != null && r.high !== r.low)
+      ? (r.close - r.low) / (r.high - r.low) : null
+
+    // MACD hist intraday utk hari tertentu (candle 1m, hist terakhir <= 15:55)
+    async function macdHistAt(dayStr) {
+      try {
+        const fromTs = Math.floor(new Date(dayStr+'T01:00:00Z').getTime()/1000)
+        const toTs   = fromTs + 9*3600
+        const raw = await fetchIntraday('TPIA', toTs, fromTs, 1)
+        if (!raw || raw.length < 40) return null
+        const s = [...raw].sort((a,b) => a.unix - b.unix)
+          .filter(x => { const t=(x.datetime||'').slice(11,16); return t >= '09:00' && t <= '15:55' })
+        if (s.length < 40) return null
+        const { hist } = calcMACD(s.map(x => x.close))
+        for (let i = hist.length-1; i >= 0; i--) if (hist[i] != null) return hist[i]
+        return null
+      } catch(e) { return null }
+    }
+
+    // kondisi FINAL hari entry
+    const entryMacd = await macdHistAt(entryDateStr)
+    const entryClv  = clvOf(entryRow)
+    const condMacd  = entryMacd != null && entryMacd < 0
+    const condClv   = entryClv  != null && entryClv  < 0.3
+    const msciEntry = TPIA_MSCI(entryDateStr)
+    const signalEntry = !msciEntry && (condMacd || condClv) && entryRow != null
+    const entryPrice  = entryRow ? entryRow.close : null
+
+    // precheck LIVE hari ini (sebelum 16:00)
+    let live = null
+    if (!isWeekend && entryDateStr !== todayStr) {
+      let todayRow = null
+      try {
+        const from7 = new Date(now - 7*86400*1000).toISOString().slice(0,10)
+        const dT = await fetchDaily('TPIA', todayStr, from7)
+        if (dT && dT.length && dT[0].date === todayStr) todayRow = dT[0]
+      } catch(e) {}
+      live = { macd: await macdHistAt(todayStr), clv: clvOf(todayRow),
+               msci: TPIA_MSCI(todayStr) }
+    }
+
+    // exit besok 09:00 = OPEN hari ini
+    let tradeReturn = null, exitPrice = null
+    const isExitDay = !isWeekend && entryDateStr !== todayStr
+    if (isExitDay && signalEntry && entryPrice && timeNow >= '09:00') {
+      try {
+        const from7 = new Date(now - 7*86400*1000).toISOString().slice(0,10)
+        const dT = await fetchDaily('TPIA', todayStr, from7)
+        if (dT && dT.length && dT[0].date === todayStr && dT[0].open) {
+          exitPrice = dT[0].open
+          tradeReturn = (exitPrice - entryPrice)/entryPrice*100
+        }
+      } catch(e) {}
+    }
+
+    _renderTpiaBsjp({ todayStr, timeNow, isWeekend, entryDateStr, signalEntry,
+                      condMacd, condClv, entryMacd, entryClv, msciEntry,
+                      entryPrice, live, exitPrice, tradeReturn, isExitDay })
+  } catch(e) { console.warn('[bsjp-tpia]', e.message) }
+}
+
+function _renderTpiaBsjp(d) {
+  const fmt = v => v ? v.toLocaleString('id-ID') : '–'
+  const $v = (id,val) => { const el=document.getElementById(id); if (el) el.textContent = val || '–' }
+  const setStep = (id,state,icon) => {
+    const el=document.getElementById('tb-step-'+id); if (el) el.className='step-row '+state
+    const ic=document.getElementById('tb-icon-'+id); if (ic) ic.textContent=icon
+  }
+  const setBanner = (type,text) => {
+    const b=document.getElementById('tb-banner'); if (!b) return
+    b.className='signal-banner '+(type?type+'-banner':'')
+    b.style.display=type?'block':'none'
+    b.textContent=text||''
+  }
+  const ref=document.getElementById('tb-refresh')
+  if (ref) ref.textContent = d.isWeekend ? 'Weekend' : 'Update: '+d.timeNow+' WIB'
+
+  // panel keputusan sore
+  const pre=document.getElementById('tb-precheck')
+  if (pre) {
+    if (!d.isWeekend && d.entryDateStr !== d.todayStr && d.timeNow < '16:00' && d.live) {
+      const L=d.live
+      if (L.msci) {
+        pre.style.display='block'
+        pre.innerHTML = `<div style="color:var(--ghost);font-weight:700;margin-bottom:4px">CEK ENTRY SORE INI (${d.todayStr})</div>
+          <div style="color:#f59e0b;font-weight:700">⛔ JENDELA MSCI (asumsi) — SKIP tanpa melihat kondisi lain</div>`
+      } else {
+        const okM = L.macd != null && L.macd < 0
+        const okC = L.clv  != null && L.clv  < 0.3
+        const ok  = okM || okC
+        pre.style.display='block'
+        pre.innerHTML = `
+          <div style="color:var(--ghost);font-weight:700;margin-bottom:4px">CEK ENTRY SORE INI (${d.todayStr}) — cukup SALAH SATU (OR)</div>
+          <div>${okM?'✅':'❌'} MACD hist intraday: <b>${L.macd!=null?L.macd.toFixed(2):'–'}</b> <span style="color:var(--ghost)">syarat &lt; 0</span></div>
+          <div>${okC?'✅':'❌'} CLV harian (live): <b>${L.clv!=null?L.clv.toFixed(2):'–'}</b> <span style="color:var(--ghost)">syarat &lt; 0.30</span></div>
+          <div style="color:var(--ghost)">Keputusan final: cek ulang 15:55 — kedua angka masih bergerak</div>
+          <div style="margin-top:4px">${ok
+            ? '<span style="color:var(--live);font-weight:700">🟢 AMBIL POSISI 16:00</span>'
+            : '<span style="color:var(--down);font-weight:700">⛔ SKIP SORE INI</span>'}</div>`
+        if (ok && d.timeNow >= '15:30' && _tpiaAlerted !== d.todayStr) {
+          _tpiaAlerted = d.todayStr
+          _playAlert('iep_confirmed')
+        }
+      }
+    } else pre.style.display='none'
+  }
+
+  if (d.msciEntry) {
+    setStep('entry','skip','⚪'); setStep('exit','pending','○')
+    $v('tb-entry-price','SKIP'); $v('tb-cond','jendela MSCI')
+    const box=document.getElementById('tb-result-box'); if (box) box.style.display='none'
+    setBanner('avoid', `⛔ SKIP ${d.entryDateStr} — jendela MSCI (asumsi)`)
+    return
+  }
+  if (!d.signalEntry) {
+    setStep('entry','skip','⚪'); setStep('exit','pending','○')
+    $v('tb-entry-price','SKIP')
+    $v('tb-cond', `MACD ${d.entryMacd!=null?d.entryMacd.toFixed(2):'–'} / CLV ${d.entryClv!=null?d.entryClv.toFixed(2):'–'}`)
+    const box=document.getElementById('tb-result-box'); if (box) box.style.display='none'
+    setBanner('avoid', `⛔ SKIP hari entry ${d.entryDateStr} — dua kondisi tidak terpenuhi`)
+    return
+  }
+
+  setStep('entry','done','✓')
+  $v('tb-entry-price', fmt(d.entryPrice))
+  $v('tb-cond', [d.condMacd?'MACD<0':null, d.condClv?'CLV<0.3':null].filter(Boolean).join(' + '))
+
+  if (d.tradeReturn != null) {
+    setStep('exit','done','✓')
+    const box=document.getElementById('tb-result-box'); if (box) box.style.display='block'
+    const r=document.getElementById('tb-result-ret')
+    if (r) { r.textContent=`${d.tradeReturn>=0?'+':''}${d.tradeReturn.toFixed(2)}%`
+             r.style.color=d.tradeReturn>=0?'var(--live)':'var(--down)' }
+    $v('tb-result-meta', `Entry ${fmt(d.entryPrice)} (${d.entryDateStr}) → Open ${fmt(d.exitPrice)} · gross sebelum fee 0.40%`)
+    setBanner('entry', `✅ TRADE SELESAI — ${d.tradeReturn>=0?'+':''}${d.tradeReturn.toFixed(2)}%`)
+  } else {
+    setStep('exit', d.isExitDay ? 'active' : 'pending', d.isExitDay ? '⏳' : '📅')
+    const when = d.isWeekend ? 'Senin' : (d.isExitDay ? 'HARI INI' : 'besok')
+    setBanner('entry', `🌙 POSISI TERBUKA — JUAL ${when} di OPEN 09:00 (pasang pre-opening 08:45)`)
   }
 }
 
@@ -1377,6 +1563,63 @@ function _buildBsjpCards() {
       </div>
     </div>
 
+    <div class="it-card" id="bsjp-tpia-card">
+      <div class="card-header">
+        <span class="card-sym">TPIA</span>
+        <span class="card-badge">BSJP v2</span>
+        <span class="card-gap-label" style="margin-left:auto;font-family:var(--f-mono);font-size:10px;font-weight:700;color:var(--dim)">SEKUNDER · NET TIPIS</span>
+      </div>
+
+      <div class="signal-banner" id="tb-banner"></div>
+
+      <div id="tb-precheck" style="display:none;margin:8px 12px;padding:8px 10px;border-radius:4px;
+           background:var(--sink);border:1px solid var(--line);font-family:var(--f-mono);font-size:10px;line-height:1.7"></div>
+
+      <div class="step-row" id="tb-step-entry">
+        <span class="step-icon" id="tb-icon-entry">○</span>
+        <div class="step-body">
+          <div class="step-label">16:00 ENTRY Lelang Penutupan</div>
+          <div class="step-details">
+            <div class="step-kv"><span class="step-key">Harga entry</span><span class="step-val" id="tb-entry-price">–</span></div>
+            <div class="step-kv"><span class="step-key">Kondisi terpenuhi</span><span class="step-val" id="tb-cond">–</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="step-row pending" id="tb-step-exit">
+        <span class="step-icon" id="tb-icon-exit">○</span>
+        <div class="step-body">
+          <div class="step-label">Exit besok 09:00 — JUAL DI OPEN (pasang pre-opening)</div>
+          <div class="step-details">
+            <div class="step-kv"><span class="step-key">Statistik</span><span class="step-val">WLB 69.2% · avg +0.61%</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="result-box" id="tb-result-box" style="display:none">
+        <div class="result-ret" id="tb-result-ret">–</div>
+        <div class="result-meta" id="tb-result-meta">–</div>
+      </div>
+
+      <div style="margin:8px 12px;padding:8px 10px;border-radius:4px;background:var(--raised);
+                  border:1px solid var(--line);font-family:var(--f-mono);font-size:10px;">
+        <div style="color:var(--ghost);margin-bottom:4px;font-weight:700">Formula v2 (final): kontrarian OR</div>
+        <div style="color:var(--dim)">Entry HANYA jika salah satu (cek 15:55): MACD hist intraday &lt; 0 <b>ATAU</b> CLV &lt; 0.3
+        (close di 30% bawah range harian). n=146 · WLB 69.2% · avg +0.61% · <b>net ~+0.16% (TIPIS)</b> · MDD 10.3%.</div>
+        <div style="color:var(--dim);margin-top:4px">Bandarmology TIDAK dipakai (terbukti menurunkan WLB). Fee 0.40%.</div>
+        <div style="color:#f59e0b;margin-top:4px">⚠ SKIP di jendela MSCI (Feb/Mei/Agu/Nov tgl 15 → akhir bulan + 4 hari awal bulan berikutnya — <b>ASUMSI standar</b>, koreksi TPIA_MSCI di kode bila analisa asli berbeda). Margin tipis: kesalahan eksekusi 1 tick bisa menghapus edge.</div>
+      </div>
+
+      <div class="card-footer">
+        <div class="card-params">
+          <span class="param-tag">MACD&lt;0 OR CLV&lt;0.3</span>
+          <span class="param-tag">exit 09:00 open</span>
+          <span class="param-tag">ex-MSCI</span>
+        </div>
+        <span id="tb-refresh">–</span>
+      </div>
+    </div>
+
     <!-- Info card BSJP -->
     <div class="it-card" style="padding:0">
       <div class="card-header">
@@ -1818,13 +2061,14 @@ function _startBsjp() {
   _buildBsjpCards()
   _fetchBsjpMonitor()
   _fetchPtroBsjp()
+  _fetchTpiaBsjp()
   // Cek tiap menit HANYA untuk update entry 16:00 dan hasil trade pagi
   // Foreign fetch dilakukan sekali saat jam >= 19:00 (data sudah final di Stockbit)
   _bsjpTimer = setInterval(() => {
     const t = _wibTime()
     // Jam bursa atau jam 19:00 (fetch foreign)
-    if (t >= '08:00' && t <= '17:00') { _fetchBsjpMonitor(); _fetchPtroBsjp(); return }
-    if (t >= '19:00' && t <= '19:05') { _fetchBsjpMonitor(); _fetchPtroBsjp(); return }
+    if (t >= '08:00' && t <= '17:00') { _fetchBsjpMonitor(); _fetchPtroBsjp(); _fetchTpiaBsjp(); return }
+    if (t >= '19:00' && t <= '19:05') { _fetchBsjpMonitor(); _fetchPtroBsjp(); _fetchTpiaBsjp(); return }
   }, 60*1000)
 }
 // _startBsjp sudah di-init di atas bersama _start
