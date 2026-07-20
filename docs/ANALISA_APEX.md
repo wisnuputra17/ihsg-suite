@@ -31,3 +31,22 @@ malam 0-tick otomatis −1.13%.
 - ARA-lock proxy: hanya 1/48 hari sinyal (bukan masalah utamanya).
 - Konfirmasi empiris aturan tick merah screener (BUMI → TINS → APEX, makin murah
   harga makin fatal). Masuk daftar JANGAN-DIUJI-ULANG.
+
+## OTOPSI 5 MALAM TERBAIK (20 Jul — pertanyaan Wisnu: bisakah diprediksi?)
+| Tanggal | hijau | vol vs avg20 | malam | 3 hari sesudah |
+|---|---|---|---|---|
+| 2026-01-02 | +5.1% | 0.4x | +9.7% | −1.5 / +1.5 / −4.4 |
+| 2025-11-17 | +33.6% | 16.1x | +7.9% | +4.9 / +3.7 / −0.9 |
+| 2025-06-12 | +10.9% | 30.0x | +4.9% | −4.7 / −3.7 / −2.0 |
+| 2026-02-03 | +6.2% | 0.5x | +4.2% | +1.5 / −2.0 / 0.0 |
+| 2025-10-03 | +16.4% | 7.2x | +4.0% | −3.9 / −10.6 / −1.5 |
+
+Median vol top5 = 7.2x vs sisanya 1.3x; RSI tidak membedakan (59 vs 55).
+DIAGNOSIS: 3/5 = hari katalis (ledakan volume, spike-lalu-buang), 2/5 = artefak
+pasar tipis (gap open di vol 0.4-0.5x, eksekutabilitas diragukan).
+= LOTERE PERISTIWA, spesies WIFI. BUKAN formula:
+(1) hipotesis lahir dari pemenang → uji di data sama = sirkular;
+(2) kejadian ~belasan/18bln → n tak akan capai ambang framework;
+(3) sifat tak konsisten (2/5 justru volume mati).
+Wilayah yang tepat utk profit jenis ini: metode Cacing/Naga (katalis diskresioner),
+bukan BSJP statistik. Vonis DITOLAK tetap.
