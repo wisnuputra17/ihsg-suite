@@ -93,7 +93,7 @@ hindari grid search di wilayah mati. PTRO & TINS: malam. RAJA: siang.
    tail-driven (profil APEX market-wide). HIPOTESIS VOLUME-SURGE DITOLAK PERMANEN
    → jangan-diuji-ulang. Mode tetap dipertahankan sbg pemantau berkala (ekspektasi: kosong). Hasil akhir perburuan scan 800 emiten: 1 formula baru (PTRO v1
    masa percobaan) + 1 pantauan (RATU) + 3 penolakan terdokumentasi (TINS/APEX/MDKA).
-2. Card BSJP TPIA v2 ke intraday-trading (formula final, belum diimplementasi)
+2. ~~Card BSJP TPIA v2~~ ✅ SELESAI 20 Jul: panel OR (MACD intraday via calcMACD 1m + CLV live), SKIP jendela MSCI (DEFINISI=ASUMSI — fungsi TPIA_MSCI; koreksi bila spek asli ketemu), exit 09:00 open, badge net-tipis
 3. BNBR: kalau Wisnu kirim intraday 30m → uji eksekutabilitas hari hijau (ARA-lock analysis)
 5. Scalping RAJA re-kalibrasi (tunggu data intraday post-split ~Sep 2026)
 6. Screener bulanan pantau RATU: ambang aktivasi ulang = drift gross 60hr ≥0.9–1.0% & win ≥55% (sekarang 0.59 — belum). Detail docs/ANALISA_BSJP_RATU.md
