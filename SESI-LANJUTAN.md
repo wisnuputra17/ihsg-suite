@@ -48,6 +48,19 @@ hindari grid search di wilayah mati. PTRO & TINS: malam. RAJA: siang.
 - **Market Regime = indikator data-collector** (bukan halaman; checkbox → fetch IHSG+sektor otomatis via SECTOR_MAP; d.regime={ihsg,sectorTrend,rs,...}). PITFALL: fetchDaily(sym, BARU, LAMA) — pernah kena bug terbalik
 - shared/idx-calendar.js (libur 2026, tickSize, roundToTick), shared/regime.js, FEE_DAY_TRADE/FEE_REGULER di config, slippagePct backtestORB, SL price roundToTick
 
+## PERBURUAN KUNCI SWING KEDUA (dimulai 20 Jul)
+- **Mode 🌊 Swing di screener** ✅ dibangun: screener KARAKTER mean-reverter (episode
+  −30% dari high-60, median pulih +120hr, gerbang 5 kriteria — lihat legend/komentar
+  kode). Scan TERPISAH dari overnight (fetch 5thn). Hukum tick tidak berlaku di swing.
+- Prinsip dikunci: screener mengukur karakter BUKAN performa (n episode kecil →
+  backtest mini lintas 800 emiten = pabrik juara kebetulan). Formula per emiten
+  shortlist via grid framework (ANALISA_RAJA_PROJECT.md seksi B) + temporal split.
+- Keputusan Wisnu 20 Jul (dari diskusi FOMO): Kunci RAJA TIDAK ditambah syarat
+  hijau/konfirmasi breakout (varian sudah kalah di 15+ uji; entry emas = kapitulasi).
+  Konviksi tanpa sinyal = jalur Defence dgn label jujur, bukan hibrida.
+- → NEXT: Wisnu jalankan Scan Semua di mode Swing, kirim hasil → shortlist →
+  export daily 5thn per kandidat → grid search formula.
+
 ## IDE DIPERTIMBANGKAN & TIDAK DILANJUTKAN (jangan usulkan ulang kecuali Wisnu minta)
 - "Formula Sambung" BSJP→intraday RAJA (irisan 09:15, hemat fee 0.40 di hari overlap):
   secara teknis valid & aditif, TAPI Wisnu putuskan 20 Jul TIDAK dilanjutkan — terlalu
