@@ -80,6 +80,9 @@ hindari grid search di wilayah mati. PTRO & TINS: malam. RAJA: siang.
    1.13 (tick 0.73%!), WLB maks 34, split 33/67, tail 147% — struktural, tanpa pantauan,
    export intraday TIDAK direkomendasikan → jangan-diuji-ulang.
    MDKA ❌ GUGUR (analisa Wisnu sendiri, dikonfirmasi 20 Jul — detail tidak di repo).
+   GZCO ❌ DITOLAK 20 Jul (docs/ANALISA_GZCO.md): spesies APEX lebih ekstrem — tail
+   345%, WLB maks 27, H2-2025 = artefak musim pump. Hukum kristal: tick ≥0.6% = gerbang
+   mati BSJP (BUMI/TINS/APEX/GZCO) → screener kolom tick merah = tolak otomatis.
    SHORTLIST TUTUP. Hasil akhir perburuan scan 800 emiten: 1 formula baru (PTRO v1
    masa percobaan) + 1 pantauan (RATU) + 3 penolakan terdokumentasi (TINS/APEX/MDKA).
 2. Card BSJP TPIA v2 ke intraday-trading (formula final, belum diimplementasi)
