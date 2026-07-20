@@ -43,6 +43,9 @@
     </div>
     <textarea class="sym-input" id="syms" spellcheck="false">RAJA, TPIA, RATU, CDIA, PANI, PTRO, BRPT, CUAN, MEDC, PGEO</textarea>
     <div class="controls">
+      <span style="font-family:var(--f-mono);font-size:10px;color:var(--ghost)">Mode:</span>
+      <button class="btn" id="btn-mode-drift" style="font-weight:700">📉 Drift</button>
+      <button class="btn" id="btn-mode-event">⚡ Event (hijau&gt;3% + vol≥3x)</button>
       <button class="btn btn-primary" id="btn-run">▶ Jalankan Screening</button>
       <button class="btn" id="btn-all">⛃ Scan Semua Emiten IHSG</button>
       <button class="btn" id="btn-stop" style="display:none">⏹ Stop</button>
@@ -50,18 +53,20 @@
     </div>
     <div class="bench" id="bench" style="display:none"></div>
     <table class="scr-table" id="tbl" style="display:none">
-      <thead><tr>
-        <th data-key="sym">Emiten</th><th data-key="price">Harga</th><th data-key="tickPct">Tick%</th><th data-key="n">n</th>
-        <th data-key="avg">Drift Avg</th><th data-key="avg6">Drift 6bln</th><th data-key="alpha">α 6bln</th><th data-key="win">Win%</th><th data-key="flat">Flat%</th><th data-key="wlb">WLB</th>
-        <th data-key="dRed">Drift stlh Merah</th><th data-key="dGreen">Drift stlh Hijau</th>
-        <th data-key="cost">Biaya Riil</th><th data-key="net">NET</th><th data-key="net6">NET 6bln</th><th>Verdict</th>
-      </tr></thead>
+      <thead id="thead"></thead>
       <tbody id="tbody"></tbody>
     </table>
     <div class="note" id="note" style="display:none">
       <b>Drift 6bln</b> = drift 6 bulan terakhir; ↓ = edge MELURUH vs setahun (kasus RATU —
       full-period menyesatkan), ↑ = edge menguat/bangkit. Panah membandingkan emiten dengan
       dirinya sendiri — saat pasar bear, panah ↓ bisa massal; itulah gunanya benchmark.<br>
+      <b>Win% net & WLB net</b> (berlaku di KEDUA mode) = kemenangan dihitung SETELAH biaya
+      (fee 0.40 + tick emiten). Pelajaran GZCO 20 Jul: win gross menyesatkan di tick mahal —
+      naik 1 tick di harga murah = "menang" gross tapi rugi net.<br>
+      <b>Mode ⚡ Event</b> = sinyal hijau &gt;3% + volume ≥3x avg20 → entry close, exit OPEN
+      besok (proxy konservatif; 09:15 diuji di pipeline dgn data intraday). Spesifikasi
+      dikunci di muka, n&lt;15 tidak diperingkat, KANDIDAT = WLB net ≥50 &amp; gap split ≤20pp —
+      dan tetap WAJIB pipeline penuh sebelum jadi formula.<br>
       <b>α 6bln</b> = drift 6bln emiten − drift 6bln IHSG (metode hitung identik). α positif =
       emiten mengungguli pasar (alpha); drift positif dengan α negatif = kemungkinan cuma beta
       (ikut arus pasar/recovery). Kandidat sejati: <b>drift 6bln positif DAN α positif</b> —
@@ -151,16 +156,46 @@ async function screenOne(sym) {
     if (asc[i-1].close && asc[i].open) d6.push((asc[i].open - asc[i-1].close) / asc[i-1].close * 100)
   }
   const avg6 = d6.length >= 30 ? d6.reduce((s, x) => s + x, 0) / d6.length : null
-  const w = drifts.filter(x => x > 0).length
   const flat = drifts.filter(x => x === 0).length
   const price = asc[asc.length-1].close
   const tickPct = tickSize(price) / price * 100
   const cost = FEE + tickPct
   const net = avg - cost
+  // Win & WLB dihitung NET (pelajaran GZCO 20 Jul: win gross menyesatkan di
+  // tick mahal — naik 1 tick di harga murah = "menang" gross tapi rugi net)
+  const w = drifts.filter(x => x - cost > 0).length
   const mean = a => a.length ? a.reduce((s,x)=>s+x,0)/a.length : null
+
+  // ── MODE EVENT: hijau>3% + volume ≥3x avg20 → entry close, exit open besok ──
+  // Spesifikasi DIKUNCI (20 Jul, hipotesis dari otopsi APEX, diuji cross-sectional
+  // out-of-sample). Exit open = proxy konservatif; 09:15 diuji di pipeline.
+  const evNets = [], evGross = []
+  for (let i = 21; i < asc.length - 1; i++) {
+    const r0 = asc[i], r1 = asc[i+1]
+    if (!r0.open || !r0.close || !r1.open) continue
+    const dr = (r0.close - r0.open) / r0.open * 100
+    if (dr <= 3) continue
+    let vsum = 0, vn = 0
+    for (let j = i-20; j < i; j++) { if (asc[j].volume) { vsum += asc[j].volume; vn++ } }
+    if (!vn || !r0.volume || r0.volume < 3 * (vsum/vn)) continue
+    const g = (r1.open - r0.close) / r0.close * 100
+    evGross.push(g)
+    evNets.push(g - FEE - tickSize(r1.open)/r1.open*100)
+  }
+  let ev = null
+  if (evNets.length) {
+    const nS = evNets.length
+    const wS = evNets.filter(x => x > 0).length
+    const h = Math.floor(nS/2)
+    const wE = h ? evNets.slice(0, h).filter(x => x > 0).length / h * 100 : null
+    const wL = nS-h ? evNets.slice(h).filter(x => x > 0).length / (nS-h) * 100 : null
+    ev = { nS, gross: mean(evGross), net: mean(evNets), win: wS/nS*100,
+           wlb: wlb(wS, nS)*100, wE, wL, eligible: nS >= 15 }
+  }
+
   return { sym, price, tickPct, n, avg, avg6, win: w/n*100, flat: flat/n*100,
            wlb: wlb(w, n)*100, dRed: mean(afterRed), dGreen: mean(afterGreen), cost, net,
-           net6: avg6 != null ? avg6 - cost : null }
+           net6: avg6 != null ? avg6 - cost : null, ev }
 }
 
 function verdictOf(r) {
@@ -174,7 +209,25 @@ const fmtPct = (x, d=2) => x == null ? '–' : (x >= 0 ? '+' : '') + x.toFixed(d
 let STOP = false
 let RESULTS = []                 // hasil scan terakhir — bisa di-sort ulang tanpa re-scan
 let BENCH = null                 // benchmark IHSG terakhir
-let SORT = { key: 'net6', dir: -1 }
+let MODE = 'drift'               // 'drift' | 'event' — satu scan, dua lensa
+const SORTS = { drift: { key: 'net6', dir: -1 }, event: { key: 'ev_wlb', dir: -1 } }
+
+const HEADS = {
+  drift: `<tr>
+    <th data-key="sym">Emiten</th><th data-key="price">Harga</th><th data-key="tickPct">Tick%</th><th data-key="n">n</th>
+    <th data-key="avg">Drift Avg</th><th data-key="avg6">Drift 6bln</th><th data-key="alpha">α 6bln</th><th data-key="win">Win% net</th><th data-key="flat">Flat%</th><th data-key="wlb">WLB net</th>
+    <th data-key="dRed">Drift stlh Merah</th><th data-key="dGreen">Drift stlh Hijau</th>
+    <th data-key="cost">Biaya Riil</th><th data-key="net">NET</th><th data-key="net6">NET 6bln</th><th>Verdict</th>
+  </tr>`,
+  event: `<tr>
+    <th data-key="sym">Emiten</th><th data-key="price">Harga</th><th data-key="tickPct">Tick%</th>
+    <th data-key="ev_nS">n Sinyal</th><th data-key="ev_gross">Gross avg</th><th data-key="ev_net">NET avg</th>
+    <th data-key="ev_win">Win% net</th><th data-key="ev_wlb">WLB net</th>
+    <th data-key="ev_wE">Split E</th><th data-key="ev_wL">Split L</th><th>Status</th>
+  </tr>`,
+}
+function buildHead() { const t=$('thead'); if (t) t.innerHTML = HEADS[MODE]; bindSortHandlers() }
+function getVal(r, key) { return key.startsWith('ev_') ? (r.ev ? r.ev[key.slice(3)] : null) : r[key] }
 
 async function run(symList) {
   const syms = symList ?? $('syms').value.split(/[\s,;]+/).map(s => s.trim().toUpperCase()).filter(Boolean)
@@ -238,8 +291,8 @@ async function run(symList) {
     if (!r.error) r.alpha = (BENCH && BENCH.avg6 != null && r.avg6 != null) ? r.avg6 - BENCH.avg6 : null
   }
   RESULTS = results
-  SORT = { key: 'net6', dir: -1 }   // default: NET 6bln — pelajaran RATU & CDIA:
-                                    // full-period bisa terkontaminasi rezim lama / periode IPO
+  SORTS.drift = { key: 'net6', dir: -1 }   // pelajaran RATU & CDIA
+  SORTS.event = { key: 'ev_wlb', dir: -1 } // permintaan: peringkat WLB (net)
   renderTable()
   // (render dipindah ke renderTable() di bawah — bisa dipanggil ulang saat sortir)
   if (!STOP) $('status').textContent = `Selesai — ${results.filter(r => !r.error).length}/${syms.length} emiten. Urut berdasarkan NET 6bln.`
@@ -249,24 +302,54 @@ async function run(symList) {
 }
 
 function renderTable() {
+  buildHead()
   const body = $('tbody')
   body.innerHTML = ''
-  const { key, dir } = SORT
+  const { key, dir } = SORTS[MODE]
+  const rank = r => {
+    if (r.error) return 2
+    if (MODE === 'event') return (r.ev && r.ev.eligible) ? 0 : 1  // n<15 / tanpa sinyal → bawah
+    return 0
+  }
   const sorted = [...RESULTS].sort((a, b) => {
-    if (a.error && b.error) return 0
-    if (a.error) return 1              // baris error selalu di bawah
-    if (b.error) return -1
-    const va = a[key], vb = b[key]
+    const ra = rank(a), rb = rank(b)
+    if (ra !== rb) return ra - rb
+    if (ra === 2) return 0
+    const va = getVal(a, key), vb = getVal(b, key)
     if (va == null && vb == null) return 0
-    if (va == null) return 1           // null selalu di bawah, apapun arahnya
+    if (va == null) return 1
     if (vb == null) return -1
     if (typeof va === 'string') return dir * va.localeCompare(vb)
     return dir * (va - vb)
   })
+  const nCols = MODE === 'drift' ? 15 : 10
   for (const r of sorted) {
     const tr = document.createElement('tr')
     if (r.error) {
-      tr.innerHTML = `<td>${r.sym}</td><td colspan="15" class="dim">gagal: ${r.error}</td>`
+      tr.innerHTML = `<td>${r.sym}</td><td colspan="${nCols}" class="dim">gagal: ${r.error}</td>`
+    } else if (MODE === 'event') {
+      const e = r.ev
+      if (!e) {
+        tr.innerHTML = `<td class="dim">${r.sym}</td><td colspan="${nCols}" class="dim">tanpa sinyal (hijau>3% + vol≥3x) dlm 12 bln</td>`
+      } else {
+        const gapEL = (e.wE != null && e.wL != null) ? Math.abs(e.wE - e.wL) : null
+        const status = !e.eligible ? '<span class="dim">n kecil — tak diperingkat</span>'
+          : (e.wlb >= 50 && (gapEL == null || gapEL <= 20))
+            ? '<span class="v-layak">KANDIDAT → pipeline</span>'
+            : '<span class="dim">–</span>'
+        tr.innerHTML =
+          `<td${e.eligible ? '' : ' class="dim"'}>${r.sym}</td>` +
+          `<td>${r.price.toLocaleString('id-ID')}</td>` +
+          `<td class="${r.tickPct > 0.5 ? 'down' : 'dim'}">${r.tickPct.toFixed(2)}%</td>` +
+          `<td class="${e.eligible ? '' : 'dim'}">${e.nS}</td>` +
+          `<td class="${e.gross >= 0 ? 'up' : 'down'}">${fmtPct(e.gross, 2)}</td>` +
+          `<td class="${e.net >= 0 ? 'up' : 'down'}"><b>${fmtPct(e.net, 2)}</b></td>` +
+          `<td>${e.win.toFixed(0)}%</td>` +
+          `<td><b>${e.wlb.toFixed(0)}%</b></td>` +
+          `<td class="dim">${e.wE != null ? e.wE.toFixed(0)+'%' : '–'}</td>` +
+          `<td class="dim">${e.wL != null ? e.wL.toFixed(0)+'%' : '–'}</td>` +
+          `<td>${status}</td>`
+      }
     } else {
       const [vLabel, vClass] = verdictOf(r)
       const alpha = r.alpha
@@ -290,22 +373,32 @@ function renderTable() {
     }
     body.appendChild(tr)
   }
-  // indikator kolom aktif
   document.querySelectorAll('.scr-table th[data-key]').forEach(th => {
     th.classList.toggle('sorted', th.dataset.key === key)
     th.classList.toggle('asc', th.dataset.key === key && dir === 1)
   })
 }
 
-// Klik header = sortir kolom itu; klik lagi = balik arah. Tanpa re-scan.
-document.querySelectorAll('.scr-table th[data-key]').forEach(th => {
-  th.addEventListener('click', () => {
-    if (!RESULTS.length) return
-    const key = th.dataset.key
-    SORT = { key, dir: SORT.key === key ? -SORT.dir : (key === 'sym' ? 1 : -1) }
-    renderTable()
+function bindSortHandlers() {
+  document.querySelectorAll('.scr-table th[data-key]').forEach(th => {
+    th.addEventListener('click', () => {
+      if (!RESULTS.length) return
+      const key = th.dataset.key
+      const s = SORTS[MODE]
+      SORTS[MODE] = { key, dir: s.key === key ? -s.dir : (key === 'sym' ? 1 : -1) }
+      renderTable()
+    })
   })
-})
+}
+
+function setMode(m) {
+  MODE = m
+  $('btn-mode-drift').style.fontWeight = m === 'drift' ? '700' : '400'
+  $('btn-mode-event').style.fontWeight = m === 'event' ? '700' : '400'
+  $('bench').style.display = (m === 'drift' && BENCH != null) ? 'block' : 'none'
+  if (RESULTS.length) renderTable(); else buildHead()
+}
+
 
 async function runAll() {
   $('btn-all').disabled = true
@@ -327,6 +420,9 @@ async function runAll() {
 }
 
 $('btn-run').addEventListener('click', () => run())
+$('btn-mode-drift').addEventListener('click', () => setMode('drift'))
+$('btn-mode-event').addEventListener('click', () => setMode('event'))
+buildHead()
 $('btn-all').addEventListener('click', runAll)
 $('btn-stop').addEventListener('click', () => { STOP = true })
 onReady(() => {})
