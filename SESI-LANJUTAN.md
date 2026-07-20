@@ -79,7 +79,6 @@ hindari grid search di wilayah mati. PTRO & TINS: malam. RAJA: siang.
    Sisa shortlist: MDKA.
 2. Card BSJP TPIA v2 ke intraday-trading (formula final, belum diimplementasi)
 3. BNBR: kalau Wisnu kirim intraday 30m → uji eksekutabilitas hari hijau (ARA-lock analysis)
-4. PTRO: tunggu export intraday 30m 2025-07-01→now
 5. Scalping RAJA re-kalibrasi (tunggu data intraday post-split ~Sep 2026)
 6. Screener bulanan pantau RATU: ambang aktivasi ulang = drift gross 60hr ≥0.9–1.0% & win ≥55% (sekarang 0.59 — belum). Detail docs/ANALISA_BSJP_RATU.md
 
