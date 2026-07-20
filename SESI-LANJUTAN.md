@@ -48,6 +48,11 @@ hindari grid search di wilayah mati. PTRO & TINS: malam. RAJA: siang.
 - **Market Regime = indikator data-collector** (bukan halaman; checkbox → fetch IHSG+sektor otomatis via SECTOR_MAP; d.regime={ihsg,sectorTrend,rs,...}). PITFALL: fetchDaily(sym, BARU, LAMA) — pernah kena bug terbalik
 - shared/idx-calendar.js (libur 2026, tickSize, roundToTick), shared/regime.js, FEE_DAY_TRADE/FEE_REGULER di config, slippagePct backtestORB, SL price roundToTick
 
+## IDE DIPERTIMBANGKAN & TIDAK DILANJUTKAN (jangan usulkan ulang kecuali Wisnu minta)
+- "Formula Sambung" BSJP→intraday RAJA (irisan 09:15, hemat fee 0.40 di hari overlap):
+  secara teknis valid & aditif, TAPI Wisnu putuskan 20 Jul TIDAK dilanjutkan — terlalu
+  ribet operasionalnya. PTRO/TPIA memang haram disambung (intraday PTRO ditolak; TPIA exit 09:00).
+
 ## HASIL PENGUJIAN KUMULATIF (JANGAN DIUJI ULANG)
 - Swing RAJA baseline tak terkalahkan 15+ varian: filter asing/bandar/regime, leading entry, exit klimaks/distribusi/MACD-turn/trailing ketat — SEMUA kalah. Entry emas = kapitulasi saat semua indikator "jelek"
 - LPM/bigMoneyNet: gagal semua konteks (swing, BSJP RAJA). bigMoney 74% hari=0
