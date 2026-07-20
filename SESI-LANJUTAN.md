@@ -88,7 +88,10 @@ hindari grid search di wilayah mati. PTRO & TINS: malam. RAJA: siang.
    vol≥3x avg20, entry close → exit OPEN besok (proxy; 09:15 di pipeline), WLB NET,
    n<15 tak diperingkat, KANDIDAT = WLB≥50 & gap split ≤20pp. Sekaligus: Win/WLB mode
    drift DINETKAN (fix cacat GZCO — win gross menyesatkan di tick mahal).
-   → Wisnu: jalankan Scan Semua, buka lensa ⚡ Event, kirim hasilnya. Hasil akhir perburuan scan 800 emiten: 1 formula baru (PTRO v1
+   → HASIL 20 Jul (docs/ANALISA_MODE_EVENT.md): **NOL KANDIDAT dari ~800 emiten**,
+   WLB net maks 39 (ESIP). Papan atas = mikro-cap tick merah semua; NET hijau =
+   tail-driven (profil APEX market-wide). HIPOTESIS VOLUME-SURGE DITOLAK PERMANEN
+   → jangan-diuji-ulang. Mode tetap dipertahankan sbg pemantau berkala (ekspektasi: kosong). Hasil akhir perburuan scan 800 emiten: 1 formula baru (PTRO v1
    masa percobaan) + 1 pantauan (RATU) + 3 penolakan terdokumentasi (TINS/APEX/MDKA).
 2. Card BSJP TPIA v2 ke intraday-trading (formula final, belum diimplementasi)
 3. BNBR: kalau Wisnu kirim intraday 30m → uji eksekutabilitas hari hijau (ARA-lock analysis)
