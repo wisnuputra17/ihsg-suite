@@ -93,7 +93,13 @@ tembakan per hipotesis per emiten, hasil didokumentasikan apa pun vonisnya.
    1-2 sinyal/thn/emiten → per-emiten mustahil n≥30 → satu2nya jalur sah = POOLING
    keranjang pra-daftar (MEDC, BUVA, INCO, +1 pilihan Wisnu; preseden alat:
    runBacktestMulti). Gerbang pool: WLB net ≥50, split ≤15pp, uji konsentrasi
-   (tak boleh 1 emiten dominasi kemenangan). STATUS: tunggu keputusan/export Wisnu.
+   (tak boleh 1 emiten dominasi kemenangan). STATUS 21 Jul
+   (docs/ANALISA_KONTRAKSI_VOL.md): kontrol LOLOS; **MEDC = kandidat genuine pertama
+   dari tembakan terkunci** (trail10 WLB 52.3 tapi split 33pp; trail15 split 80/80
+   tapi WLB 49.0 — belum sah, tunggu vonis keluarga); **INCO GAGAL** (WLB 17, breakout
+   palsu serial; avg positif = ilusi 1 trade Des'25). Aturan dikunci: uji konsentrasi
+   pool per-EMITEN dan per-PERISTIWA (Des'25 menang di MEDC & INCO sekaligus =
+   1 peristiwa makro). Tunggu: export BUVA + anggota ke-4.
 6. Rezim MA / ikut-tren — diuji di INDY (train 60%): whipsaw fatal (cross MA50 win 7%). TERBUKA utk emiten lain berkarakter trending; di INDY tertutup
 7. Karakter anti-IHSG / hedge — TERBUKA, belum dispesifikasi
 8. Pola teknikal bernama (H&S, cup-handle, triangle) — DITOLAK di gerbang: definisi
