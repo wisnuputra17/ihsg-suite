@@ -100,7 +100,7 @@ tembakan per hipotesis per emiten, hasil didokumentasikan apa pun vonisnya.
    palsu serial; avg positif = ilusi 1 trade Des'25). Aturan dikunci: uji konsentrasi
    pool per-EMITEN dan per-PERISTIWA (Des'25 menang di MEDC & INCO sekaligus =
    1 peristiwa makro). Tunggu: export BUVA + anggota ke-4.
-6. Rezim MA / ikut-tren — diuji di INDY (train 60%): whipsaw fatal (cross MA50 win 7%). TERBUKA utk emiten lain berkarakter trending; di INDY tertutup
+6. Rezim MA / ikut-tren / Supertrend — **DITUTUP 26 Jul** (docs/ANALISA_SUPERTREND.md): kontrol 5 mean-reverter lolos (maks WLB 37); PTRO (paling trending, 24x) GAGAL — train P14×1.5 WLB 33.7 → holdout 27.3 (parameter terbaik masa lalu jadi di bawah rata2 masa depan). Whipsaw di mean-reverter + LAG di trender. Fitur auto-optimize LuxAlgo = overfitting terkemas. Jangan buka ulang tanpa hipotesis struktural baru
 7. Karakter anti-IHSG / hedge — TERBUKA, belum dispesifikasi
 8. Pola teknikal bernama (H&S, cup-handle, triangle) — DITOLAK di gerbang: definisi
    lentur (6-8 derajat bebas), bias belakang, n langka; fenomena intinya diserap
