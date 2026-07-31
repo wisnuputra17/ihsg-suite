@@ -168,3 +168,20 @@ Analisa karakter emiten DULU → tentukan indikator relevan + alasan → minta d
 
 ## DATA DI UPLOADS SESI INI (minta ulang kalau sesi baru butuh)
 tes.json (RAJA 1m 239hr), RAJA daily/bandarmology/regime 5thn, TPIA intraday 15bln + bandarmology 836hr, BUMI intraday+daily, RATU 30m 1.5thn + daily bandarmology, WIFI daily 5thn (full indikator)
+
+## FITUR BARU & TEMA (26 Jul)
+- **Market Rotation** (features/market-rotation/) ✅ live: alat OBSERVASI arah aliran
+  uang — tabel rotasi terurut inflow, toggle sumber Sektor IDX (otomatis emiten.json) /
+  Konglomerat (peta DRAF di konglomerat.js — WAJIB verifikasi Wisnu), toggle metrik
+  % Perubahan / Net Value (proxy = turnover berarah gerak harga, BUKAN HAKA-HAKI asli),
+  selalu live, cache IndexedDB (sheet 'mr-daily-cache') utk tampil instan. Bukan sinyal.
+  Bug yg sudah di-fix: stale SYMS impor, render tunggu ~750 emiten, whenTokenReady(cb)
+  tak jalan (harus await, bukan callback).
+- **Tema seragam — LANGKAH 1 (warna) SELESAI**: shared/ui.css token global —
+  --up #1d9e75 (baru), --down #d9663a (oranye ganti merah), --live=hijau, --phosphor
+  #e8b34a. Semua fitur ikut. Wisnu konfirmasi "sudah pas".
+  → LANGKAH BERIKUT tema (bertahap per halaman, belum dikerjakan): gaya tabel/bar/spacing.
+    Harus per-halaman (struktur tabel beda tiap fitur) — jangan hantam global.
+- PENDING verifikasi Wisnu: (1) peta konglomerat, (2) chart candle warna baru terbaca?,
+  (3) proxy Net Value cukup atau perlu mode HAKA-HAKI asli utk emiten likuid.
+
