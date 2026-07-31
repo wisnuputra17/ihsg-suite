@@ -116,12 +116,15 @@
       if(!TOKEN.isSet()){ $('live-txt').textContent='token belum diset'; return }
       const groups=groupsFor()
       if(!groups.length){ $('empty').textContent='Data grup belum siap.'; return }
-      const syms=[...new Set(groups.flatMap(g=>g.members))]
+      render()  // gambar segera (grup yg sudah ada di cache langsung terisi)
+      const syms=[...new Set(groups.flatMap(g=>g.members))].filter(s=>!cache.has(s))
       let done=0
       for(const s of syms){
         try{ await loadDaily(s) }catch(e){}
-        done++; $('live-txt').textContent=`memuat ${done}/${syms.length}…`
-        await new Promise(r=>setTimeout(r,150))
+        done++
+        $('live-txt').textContent=`memuat ${done}/${syms.length}…`
+        if(done % 5 === 0 || done === syms.length) render()  // render bertahap tiap 5 emiten
+        await new Promise(r=>setTimeout(r,120))
       }
       render()
       $('live-txt').textContent=`Live · update ${new Date().toLocaleTimeString('id-ID')}`
