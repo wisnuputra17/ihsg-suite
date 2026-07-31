@@ -69,7 +69,7 @@
     import { konglomeratGroups } from './konglomerat.js'
 
     const $ = id => document.getElementById(id)
-    let SOURCE='sector', METRIC='pct', EMITEN={}, liveTimer=null
+    let SOURCE='sector', METRIC='pct', EMITEN={}, ALLSYMS=[], liveTimer=null
     const cache = new Map()
 
     renderHeader($('app-header'), [
@@ -93,14 +93,14 @@
 
     function sectorGroups() {
       const by={}
-      for(const code of SYMS){
+      for(const code of ALLSYMS){
         const info=EMITEN[code]
         if(!info||!info.sector||info.tradeable===0) continue
         ;(by[info.sector]??=[]).push(code)
       }
       return Object.entries(by).filter(([,m])=>m.length>=3).map(([key,members])=>({key,members}))
     }
-    const groupsFor = () => SOURCE==='konglo' ? konglomeratGroups(SYMS) : sectorGroups()
+    const groupsFor = () => SOURCE==='konglo' ? konglomeratGroups(ALLSYMS) : sectorGroups()
 
     async function loadDaily(sym) {
       if(cache.has(sym)) return cache.get(sym)
@@ -157,11 +157,20 @@
 
     whenTokenReady(async () => {
       try{
-        if(!Object.keys(EMITEN_INFO).length){ setEmitenInfo(await fetchEmitenJson()) }
-        EMITEN=EMITEN_INFO
+        // Derive langsung dari JSON — jangan andalkan SYMS/EMITEN_INFO impor
+        // (variabel modul di-reassign store, nilai impor bisa stale/kosong).
+        const raw = await fetchEmitenJson()
+        setEmitenInfo(raw)  // tetap isi store utk fitur lain
+        const list = (raw && raw.emiten) || []
+        EMITEN = {}; ALLSYMS = []
+        for(const e of list){
+          EMITEN[e.code] = { sector:e.sector, sub_sector:e.sub_sector, tradeable:e.tradeable, name:e.name }
+          ALLSYMS.push(e.code)
+        }
+        if(!ALLSYMS.length){ $('live-txt').textContent='daftar emiten kosong'; return }
         await run()
         liveTimer=setInterval(()=>{ cache.clear(); run() }, 180000)
-      }catch(e){ $('live-txt').textContent='gagal: '+e.message }
+      }catch(e){ $('live-txt').textContent='gagal muat emiten: '+e.message }
     })
   </script>
 </body>
