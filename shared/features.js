@@ -105,6 +105,13 @@ export const FEATURES = [
     desc:   'Chart dengan indikator BUY/SELL hasil formula tervalidasi per emiten — dimulai dari Kunci RAJA.',
     tags:   ['chart', 'indikator', 'sinyal', 'entry', 'exit', 'raja', 'formula'],
     status: 'ready'
+  },
+  {
+    id:     'market-rotation',
+    name:   'Market Rotation',
+    desc:   'Alat OBSERVASI arah aliran uang lintas sektor IDX & grup kustom — toggle % return berbobot ↔ net asing, tabel rotasi terurut inflow, drill-down emiten. Bukan sinyal beli/jual.',
+    tags:   ['rotasi', 'sektor', 'aliran', 'inflow', 'net asing', 'heatmap', 'grup', 'watchlist', 'observasi'],
+    status: 'ready'
   }
 ]
 
