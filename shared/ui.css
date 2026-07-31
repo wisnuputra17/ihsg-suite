@@ -25,14 +25,16 @@
   --dim:      #6b6557;   /* teks sekunder */
   --ghost:    #38352c;   /* teks paling pudar / placeholder */
 
-  --phosphor:     #d98e2b;          /* aksen utama — amber fosfor */
-  --phosphor-dim: rgba(217,142,43,0.12);
-  --phosphor-line:rgba(217,142,43,0.35);
+  --phosphor:     #e8b34a;          /* aksen utama — emas fosfor (mockup) */
+  --phosphor-dim: rgba(232,179,74,0.12);
+  --phosphor-line:rgba(232,179,74,0.35);
 
   /* Warna fungsional status (bukan brand, hanya makna: aktif/tutup/bahaya) */
-  --live: #4ade80;
-  --down: #f0635c;
-  --wait: #e0b341;
+  --up:   #1d9e75;   /* naik / inflow / positif (mockup) */
+  --live: #1d9e75;   /* aktif — disamakan hijau inflow */
+  --down: #d9663a;   /* turun / outflow / rugi — oranye mockup (sedikit dicerahkan
+                        dari #d85a30 utk kontras teks kecil) */
+  --wait: #e8b34a;
 
   /* ── Tipografi ── */
   --f-mono: 'DM Mono', monospace;
