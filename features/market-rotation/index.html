@@ -67,10 +67,36 @@
     import { fetchDaily, fetchEmitenJson } from '../../shared/api.js'
     import { aggregateGroup, rankGroups, fmtRp } from './engine.js'
     import { konglomeratGroups } from './konglomerat.js'
+    import { gsLoad, gsSave } from '../../shared/indexeddb.js'
 
     const $ = id => document.getElementById(id)
     let SOURCE='sector', METRIC='pct', EMITEN={}, ALLSYMS=[], liveTimer=null
     const cache = new Map()
+    const CACHE_SHEET = 'mr-daily-cache'
+    // data dianggap segar bila di-fetch pada hari kalender yg sama (WIB).
+    // Saat bursa tutup, cache kemarin tetap dipakai sampai hari perdagangan baru.
+    function todayWIB(){ return new Date(Date.now()+7*3600*1000).toISOString().slice(0,10) }
+    async function loadCacheFromDisk(){
+      try{
+        const rows = await gsLoad(CACHE_SHEET)
+        for(const r of (rows||[])){
+          if(r && r.sym && r.daily) cache.set(r.sym, r.daily)
+        }
+        return rows && rows.length ? (rows[0].fetchedAt || null) : null
+      }catch(e){ return null }
+    }
+    let _saveTimer=null
+    function scheduleCacheSave(){
+      // debounce: tulis snapshot cache ke disk sekali setelah render bertahap reda
+      if(_saveTimer) clearTimeout(_saveTimer)
+      _saveTimer=setTimeout(async()=>{
+        try{
+          const at=todayWIB()
+          const rows=[...cache.entries()].map(([sym,daily])=>({sym,daily,fetchedAt:at}))
+          await gsSave(CACHE_SHEET, rows)
+        }catch(e){}
+      }, 4000)
+    }
 
     renderHeader($('app-header'), [
       { label:'IHSG Suite', href:'../../index.html' }, { label:'Market Rotation' },
@@ -111,22 +137,27 @@
       cache.set(sym,asc); return asc
     }
 
-    let RESULT=[]
-    async function run() {
+    let RESULT=[], CACHE_DATE=null
+    async function run(force=false) {
       if(!TOKEN.isSet()){ $('live-txt').textContent='token belum diset'; return }
       const groups=groupsFor()
       if(!groups.length){ $('empty').textContent='Data grup belum siap.'; return }
-      render()  // gambar segera (grup yg sudah ada di cache langsung terisi)
-      const syms=[...new Set(groups.flatMap(g=>g.members))].filter(s=>!cache.has(s))
+      render()  // gambar segera dari cache yg sudah ada (instan saat buka)
+      const fresh = CACHE_DATE === todayWIB() && !force
+      // hanya fetch emiten yg BELUM ada di cache, atau semua bila cache basi/force
+      const need = [...new Set(groups.flatMap(g=>g.members))]
+        .filter(s => force || !cache.has(s) || !fresh)
+      if(fresh && !need.length){ $('live-txt').textContent=`Live · cache ${CACHE_DATE}`; return }
       let done=0
-      for(const s of syms){
+      for(const s of need){
         try{ await loadDaily(s) }catch(e){}
         done++
-        $('live-txt').textContent=`memuat ${done}/${syms.length}…`
-        if(done % 5 === 0 || done === syms.length) render()  // render bertahap tiap 5 emiten
+        $('live-txt').textContent=`memuat ${done}/${need.length}…`
+        if(done % 5 === 0 || done === need.length) render()
         await new Promise(r=>setTimeout(r,120))
       }
-      render()
+      CACHE_DATE=todayWIB()
+      render(); scheduleCacheSave()
       $('live-txt').textContent=`Live · update ${new Date().toLocaleTimeString('id-ID')}`
     }
 
@@ -170,8 +201,9 @@
           ALLSYMS.push(e.code)
         }
         if(!ALLSYMS.length){ $('live-txt').textContent='daftar emiten kosong'; return }
+        CACHE_DATE = await loadCacheFromDisk()   // muat cache disk → tampil instan
         await run()
-        liveTimer=setInterval(()=>{ cache.clear(); run() }, 180000)
+        liveTimer=setInterval(()=>{ run(true) }, 180000)  // refresh berkala (force)
       }catch(e){ $('live-txt').textContent='gagal muat emiten: '+e.message }
     })()
   </script>
