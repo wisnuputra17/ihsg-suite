@@ -180,8 +180,10 @@ tes.json (RAJA 1m 239hr), RAJA daily/bandarmology/regime 5thn, TPIA intraday 15b
 - **Tema seragam — LANGKAH 1 (warna) SELESAI**: shared/ui.css token global —
   --up #1d9e75 (baru), --down #d9663a (oranye ganti merah), --live=hijau, --phosphor
   #e8b34a. Semua fitur ikut. Wisnu konfirmasi "sudah pas".
-  → LANGKAH BERIKUT tema (bertahap per halaman, belum dikerjakan): gaya tabel/bar/spacing.
-    Harus per-halaman (struktur tabel beda tiap fitur) — jangan hantam global.
+  → **LANGKAH BERIKUT — PRIORITAS SESI DEPAN (dipilih Wisnu 26 Jul)**: seragamkan
+    gaya tabel & spasi di SEMUA halaman mengikuti gaya mockup Market Rotation.
+    Bertahap per-halaman (struktur tabel beda tiap fitur) — JANGAN hantam global,
+    verifikasi tiap halaman sebelum lanjut ke berikutnya.
 - PENDING verifikasi Wisnu: (1) peta konglomerat, (2) chart candle warna baru terbaca?,
   (3) proxy Net Value cukup atau perlu mode HAKA-HAKI asli utk emiten likuid.
 
