@@ -3,224 +3,165 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv="Pragma" content="no-cache">
-  <meta http-equiv="Expires" content="0">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Market Rotation · IHSG Suite</title>
   <link rel="stylesheet" href="../../shared/ui.css">
   <style>
-    .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
-    .seg { display: inline-flex; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
-    .seg button { padding: 5px 12px; font-family: var(--f-mono); font-size: 11px; background: transparent;
-      color: var(--ghost); border: none; cursor: pointer; }
-    .seg button.active { background: var(--phosphor-dim); color: var(--phosphor); font-weight: 700; }
-    .hint { font-family: var(--f-mono); font-size: 10px; color: var(--ghost); }
-    .rot-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    .rot-table th { font-family: var(--f-mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
-      color: var(--ghost); text-align: right; padding: 6px 10px; border-bottom: 1px solid var(--line); cursor: default; }
-    .rot-table th:first-child, .rot-table td:first-child { text-align: left; }
-    .rot-table td { padding: 7px 10px; text-align: right; border-bottom: 1px solid var(--line); }
-    .grp-row { cursor: pointer; }
-    .grp-row:hover { background: #14130f; }
-    .flow-bar { position: relative; height: 6px; border-radius: 3px; background: #14130f; overflow: hidden; min-width: 60px; }
-    .flow-fill { position: absolute; top: 0; height: 100%; }
-    .up { color: var(--up); } .down { color: var(--down); }
-    .dim { color: var(--ghost); }
-    .members { background: #0d0c0a; }
-    .members td { padding: 4px 10px 4px 24px; border-bottom: 1px solid #17150f; font-size: 11px; }
-    .rank { color: var(--ghost); font-family: var(--f-mono); width: 24px; }
-    .custom-box { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; margin-bottom: 12px; }
-    .custom-box input { background: #0f0e0c; border: 1px solid var(--line); color: var(--fg); border-radius: var(--radius);
-      padding: 5px 8px; font-family: var(--f-mono); font-size: 11px; width: 100%; }
-    .etag { display: inline-block; padding: 2px 7px; margin: 2px; border-radius: var(--radius); font-family: var(--f-mono);
-      font-size: 10px; border: 1px solid var(--line); color: var(--dim); }
-    .hidden { display: none !important; }
+    .mr-wrap { max-width: 940px; margin: 0 auto; padding: 16px; }
+    .mr-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; flex-wrap:wrap; gap:12px; }
+    .mr-live { font-family:var(--f-mono); font-size:10px; color:var(--ghost); display:flex; align-items:center; gap:6px; margin-top:2px; }
+    .mr-dot { width:6px; height:6px; border-radius:50%; background:var(--up); display:inline-block; }
+    .seg { display:inline-flex; border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; }
+    .seg button { padding:6px 14px; font-family:var(--f-mono); font-size:11px; background:transparent; color:var(--ghost); border:none; cursor:pointer; }
+    .seg button.active { background:var(--phosphor-dim); color:var(--phosphor); font-weight:700; }
+    .mr-src { margin-bottom:12px; }
+    .mr-thead { display:grid; grid-template-columns:1fr 140px 96px 100px 64px; gap:0; font-family:var(--f-mono);
+      font-size:9.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ghost); padding:0 10px 8px; border-bottom:1px solid var(--line); }
+    .mr-thead span:nth-child(2){text-align:center} .mr-thead span:nth-child(n+3){text-align:right}
+    .srow { cursor:pointer; }
+    .grow { display:grid; grid-template-columns:1fr 140px 96px 100px 64px; gap:0; align-items:center; padding:9px 10px; border-bottom:1px solid var(--line); }
+    .srow:hover .grow { background:#14130f; }
+    .flow { height:6px; border-radius:3px; background:#161511; position:relative; overflow:hidden; }
+    .flow .mid { position:absolute; left:50%; top:-1px; width:1px; height:8px; background:#2a2925; }
+    .detail { display:none; background:#0d0c0a; }
+    .em { display:grid; grid-template-columns:24px 1fr 100px 90px; gap:0; padding:4px 10px 4px 24px; font-family:var(--f-mono); font-size:11px; border-bottom:1px solid #131210; }
+    .up{color:var(--up)} .down{color:var(--down)} .dim{color:var(--ghost)}
+    .note { font-family:var(--f-mono); font-size:9.5px; color:#4a4844; margin-top:14px; line-height:1.6; }
+    .warn { color:#b58a3a; }
   </style>
 </head>
 <body>
   <div id="app-header"></div>
-  <main class="container" style="max-width: 1000px; margin: 0 auto; padding: 16px;">
-    <div class="toolbar">
-      <div class="seg" id="seg-source">
-        <button data-src="sector" class="active">Sektor IDX</button>
-        <button data-src="custom">Watchlist Kustom</button>
+  <main class="mr-wrap">
+    <div class="mr-head">
+      <div>
+        <div style="font-size:15px;font-weight:500">Market Rotation</div>
+        <div class="mr-live"><span class="mr-dot"></span><span id="live-txt">memuat…</span></div>
       </div>
       <div class="seg" id="seg-metric">
-        <button data-metric="return" class="active">% Return berbobot</button>
-        <button data-metric="foreign">Net Asing</button>
+        <button data-metric="pct" class="active">% Perubahan</button>
+        <button data-metric="val">Net Value</button>
       </div>
-      <button class="btn btn-sm" id="btn-run">▶ Muat Rotasi</button>
-      <button class="btn btn-sm" id="btn-live" title="Refresh berkala saat jam bursa">⏱ Live: OFF</button>
-      <span class="hint" id="status"></span>
     </div>
 
-    <div class="custom-box hidden" id="custom-box">
-      <div class="hint" style="margin-bottom:6px">Grup kustom — ketik kode dipisah koma, satu baris = satu grup dengan nama di depan titik dua.
-        Contoh: <span class="dim">Bakrie: BUMI, BRMS, ENRG, DEWA</span></div>
-      <textarea id="custom-input" rows="4" style="width:100%;background:#0f0e0c;border:1px solid var(--line);color:var(--fg);border-radius:var(--radius);padding:8px;font-family:var(--f-mono);font-size:11px" placeholder="Batubara: ADRO, ITMG, PTBA, HRUM&#10;Bank Besar: BBCA, BBRI, BMRI, BBNI"></textarea>
+    <div class="mr-src">
+      <div class="seg" id="seg-source">
+        <button data-src="sector" class="active">Sektor IDX</button>
+        <button data-src="konglo">Konglomerat</button>
+      </div>
     </div>
 
-    <div style="font-family:var(--f-mono);font-size:10px;color:var(--ghost);margin-bottom:8px;line-height:1.5">
-      Alat OBSERVASI arah aliran — bukan sinyal beli/jual. <b>% Return berbobot</b> = rata-rata perubahan
-      harga grup, dibobot nilai transaksi (saham ramai lebih menentukan). <b>Net Asing</b> = jumlah rupiah
-      beli-jual asing grup hari terakhir. Dua metrik disediakan untuk saling cek — jangan percaya satu angka buta.
+    <div class="mr-thead">
+      <span>Grup</span><span>Aliran</span><span id="hdr">% Berbobot</span><span>Turnover</span><span>Emiten</span>
     </div>
+    <div id="rows"></div>
+    <div id="empty" class="note"></div>
 
-    <table class="rot-table" id="rot-table" style="display:none">
-      <thead><tr>
-        <th>Grup</th><th>Aliran</th><th id="th-score">Skor</th><th>Turnover</th><th>Emiten</th>
-      </tr></thead>
-      <tbody id="rot-body"></tbody>
-    </table>
-    <div id="empty" class="hint" style="margin-top:20px"></div>
+    <div class="note">Alat OBSERVASI arah aliran — bukan sinyal beli/jual. <b>% Perubahan</b> = rata-rata gerak harga grup dibobot turnover. <b>Net Value</b> = net nilai transaksi (turnover berarah gerak harga). Klik grup untuk lihat emiten.</div>
+    <div class="note warn" id="konglo-note" style="display:none">⚠ Peta konglomerat = DRAF, perlu verifikasi. Edit di features/market-rotation/konglomerat.js.</div>
   </main>
 
   <script type="module">
     import { renderHeader, whenTokenReady } from '../../shared/header.js'
     import { TOKEN, SYMS, EMITEN_INFO, setEmitenInfo } from '../../shared/store.js'
     import { fetchDaily, fetchEmitenJson } from '../../shared/api.js'
-    import { aggregateGroup, rankGroups, dayReturnPct, foreignNet, fmtRp } from './engine.js'
+    import { aggregateGroup, rankGroups, fmtRp } from './engine.js'
+    import { konglomeratGroups } from './konglomerat.js'
 
     const $ = id => document.getElementById(id)
-    let SOURCE = 'sector', METRIC = 'return', LIVE = false, liveTimer = null
-    let EMITEN = {}     // code -> {sector, ...}
-    const cache = new Map()  // sym -> daily (sesi ini)
+    let SOURCE='sector', METRIC='pct', EMITEN={}, liveTimer=null
+    const cache = new Map()
 
     renderHeader($('app-header'), [
-      { label: 'IHSG Suite', href: '../../index.html' },
-      { label: 'Market Rotation' },
+      { label:'IHSG Suite', href:'../../index.html' }, { label:'Market Rotation' },
     ])
 
-    // ── segmented toggles ──
-    $('seg-source').addEventListener('click', e => {
-      const b = e.target.closest('button'); if (!b) return
-      SOURCE = b.dataset.src
-      $('seg-source').querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b))
-      $('custom-box').classList.toggle('hidden', SOURCE !== 'custom')
-    })
     $('seg-metric').addEventListener('click', e => {
-      const b = e.target.closest('button'); if (!b) return
-      METRIC = b.dataset.metric
-      $('seg-metric').querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b))
-      $('th-score').textContent = METRIC === 'foreign' ? 'Net Asing' : '% Berbobot'
-      if (cache.size) render()   // re-render tanpa re-fetch
+      const b=e.target.closest('button'); if(!b) return
+      METRIC=b.dataset.metric
+      $('seg-metric').querySelectorAll('button').forEach(x=>x.classList.toggle('active',x===b))
+      $('hdr').textContent = METRIC==='val' ? 'Net Value' : '% Berbobot'
+      if(cache.size) render()
+    })
+    $('seg-source').addEventListener('click', e => {
+      const b=e.target.closest('button'); if(!b) return
+      SOURCE=b.dataset.src
+      $('seg-source').querySelectorAll('button').forEach(x=>x.classList.toggle('active',x===b))
+      $('konglo-note').style.display = SOURCE==='konglo' ? 'block' : 'none'
+      run()
     })
 
-    // ── grup builder ──
     function sectorGroups() {
-      const by = {}
-      for (const code of SYMS) {
-        const info = EMITEN[code]
-        if (!info || !info.sector || info.tradeable === 0) continue
-        ;(by[info.sector] ??= []).push(code)
+      const by={}
+      for(const code of SYMS){
+        const info=EMITEN[code]
+        if(!info||!info.sector||info.tradeable===0) continue
+        ;(by[info.sector]??=[]).push(code)
       }
-      // hanya sektor dgn >=3 anggota (agar agregasi bermakna)
-      return Object.entries(by).filter(([, m]) => m.length >= 3)
-        .map(([name, members]) => ({ key: name, members }))
+      return Object.entries(by).filter(([,m])=>m.length>=3).map(([key,members])=>({key,members}))
     }
-    function customGroups() {
-      const lines = $('custom-input').value.split('\n').map(l => l.trim()).filter(Boolean)
-      const groups = []
-      for (const line of lines) {
-        const ci = line.indexOf(':')
-        const name = ci >= 0 ? line.slice(0, ci).trim() : 'Grup'
-        const codes = (ci >= 0 ? line.slice(ci + 1) : line).split(',')
-          .map(s => s.trim().toUpperCase()).filter(Boolean)
-        if (codes.length) groups.push({ key: name, members: codes })
-      }
-      return groups
-    }
+    const groupsFor = () => SOURCE==='konglo' ? konglomeratGroups(SYMS) : sectorGroups()
 
-    // ── fetch daily (2 candle cukup utk return; ambil 25 utk turnover avg) ──
     async function loadDaily(sym) {
-      if (cache.has(sym)) return cache.get(sym)
-      const to = new Date(Date.now() + 7*3600*1000)
-      const from = new Date(to.getTime() - 45*86400*1000).toISOString().slice(0, 10)
-      const daily = await fetchDaily(sym, to.toISOString().slice(0, 10), from)
-      const asc = [...daily].sort((a, b) => a.date < b.date ? -1 : 1)
-      cache.set(sym, asc)
-      return asc
+      if(cache.has(sym)) return cache.get(sym)
+      const to=new Date(Date.now()+7*3600*1000)
+      const from=new Date(to.getTime()-45*86400*1000).toISOString().slice(0,10)
+      const daily=await fetchDaily(sym, to.toISOString().slice(0,10), from)
+      const asc=[...daily].sort((a,b)=>a.date<b.date?-1:1)
+      cache.set(sym,asc); return asc
     }
 
-    let RESULT = []
+    let RESULT=[]
     async function run() {
-      if (!TOKEN.isSet()) { $('status').textContent = 'Token belum diset.'; return }
-      const groups = SOURCE === 'sector' ? sectorGroups() : customGroups()
-      if (!groups.length) { $('empty').textContent = SOURCE === 'custom' ? 'Isi minimal satu grup kustom.' : 'Data sektor belum siap.'; return }
-
-      // kumpulkan simbol unik, fetch dgn jeda (hormati rate limit)
-      const syms = [...new Set(groups.flatMap(g => g.members))].filter(s => SYMS.includes(s) || SOURCE === 'custom')
-      $('rot-table').style.display = 'none'; $('empty').textContent = ''
-      let done = 0
-      for (const s of syms) {
-        try { await loadDaily(s) } catch (e) { /* skip emiten gagal */ }
-        done++
-        $('status').textContent = `Memuat ${done}/${syms.length} emiten…`
-        await new Promise(r => setTimeout(r, 180))
+      if(!TOKEN.isSet()){ $('live-txt').textContent='token belum diset'; return }
+      const groups=groupsFor()
+      if(!groups.length){ $('empty').textContent='Data grup belum siap.'; return }
+      const syms=[...new Set(groups.flatMap(g=>g.members))]
+      let done=0
+      for(const s of syms){
+        try{ await loadDaily(s) }catch(e){}
+        done++; $('live-txt').textContent=`memuat ${done}/${syms.length}…`
+        await new Promise(r=>setTimeout(r,150))
       }
-      $('status').textContent = `Selesai · ${syms.length} emiten · ${new Date().toLocaleTimeString('id-ID')}`
       render()
+      $('live-txt').textContent=`Live · update ${new Date().toLocaleTimeString('id-ID')}`
     }
 
     function render() {
-      const groups = SOURCE === 'sector' ? sectorGroups() : customGroups()
-      const enriched = groups.map(g => ({
-        key: g.key,
-        agg: aggregateGroup(g.members.map(sym => ({ sym, daily: cache.get(sym) })), METRIC),
-      }))
-      RESULT = rankGroups(enriched, METRIC)
-      const body = $('rot-body'); body.innerHTML = ''
-      if (!RESULT.length) { $('empty').textContent = 'Tidak ada grup dengan data cukup.'; $('rot-table').style.display = 'none'; return }
-      $('rot-table').style.display = ''
-
-      const maxAbs = Math.max(...RESULT.map(r => Math.abs(r.agg.score) || 0)) || 1
-      for (const g of RESULT) {
-        const s = g.agg.score
-        const pos = s >= 0
-        const w = Math.min(100, Math.abs(s) / maxAbs * 100)
-        const scoreTxt = METRIC === 'foreign' ? fmtRp(s) : `${pos ? '+' : ''}${s.toFixed(2)}%`
-        const tr = document.createElement('tr')
-        tr.className = 'grp-row'
-        tr.innerHTML =
-          `<td><b>${g.key}</b></td>` +
-          `<td><div class="flow-bar"><div class="flow-fill" style="width:${w}%;${pos?'left:0;background:var(--up)':'right:0;background:var(--down)'}"></div></div></td>` +
-          `<td class="${pos?'up':'down'}"><b>${scoreTxt}</b></td>` +
-          `<td class="dim">${fmtRp(g.agg.turnoverSum)}</td>` +
-          `<td class="dim">${g.agg.nValid}/${g.agg.nTotal}</td>`
-        const detail = document.createElement('tr')
-        detail.className = 'members hidden'
-        const cells = g.agg.members.slice(0, 12).map((m, i) => {
-          const mv = METRIC === 'foreign' ? fmtRp(m.foreignNet) : (m.ret != null ? `${m.ret>=0?'+':''}${m.ret.toFixed(1)}%` : '–')
-          const cls = (METRIC === 'foreign' ? (m.foreignNet||0) : (m.ret||0)) >= 0 ? 'up' : 'down'
-          return `<tr><td class="rank">${i+1}</td><td>${m.sym}</td><td class="${cls}" style="text-align:right">${mv}</td><td class="dim" style="text-align:right">${fmtRp(m.turnover)}</td></tr>`
+      const enriched=groupsFor().map(g=>({key:g.key,
+        agg:aggregateGroup(g.members.map(sym=>({sym,daily:cache.get(sym)})), METRIC==='val'?'value':'return')}))
+      RESULT=rankGroups(enriched, 'x')
+      const rows=$('rows'); rows.innerHTML=''
+      if(!RESULT.length){ $('empty').textContent='Tidak ada grup dengan data cukup.'; return }
+      $('empty').textContent=''
+      const maxA=Math.max(...RESULT.map(r=>Math.abs(r.agg.score)||0))||1
+      for(const g of RESULT){
+        const s=g.agg.score, pos=s>=0, w=Math.min(100,Math.abs(s)/maxA*100)
+        const score=METRIC==='val'?fmtRp(s):`${pos?'+':''}${s.toFixed(2)}%`
+        const wrap=document.createElement('div'); wrap.className='srow'
+        const bar=`<div class="flow"><div style="position:absolute;top:0;height:100%;width:${w}%;${pos?'left:50%;background:var(--up)':'right:50%;background:var(--down)'}"></div><div class="mid"></div></div>`
+        const ems=g.agg.members.slice(0,15).map((m,i)=>{
+          const ev=METRIC==='val'?m.netValue:m.ret
+          const ep=(ev||0)>=0
+          const etxt=METRIC==='val'?fmtRp(m.netValue):(m.ret!=null?`${m.ret>=0?'+':''}${m.ret.toFixed(1)}%`:'–')
+          return `<div class="em"><span class="dim">${i+1}</span><span style="color:var(--fg)">${m.sym}</span><span class="${ep?'up':'down'}" style="text-align:right">${etxt}</span><span class="dim" style="text-align:right">${fmtRp(m.turnover)}</span></div>`
         }).join('')
-        detail.innerHTML = `<td colspan="5"><table style="width:100%;border-collapse:collapse"><tbody>${cells}</tbody></table></td>`
-        tr.addEventListener('click', () => detail.classList.toggle('hidden'))
-        body.appendChild(tr); body.appendChild(detail)
+        wrap.innerHTML=`<div class="grow"><span style="font-size:12.5px;font-weight:500"><span class="chev dim" style="display:inline-block;width:12px">›</span> ${g.key}</span><span>${bar}</span><span style="text-align:right;font-size:12.5px;font-weight:500" class="${pos?'up':'down'}">${score}</span><span class="dim" style="text-align:right;font-size:11px">${fmtRp(g.agg.turnoverSum)}</span><span class="dim" style="text-align:right;font-size:11px">${g.agg.nValid}/${g.agg.nTotal}</span></div><div class="detail">${ems}</div>`
+        const det=wrap.querySelector('.detail'), chev=wrap.querySelector('.chev')
+        wrap.querySelector('.grow').addEventListener('click',()=>{
+          const open=det.style.display==='block'; det.style.display=open?'none':'block'; chev.textContent=open?'›':'⌄'
+        })
+        rows.appendChild(wrap)
       }
     }
 
-    // ── live polling (hanya saat aktif; interval 3 menit) ──
-    $('btn-live').addEventListener('click', () => {
-      LIVE = !LIVE
-      $('btn-live').textContent = `⏱ Live: ${LIVE ? 'ON' : 'OFF'}`
-      $('btn-live').classList.toggle('btn-primary', LIVE)
-      if (LIVE) {
-        liveTimer = setInterval(() => { cache.clear(); run() }, 180000)
-      } else if (liveTimer) { clearInterval(liveTimer); liveTimer = null }
-    })
-
-    $('btn-run').addEventListener('click', run)
-
-    // ── init: pastikan emiten.json termuat (sector map) ──
     whenTokenReady(async () => {
-      try {
-        if (!Object.keys(EMITEN_INFO).length) {
-          const j = await fetchEmitenJson(); setEmitenInfo(j)
-        }
-        EMITEN = EMITEN_INFO
-        $('status').textContent = `Siap · ${SYMS.length} emiten · ${Object.keys(EMITEN).length ? 'sektor termuat' : 'sektor?'}`
-      } catch (e) { $('status').textContent = 'Gagal muat daftar emiten: ' + e.message }
+      try{
+        if(!Object.keys(EMITEN_INFO).length){ setEmitenInfo(await fetchEmitenJson()) }
+        EMITEN=EMITEN_INFO
+        await run()
+        liveTimer=setInterval(()=>{ cache.clear(); run() }, 180000)
+      }catch(e){ $('live-txt').textContent='gagal: '+e.message }
     })
   </script>
 </body>

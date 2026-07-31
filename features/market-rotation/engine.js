@@ -46,44 +46,44 @@ export function turnover(daily) {
  * Net asing: agregasi = jumlah rupiah (tidak dibobot; rupiah sudah absolut).
  */
 export function aggregateGroup(members, metric) {
-  // members: [{sym, daily}]
+  // members: [{sym, daily}]  |  metric: 'return' | 'value'
   const rows = []
   for (const m of members) {
     const ret = dayReturnPct(m.daily)
-    const fn = foreignNet(m.daily)
     const tv = turnover(m.daily)
-    rows.push({ sym: m.sym, ret, foreignNet: fn, turnover: tv.today, turnoverRatio: tv.ratio,
+    // Net Value (proxy murah, tanpa trade-book): turnover diberi ARAH oleh
+    // gerak harga hari itu. Naik → uang masuk (positif); turun → keluar.
+    // Bukan HAKA−HAKI sebenarnya (itu perlu fetch trade-book per emiten =
+    // terlalu mahal utk semua emiten live), tapi proxy arah yang koheren.
+    const netValue = (ret != null && tv.today != null) ? Math.sign(ret) * tv.today : null
+    rows.push({ sym: m.sym, ret, turnover: tv.today, turnoverRatio: tv.ratio, netValue,
                 close: m.daily?.[m.daily.length - 1]?.close ?? null })
   }
-  const valid = rows.filter(r => (metric === 'foreign' ? r.foreignNet != null : r.ret != null))
+  const valid = rows.filter(r => r.ret != null)
 
-  let score = null, foreignSum = null, retW = null
+  let score = null, retW = null, valueSum = null
   if (valid.length) {
-    // net asing agregat (rupiah)
-    const fvals = rows.filter(r => r.foreignNet != null)
-    foreignSum = fvals.length ? fvals.reduce((s, r) => s + r.foreignNet, 0) : null
-    // return berbobot turnover
     const wr = rows.filter(r => r.ret != null && r.turnover)
     if (wr.length) {
       const wsum = wr.reduce((s, r) => s + r.turnover, 0)
       retW = wsum ? wr.reduce((s, r) => s + r.ret * r.turnover, 0) / wsum : null
     }
-    // fallback: rata2 sederhana kalau tak ada turnover
     if (retW == null) {
       const rs = rows.filter(r => r.ret != null)
       retW = rs.length ? rs.reduce((s, r) => s + r.ret, 0) / rs.length : null
     }
-    score = metric === 'foreign' ? foreignSum : retW
+    const nv = rows.filter(r => r.netValue != null)
+    valueSum = nv.length ? nv.reduce((s, r) => s + r.netValue, 0) : null
+    score = metric === 'value' ? valueSum : retW
   }
 
   const turnoverSum = rows.reduce((s, r) => s + (r.turnover || 0), 0)
   return {
-    score, retW, foreignSum, turnoverSum,
+    score, retW, valueSum, turnoverSum,
     nValid: valid.length, nTotal: rows.length,
-    // top kontributor searah score (utk drill-down cepat)
     members: rows.sort((a, b) => {
-      const va = metric === 'foreign' ? (a.foreignNet ?? -Infinity) : (a.ret ?? -Infinity)
-      const vb = metric === 'foreign' ? (b.foreignNet ?? -Infinity) : (b.ret ?? -Infinity)
+      const va = metric === 'value' ? (a.netValue ?? -Infinity) : (a.ret ?? -Infinity)
+      const vb = metric === 'value' ? (b.netValue ?? -Infinity) : (b.ret ?? -Infinity)
       return vb - va
     }),
   }
