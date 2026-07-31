@@ -158,12 +158,11 @@
       }
     }
 
-    whenTokenReady(async () => {
+    ;(async () => {
       try{
-        // Derive langsung dari JSON — jangan andalkan SYMS/EMITEN_INFO impor
-        // (variabel modul di-reassign store, nilai impor bisa stale/kosong).
+        await whenTokenReady()
         const raw = await fetchEmitenJson()
-        setEmitenInfo(raw)  // tetap isi store utk fitur lain
+        setEmitenInfo(raw)
         const list = (raw && raw.emiten) || []
         EMITEN = {}; ALLSYMS = []
         for(const e of list){
@@ -174,7 +173,7 @@
         await run()
         liveTimer=setInterval(()=>{ cache.clear(); run() }, 180000)
       }catch(e){ $('live-txt').textContent='gagal muat emiten: '+e.message }
-    })
+    })()
   </script>
 </body>
 </html>
