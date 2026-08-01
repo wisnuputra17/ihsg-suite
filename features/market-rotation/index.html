@@ -10,7 +10,8 @@
     .mr-wrap { max-width: 940px; margin: 0 auto; padding: 16px; }
     .mr-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; flex-wrap:wrap; gap:12px; }
     .mr-live { font-family:var(--f-mono); font-size:10px; color:var(--ghost); display:flex; align-items:center; gap:6px; margin-top:2px; }
-    .mr-dot { width:6px; height:6px; border-radius:50%; background:var(--up); display:inline-block; }
+    .mr-dot { width:6px; height:6px; border-radius:50%; background:var(--up); display:inline-block; animation:mr-pulse 2s infinite; }
+    @keyframes mr-pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
     .seg { display:inline-flex; border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; }
     .seg button { padding:6px 14px; font-family:var(--f-mono); font-size:11px; background:transparent; color:var(--ghost); border:none; cursor:pointer; }
     .seg button.active { background:var(--phosphor-dim); color:var(--phosphor); font-weight:700; }
@@ -118,8 +119,8 @@
       cache = c2; CACHE_DATE = todayWIB()
       render()
       $('live-txt').textContent = changed
-        ? `Data ${new Date().toLocaleTimeString('id-ID')}`
-        : `Data ${new Date().toLocaleTimeString('id-ID')}`
+        ? `Live · ${new Date().toLocaleTimeString('id-ID')}`
+        : `Live · ${new Date().toLocaleTimeString('id-ID')}`
     }
 
     function render() {
@@ -165,8 +166,16 @@
         const loaded = await loadCache()   // muat cache disk → tampil instan
         cache = loaded.cache; CACHE_DATE = loaded.fetchedAt
         await run()
-        // Live saat dibuka saja (permintaan Wisnu): tanpa refresh berkala.
-        // Data terbaru = buka ulang halaman. Hemat fetch, tak ada polling latar.
+        // Live otomatis selama DI DALAM halaman MR: refresh penuh tiap 3 menit.
+        // Berhenti saat tab disembunyikan (hemat) & saat halaman ditinggalkan.
+        let liveTimer = setInterval(() => {
+          if (document.visibilityState === 'visible') run(true)
+        }, 180000)
+        document.addEventListener('visibilitychange', () => {
+          // saat tab kembali terlihat setelah lama, segarkan langsung
+          if (document.visibilityState === 'visible' && CACHE_DATE !== todayWIB()) run(true)
+        })
+        window.addEventListener('beforeunload', () => { if (liveTimer) clearInterval(liveTimer) })
       }catch(e){ $('live-txt').textContent='gagal muat emiten: '+e.message }
     })()
   </script>
