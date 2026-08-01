@@ -41,9 +41,10 @@
     .stat-val { font-family: var(--f-mono); font-size: 20px; font-weight: 500; color: var(--paper); }
     .stat-sub { font-family: var(--f-mono); font-size: 9px; color: var(--dim); }
 
-    #ranking-table { width: 100%; border-collapse: collapse; font-family: var(--f-mono); font-size: 11px; }
-    #ranking-table th, #ranking-table td { padding: 7px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-    #ranking-table th { color: var(--ghost); font-weight: 500; text-align: left; font-size: 10px; }
+    #ranking-table { width: 100%; border-collapse: collapse; font-family: var(--f-mono); font-size: 12px; }
+    #ranking-table th, #ranking-table td { padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--line); white-space: nowrap; }
+    #ranking-table th { color: var(--ghost); font-weight: 500; text-align: left; font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase; }
+    #ranking-table tbody tr:hover { background: var(--panel-hi); }
     #ranking-table td.num { text-align: right; }
     .rank-cell { text-align: center; color: var(--ghost); width: 32px; }
     .sym-cell { font-weight: 500; color: var(--phosphor); }

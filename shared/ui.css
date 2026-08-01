@@ -43,6 +43,13 @@
   /* ── Lainnya ── */
   --radius: 3px;
   --ease:   200ms cubic-bezier(.4,0,.2,1);
+
+  /* ── Skala spasi (dipakai lintas fitur utk kerapatan seragam) ── */
+  --sp-1: 4px;
+  --sp-2: 7px;
+  --sp-3: 10px;
+  --sp-4: 14px;
+  --sp-6: 20px;
 }
 
 /* ============================================================
@@ -301,3 +308,38 @@ textarea.input { resize: vertical; min-height: 50px; font-family: var(--f-sans);
 @media (max-width: 600px) {
   .app-header { flex-direction: column; align-items: flex-start; gap: 10px; }
 }
+
+/* ============================================================
+   TABEL BERSAMA — gaya seragam lintas fitur (acuan: mockup Market Rotation)
+   Pakai class="suite-table" pada <table>. Header uppercase mono, baris rapat,
+   angka rata kanan. Override lokal tetap boleh utk kolom khusus.
+   ============================================================ */
+.suite-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--f-mono);
+  font-size: 12px;
+}
+.suite-table th {
+  font-size: 9.5px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ghost);
+  font-weight: 500;
+  text-align: right;
+  padding: var(--sp-1) var(--sp-3) var(--sp-2);
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.suite-table th:first-child { text-align: left; }
+.suite-table td {
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+  white-space: nowrap;
+}
+.suite-table td:first-child { text-align: left; }
+.suite-table tbody tr:hover { background: var(--panel-hi); }
+.suite-table .up   { color: var(--up); }
+.suite-table .down { color: var(--down); }
+.suite-table .dim  { color: var(--ghost); }
