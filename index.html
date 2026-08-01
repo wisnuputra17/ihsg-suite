@@ -350,9 +350,12 @@
         <div class="hero-logo">IHSG Suite · wisnuputra17</div>
         <h1 class="hero-title">Analisa<br><span>Saham IDX</span></h1>
       </div>
-      <div class="market-badge" id="marketBadge">
-        <span class="status-dot" id="marketDot"></span>
-        <span id="marketLabel">–––</span>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span id="dash-theme-slot"></span>
+        <div class="market-badge" id="marketBadge">
+          <span class="status-dot" id="marketDot"></span>
+          <span id="marketLabel">–––</span>
+        </div>
       </div>
     </div>
 
@@ -715,6 +718,12 @@
   import { TOKEN, has, setEmitenInfo }          from './shared/store.js'
   import { fetchMarketStatus, fetchEmitenJson, fetchIntraday, fetchDaily } from './shared/api.js'
   import { renderHeader, saveTokenEverywhere, syncTokenFromSheetsIfNeeded } from './shared/header.js'
+  import { buildThemePicker } from './shared/theme.js'
+  // pasang pemilih tema di dashboard (hanya di sini, bukan tiap halaman fitur)
+  try {
+    const slot = document.getElementById('dash-theme-slot')
+    if (slot) slot.appendChild(buildThemePicker())
+  } catch (e) {}
   import { onReady } from './shared/token.js'
 
   // ============================================================
