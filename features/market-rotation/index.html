@@ -79,23 +79,23 @@
     async function loadCacheFromDisk(){
       try{
         const rows = await gsLoad(CACHE_SHEET)
-        for(const r of (rows||[])){
-          if(r && r.sym && r.daily) cache.set(r.sym, r.daily)
+        // cache disimpan sbg SATU baris {sym:'__ALL__', payload:{sym:daily,...}, fetchedAt}
+        const row = (rows||[]).find(r => r && r.sym === '__ALL__')
+        if(!row || !row.payload) return null
+        for(const [sym, daily] of Object.entries(row.payload)){
+          if(daily) cache.set(sym, daily)
         }
-        return rows && rows.length ? (rows[0].fetchedAt || null) : null
+        return row.fetchedAt || null
       }catch(e){ return null }
     }
-    let _saveTimer=null
-    function scheduleCacheSave(){
-      // debounce: tulis snapshot cache ke disk sekali setelah render bertahap reda
-      if(_saveTimer) clearTimeout(_saveTimer)
-      _saveTimer=setTimeout(async()=>{
-        try{
-          const at=todayWIB()
-          const rows=[...cache.entries()].map(([sym,daily])=>({sym,daily,fetchedAt:at}))
-          await gsSave(CACHE_SHEET, rows)
-        }catch(e){}
-      }, 4000)
+    async function saveCacheToDisk(){
+      // simpan SEGERA sbg 1 baris (bukan 750 baris; bukan debounce yg bisa batal
+      // saat pindah halaman). Payload = objek {sym: daily[]}.
+      try{
+        const payload = {}
+        for(const [sym, daily] of cache.entries()) payload[sym] = daily
+        await gsSave(CACHE_SHEET, [{ sym:'__ALL__', payload, fetchedAt: todayWIB() }])
+      }catch(e){ console.warn('[mr] gagal simpan cache:', e.message) }
     }
 
     renderHeader($('app-header'), [
@@ -157,7 +157,7 @@
         await new Promise(r=>setTimeout(r,120))
       }
       CACHE_DATE=todayWIB()
-      render(); scheduleCacheSave()
+      render(); await saveCacheToDisk()
       $('live-txt').textContent=`Live · update ${new Date().toLocaleTimeString('id-ID')}`
     }
 
