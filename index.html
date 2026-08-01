@@ -1353,6 +1353,22 @@
 
   onReady(() => { _startRajaMonitor(); _startMbmaMonitor() })
 
+  // ── Preload Market Rotation di latar (permintaan Wisnu: data siap sebelum diklik) ──
+  // Jalan sunyi setelah token siap; isi cache IndexedDB (tahan hard refresh).
+  // Tidak memblok apa pun; kalau gagal, halaman MR tetap fetch sendiri saat dibuka.
+  onReady(async () => {
+    try {
+      const mr = await import('./features/market-rotation/mr-data.js')
+      const { list } = await mr.allSymbols()
+      const syms = list.filter(e => e.tradeable !== 0 && e.sector).map(e => e.code)
+      const { cache, fetchedAt } = await mr.loadCache()
+      // idle: mulai preload setelah dashboard tenang, jeda lebih longgar (200ms)
+      const start = () => mr.warmCache(syms, { cache, fetchedAt, delay: 200 })
+      if (window.requestIdleCallback) requestIdleCallback(start, { timeout: 3000 })
+      else setTimeout(start, 2000)
+    } catch (e) { /* diam — bukan fitur kritis */ }
+  })
+
   // ============================================================
   // SEKSI 1: RENDER FEATURE LIST
   // ============================================================
