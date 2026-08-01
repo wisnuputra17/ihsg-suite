@@ -70,7 +70,7 @@
     import { loadCache, saveCache, warmCache, todayWIB } from './mr-data.js'
 
     const $ = id => document.getElementById(id)
-    let SOURCE='sector', METRIC='pct', EMITEN={}, ALLSYMS=[], liveTimer=null
+    let SOURCE='sector', METRIC='pct', EMITEN={}, ALLSYMS=[]
     let cache = new Map()
 
     renderHeader($('app-header'), [
@@ -118,8 +118,8 @@
       cache = c2; CACHE_DATE = todayWIB()
       render()
       $('live-txt').textContent = changed
-        ? `Live · update ${new Date().toLocaleTimeString('id-ID')}`
-        : `Live · ${new Date().toLocaleTimeString('id-ID')}`
+        ? `Data ${new Date().toLocaleTimeString('id-ID')}`
+        : `Data ${new Date().toLocaleTimeString('id-ID')}`
     }
 
     function render() {
@@ -165,7 +165,8 @@
         const loaded = await loadCache()   // muat cache disk → tampil instan
         cache = loaded.cache; CACHE_DATE = loaded.fetchedAt
         await run()
-        liveTimer=setInterval(()=>{ run(true) }, 180000)  // refresh berkala (force)
+        // Live saat dibuka saja (permintaan Wisnu): tanpa refresh berkala.
+        // Data terbaru = buka ulang halaman. Hemat fetch, tak ada polling latar.
       }catch(e){ $('live-txt').textContent='gagal muat emiten: '+e.message }
     })()
   </script>
