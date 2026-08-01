@@ -23,11 +23,11 @@
     .etag {
       padding: 3px 7px; border-radius: var(--radius); cursor: pointer; user-select: none;
       font-family: var(--f-mono); font-size: 10px; border: 1px solid var(--line);
-      color: var(--ghost); background: transparent; transition: all 100ms ease;
+      color: var(--dim); background: var(--panel); transition: all 100ms ease;
     }
-    .etag:hover { border-color: var(--line-hi); color: var(--dim); }
+    .etag:hover { border-color: var(--line-hi); color: var(--paper); background: var(--panel-hi); }
     .etag.active { border-color: var(--phosphor-line); color: var(--phosphor); background: var(--phosphor-dim); }
-    .watch-count { font-family: var(--f-mono); font-size: 10px; color: var(--phosphor); margin-left: auto; }
+    .watch-count { font-family: var(--f-mono); font-size: 10px; color: var(--dim); margin-left: auto; }
 
     .date-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
     .date-row label { font-family: var(--f-mono); font-size: 10px; color: var(--ghost); }
@@ -47,7 +47,7 @@
     #ranking-table tbody tr:hover { background: var(--panel-hi); }
     #ranking-table td.num { text-align: right; }
     .rank-cell { text-align: center; color: var(--ghost); width: 32px; }
-    .sym-cell { font-weight: 500; color: var(--phosphor); }
+    .sym-cell { font-weight: 500; color: var(--paper); }
     .cond-cell { font-size: 9px; color: var(--dim); max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
     .wr-good { color: var(--live); font-weight: 500; }
     .wr-mid  { color: var(--wait); font-weight: 500; }

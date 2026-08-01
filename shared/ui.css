@@ -14,26 +14,25 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap');
 
 :root {
-  /* ── Warna — "Terminal Fosfor" ── */
-  --ink:      #0a0908;   /* bg utama — hitam hangat, bukan #000 pekat */
-  --panel:    #131210;   /* bg card/panel */
-  --panel-hi: #1a1815;   /* bg card saat hover */
-  --line:     #232019;   /* border default */
-  --line-hi:  #343025;   /* border saat hover/aktif */
+  /* ── Warna — "Terminal Fosfor" (kontras dinaikkan 26 Jul) ── */
+  --ink:      #0a0908;   /* bg utama — hitam hangat */
+  --panel:    #16150f;   /* bg card/panel — sedikit lebih terang dari latar */
+  --panel-hi: #201e16;   /* bg card saat hover */
+  --line:     #35322a;   /* border default — DINAIKKAN dari #232019 agar terlihat */
+  --line-hi:  #4a463a;   /* border saat hover/aktif */
 
-  --paper:    #ece7de;   /* teks utama — krem pudar, bukan putih pekat */
-  --dim:      #6b6557;   /* teks sekunder */
-  --ghost:    #38352c;   /* teks paling pudar / placeholder */
+  --paper:    #f0ece4;   /* teks utama — krem terang */
+  --dim:      #9a9384;   /* teks sekunder — DINAIKKAN dari #6b6557 agar terbaca */
+  --ghost:    #6a6456;   /* teks pudar/placeholder — DINAIKKAN dari #38352c */
 
-  --phosphor:     #e8b34a;          /* aksen utama — emas fosfor (mockup) */
+  --phosphor:     #e8b34a;          /* aksen — emas, HANYA utk elemen aktif/tombol */
   --phosphor-dim: rgba(232,179,74,0.12);
-  --phosphor-line:rgba(232,179,74,0.35);
+  --phosphor-line:rgba(232,179,74,0.4);
 
-  /* Warna fungsional status (bukan brand, hanya makna: aktif/tutup/bahaya) */
-  --up:   #1d9e75;   /* naik / inflow / positif (mockup) */
-  --live: #1d9e75;   /* aktif — disamakan hijau inflow */
-  --down: #d9663a;   /* turun / outflow / rugi — oranye mockup (sedikit dicerahkan
-                        dari #d85a30 utk kontras teks kecil) */
+  /* Warna fungsional status (makna: aktif/naik/turun) */
+  --up:   #2bb383;   /* naik / inflow — hijau sedikit dicerahkan */
+  --live: #2bb383;
+  --down: #e07444;   /* turun / outflow — oranye dicerahkan utk kontras */
   --wait: #e8b34a;
 
   /* ── Tipografi ── */
@@ -113,12 +112,13 @@ a { color: inherit; }
   letter-spacing: 0.03em;
   transition: color var(--ease);
 }
-.breadcrumb-link:hover { color: var(--dim); }
-.breadcrumb-sep { color: var(--line); font-size: 12px; margin: 0 2px; }
+.breadcrumb-link:hover { color: var(--paper); }
+.breadcrumb-sep { color: var(--dim); font-size: 12px; margin: 0 2px; }
 .breadcrumb-current {
   font-family: var(--f-mono);
   font-size: 12px;
-  color: var(--phosphor);
+  color: var(--paper);
+  font-weight: 500;
   letter-spacing: 0.03em;
 }
 
