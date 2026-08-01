@@ -28,6 +28,9 @@ import { TOKEN }            from './store.js'
 import { fetchMarketStatus } from './api.js'
 import { gsLoad, gsSave }   from './sheets.js'
 import { dispatchReady }    from './token.js'
+import { buildThemePicker, initThemeEarly } from './theme.js'
+
+initThemeEarly()  // terapkan tema tersimpan segera saat modul header dimuat
 
 const TOKEN_TTL_MS = 24 * 60 * 60 * 1000
 const SHEET_TOKEN  = 'user-token'
@@ -51,6 +54,8 @@ export function renderHeader(container, crumbs) {
           : `<a class="breadcrumb-link" href="${c.href}">${c.label}</a><span class="breadcrumb-sep">/</span>`
       }).join('')}
     </div>
+    <div class="app-header-right" style="display:flex;align-items:center;gap:10px;margin-left:auto">
+      <span id="hdr-theme-slot"></span>
     <div class="token-status" id="hdr-token-status">
       <span class="status-dot" id="hdr-token-dot"></span>
       <span id="hdr-token-label">–––</span>
@@ -60,8 +65,14 @@ export function renderHeader(container, crumbs) {
         <button class="btn btn-primary btn-sm" id="hdr-token-save">Simpan</button>
       </div>
     </div>
+    </div>
   `
   _bindTokenUI()
+  // sisipkan pemilih tema
+  try {
+    const slot = container.querySelector('#hdr-theme-slot')
+    if (slot) slot.appendChild(buildThemePicker())
+  } catch (e) {}
 
   // Sync token dari Sheets kalau belum ada / expired, lalu render status.
   // Setelah sync selesai (atau token sudah ada), dispatchReady() dipanggil

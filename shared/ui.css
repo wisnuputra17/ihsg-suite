@@ -49,6 +49,92 @@
   --sp-3: 10px;
   --sp-4: 14px;
   --sp-6: 20px;
+
+  /* ── Token tema (di-override per [data-theme]) ── */
+  --app-bg: var(--ink);           /* latar body — bisa gradasi/foto per tema */
+  --glow:   none;                 /* efek glow aksen — hanya futuristik */
+  --accent-grad: var(--phosphor); /* isian tombol/bar aktif — bisa gradasi */
+  --head-color: var(--paper);     /* warna judul breadcrumb */
+}
+
+/* ========================================================================
+   TEMA — 4 pilihan, ditukar lewat atribut data-theme di <html>.
+   Default (tanpa atribut) = Minimalist (Terminal Fosfor) di :root atas.
+   ======================================================================== */
+
+/* MINIMALIST — eksplisit (sama dgn :root, utk kejelasan pemilih) */
+:root[data-theme="minimalist"] { }
+
+/* COLORFUL — hangat, aksen ungu-magenta, tiap sektor berwarna (via JS palette) */
+:root[data-theme="colorful"] {
+  --ink:      #0a0a12;
+  --panel:    #14121f;
+  --panel-hi: #201d30;
+  --line:     #2a2740;
+  --line-hi:  #3d3960;
+  --paper:    #eaeaf0;
+  --dim:      #8b8ba7;
+  --ghost:    #5a5a78;
+  --phosphor:     #f0abfc;
+  --phosphor-dim: rgba(240,171,252,0.14);
+  --phosphor-line:rgba(240,171,252,0.45);
+  --up:   #34d399;
+  --live: #34d399;
+  --down: #fb7185;
+  --wait: #fbbf24;
+  --app-bg: linear-gradient(160deg,#0e0b18 0%,#0a0a12 60%,#0c0a14 100%);
+  --accent-grad: linear-gradient(90deg,#f59e0b,#f0abfc);
+  --head-color: #c084fc;
+}
+
+/* FUTURISTIK — cyber, cyan-magenta, glow, grid neon */
+:root[data-theme="futuristik"] {
+  --ink:      #060912;
+  --panel:    #0b1420;
+  --panel-hi: #12233a;
+  --line:     #1a3a4f;
+  --line-hi:  #2a5a7a;
+  --paper:    #d6e6ff;
+  --dim:      #5f7a9a;
+  --ghost:    #3d5570;
+  --phosphor:     #22d3ee;
+  --phosphor-dim: rgba(34,211,238,0.12);
+  --phosphor-line:rgba(34,211,238,0.45);
+  --up:   #22d3ee;
+  --live: #22d3ee;
+  --down: #f0abfc;
+  --wait: #22d3ee;
+  --app-bg: radial-gradient(ellipse at top,#0a1528 0%,#060912 55%,#04060d 100%);
+  --glow: 0 0 12px currentColor;
+  --accent-grad: #0e3547;
+  --head-color: #22d3ee;
+}
+
+/* PERJUANGAN — merah-putih heroik, latar foto (overlay tebal demi keterbacaan) */
+:root[data-theme="perjuangan"] {
+  --ink:      #0f0808;
+  --panel:    #1c0d0d;
+  --panel-hi: #2a1414;
+  --line:     #4a1818;
+  --line-hi:  #6a2020;
+  --paper:    #f4ede4;
+  --dim:      #b09888;
+  --ghost:    #8a6a6a;
+  --phosphor:     #e63946;
+  --phosphor-dim: rgba(230,57,70,0.14);
+  --phosphor-line:rgba(230,57,70,0.5);
+  --up:   #f4ede4;
+  --live: #e63946;
+  --down: #e63946;
+  --wait: #fbbf24;
+  /* latar foto: overlay gelap tebal DI ATAS foto agar angka terbaca.
+     Ganti url() dgn foto pilihan Wisnu; overlay 82% jaga keterbacaan. */
+  --app-bg:
+    linear-gradient(180deg,#000000d0 0%,#000000a8 40%,#000000e0 100%),
+    radial-gradient(ellipse at 20% 15%,#7a1e1e55,transparent 55%),
+    linear-gradient(115deg,#2a0d0d 0%,#1a0a0a 45%,#0f0808 100%);
+  --accent-grad: #c1121f;
+  --head-color: #f4ede4;
 }
 
 /* ============================================================
@@ -57,12 +143,14 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {
-  background: var(--ink);
+  background: var(--app-bg);
+  background-attachment: fixed;
   color: var(--paper);
   font-family: var(--f-sans);
   font-size: 14px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
 }
 
 a { color: inherit; }
@@ -343,3 +431,37 @@ textarea.input { resize: vertical; min-height: 50px; font-family: var(--f-sans);
 .suite-table .up   { color: var(--up); }
 .suite-table .down { color: var(--down); }
 .suite-table .dim  { color: var(--ghost); }
+
+/* ============================================================
+   PEMILIH TEMA — di header, semua halaman
+   ============================================================ */
+.theme-picker { position: relative; }
+.theme-btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 9px; font-family: var(--f-mono); font-size: 10px;
+  color: var(--dim); background: var(--panel); border: 1px solid var(--line);
+  border-radius: var(--radius); cursor: pointer; transition: all var(--ease);
+}
+.theme-btn:hover { color: var(--paper); border-color: var(--line-hi); }
+.theme-swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block;
+  background: var(--accent-grad); border: 1px solid var(--line-hi); }
+.theme-swatch-minimalist { background: #e8b34a; }
+.theme-swatch-colorful   { background: linear-gradient(135deg,#f59e0b,#f0abfc); }
+.theme-swatch-futuristik { background: #22d3ee; box-shadow: 0 0 6px #22d3ee; }
+.theme-swatch-perjuangan { background: linear-gradient(135deg,#c1121f 50%,#f4ede4 50%); }
+.theme-menu {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 100;
+  background: var(--panel); border: 1px solid var(--line-hi); border-radius: var(--radius);
+  padding: 4px; min-width: 200px; box-shadow: 0 8px 28px rgba(0,0,0,.5);
+}
+.theme-opt {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  padding: 7px 9px; background: transparent; border: none; border-radius: var(--radius);
+  cursor: pointer; text-align: left; color: var(--paper); transition: background var(--ease);
+}
+.theme-opt:hover { background: var(--panel-hi); }
+.theme-opt.active { background: var(--phosphor-dim); }
+.theme-opt .theme-swatch { width: 16px; height: 16px; border-radius: 3px; flex-shrink: 0; }
+.theme-opt-text { display: flex; flex-direction: column; line-height: 1.3; }
+.theme-opt-text b { font-family: var(--f-mono); font-size: 11px; }
+.theme-opt-text small { font-family: var(--f-mono); font-size: 9px; color: var(--dim); }
