@@ -29,17 +29,15 @@ export function volumeSurge(daily, maLen = 5) {
   // Baseline dari maLen hari SEBELUM hari ini (exclude hari berjalan).
   const hist = vols.slice(-(maLen + 1), -1)
   if (hist.length < maLen) return null
-  // MEDIAN, bukan rata-rata: kebal outlier. Satu hari volume raksasa (surge
-  // kemarin) tak boleh menaikkan baseline & menyembunyikan surge hari ini.
-  // Contoh IPOL: mean bikin ratio 0.28x (salah), median 5.85x (surge nyata).
-  const sorted = [...hist].sort((a, b) => a - b)
-  const mid = Math.floor(sorted.length / 2)
-  const median = sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
-  if (!median) return null  // baseline nol (tak likuid/suspend) → skip
+  // MA5 rata-rata NYATA (keputusan Wisnu): outlier TIDAK diabaikan. Bila 1 hari
+  // meledak lalu reda, ratio rendah memang benar — mencerminkan aktivitas turun
+  // dari puncak. (Median sempat dicoba, ditolak: sembunyikan hari raksasa kemarin.)
+  const ma = hist.reduce((s, x) => s + x, 0) / maLen
+  if (!ma) return null  // baseline nol (tak likuid/suspend) → skip
   return {
     today,
-    ma: median,
-    ratio: today / median,
+    ma,
+    ratio: today / ma,
     nHist: hist.length,
     close: daily[daily.length - 1].close ?? null,
     date: daily[daily.length - 1].date ?? null,
