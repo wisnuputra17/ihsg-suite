@@ -55,14 +55,14 @@
     </div>
 
     <div class="vs-note">
-      Surge = volume hari ini ÷ rata-rata volume <span id="note-ma">5</span> hari sebelumnya, per emiten.
+      Surge = volume hari ini ÷ median volume <span id="note-ma">5</span> hari sebelumnya (kebal outlier), per emiten.
       Ranking realtime dari tertinggi. <b>Catatan bias pagi:</b> di awal sesi volume baru terkumpul sedikit,
       jadi rasio semua emiten kecil & membesar sepanjang hari — urutan tetap benar, hanya angka absolut bergeser.
       Alat observasi keramaian, bukan sinyal beli/jual.
     </div>
 
     <div class="vs-thead">
-      <span>#</span><span>Emiten</span><span>Surge</span><span>Vol hari ini</span><span>MA vol</span>
+      <span>#</span><span>Emiten</span><span>Surge</span><span>Vol hari ini</span><span>Median vol</span>
     </div>
     <div id="rows"></div>
     <div id="empty" class="vs-note"></div>

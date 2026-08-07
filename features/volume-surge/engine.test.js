@@ -4,19 +4,26 @@ import { volumeSurge, rankSurge, alertLevel, fmtRatio, fmtVol } from './engine.j
 
 const mk = (vols) => vols.map((v, i) => ({ volume: v, close: 100, date: `2026-08-0${i+1}` }))
 
-test('volumeSurge: hari ini 3x rata-rata 5 hari', () => {
-  // MA5 dari [100,100,100,100,100] = 100; hari ini 300 → 3x
+test('volumeSurge: hari ini 3x median 5 hari', () => {
+  // median [100,100,100,100,100] = 100; hari ini 300 → 3x
   const s = volumeSurge(mk([100,100,100,100,100,300]))
   assert.equal(s.ratio, 3)
   assert.equal(s.today, 300)
   assert.equal(s.ma, 100)
 })
 
-test('volumeSurge: exclude hari berjalan dari MA', () => {
-  // MA harus dari 5 hari SEBELUM, bukan termasuk hari ini
+test('volumeSurge: exclude hari berjalan dari baseline', () => {
   const s = volumeSurge(mk([200,200,200,200,200,1000]))
-  assert.equal(s.ma, 200)      // bukan (200*5+1000)/6
+  assert.equal(s.ma, 200)
   assert.equal(s.ratio, 5)
+})
+
+test('volumeSurge: MEDIAN kebal outlier (kasus IPOL nyata)', () => {
+  // 5 hari sebelum: [218900,305100,732700,671600,69148900] — ada outlier 69jt
+  // median = 671600 (bukan mean 14,2jt). hari ini 3931600 → ~5.85x
+  const s = volumeSurge(mk([376500,197000,218900,305100,732700,671600,69148900,3931600]))
+  assert.equal(s.ma, 671600)
+  assert.ok(Math.abs(s.ratio - 5.85) < 0.05, `ratio ${s.ratio} harus ~5.85`)
 })
 
 test('volumeSurge: data kurang dari 6 candle → null', () => {
