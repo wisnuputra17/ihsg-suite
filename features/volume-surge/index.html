@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Volume Surge · IHSG Suite</title>
+  <link rel="stylesheet" href="../../shared/ui.css">
+  <style>
+    .vs-wrap { max-width: 820px; margin: 0 auto; padding: 16px; }
+    .vs-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; flex-wrap:wrap; gap:12px; }
+    .vs-live { font-family:var(--f-mono); font-size:10px; color:var(--ghost); display:flex; align-items:center; gap:6px; margin-top:2px; }
+    .vs-dot { width:6px; height:6px; border-radius:50%; background:var(--up); display:inline-block; animation:vs-pulse 2s infinite; }
+    @keyframes vs-pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+    .vs-note { font-family:var(--f-mono); font-size:9.5px; color:var(--ghost); margin:8px 0 14px; line-height:1.6; }
+    .vs-controls { display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap; }
+    .vs-controls label { font-family:var(--f-mono); font-size:10px; color:var(--dim); display:flex; align-items:center; gap:5px; }
+    .vs-controls input[type=number] { width:52px; background:var(--panel); border:1px solid var(--line); color:var(--paper);
+      border-radius:var(--radius); padding:3px 6px; font-family:var(--f-mono); font-size:11px; }
+    .vs-thead { display:grid; grid-template-columns:40px 1fr 90px 110px 110px; gap:0; font-family:var(--f-mono);
+      font-size:9.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ghost); padding:0 10px 8px; border-bottom:1px solid var(--line); }
+    .vs-thead span:nth-child(n+3){text-align:right}
+    .vs-row { display:grid; grid-template-columns:40px 1fr 90px 110px 110px; gap:0; align-items:center;
+      padding:8px 10px; border-bottom:1px solid var(--line); font-family:var(--f-mono); font-size:12px; }
+    .vs-row:hover { background:var(--panel-hi); }
+    .vs-rank { color:var(--ghost); font-size:11px; }
+    .vs-sym { font-weight:600; color:var(--paper); }
+    .vs-ratio { text-align:right; font-weight:700; }
+    .vs-num { text-align:right; color:var(--dim); font-size:11px; }
+    .lvl-extreme .vs-ratio { color:var(--phosphor); }
+    .lvl-extreme { background:var(--phosphor-dim); }
+    .lvl-high .vs-ratio { color:var(--up); }
+    .lvl-mid .vs-ratio { color:var(--up); opacity:.75; }
+    .lvl-normal .vs-ratio { color:var(--dim); }
+    .vs-badge { display:inline-block; font-size:8.5px; padding:1px 5px; border-radius:2px; margin-left:6px;
+      font-family:var(--f-mono); letter-spacing:.05em; vertical-align:middle; }
+    .badge-extreme { background:var(--phosphor); color:var(--ink); font-weight:700; }
+    .badge-high { border:1px solid var(--up); color:var(--up); }
+  </style>
+</head>
+<body>
+  <div id="app-header"></div>
+  <main class="vs-wrap">
+    <div class="vs-head">
+      <div>
+        <div style="font-size:15px;font-weight:500">Volume Surge</div>
+        <div class="vs-live"><span class="vs-dot"></span><span id="live-txt">memuat…</span></div>
+      </div>
+    </div>
+
+    <div class="vs-controls">
+      <label>MA <input type="number" id="ma-len" value="5" min="2" max="20"></label>
+      <label>Min ratio <input type="number" id="min-ratio" value="0" min="0" step="0.5"></label>
+      <label>Min volume (jt) <input type="number" id="min-vol" value="0" min="0"></label>
+    </div>
+
+    <div class="vs-note">
+      Surge = volume hari ini ÷ rata-rata volume <span id="note-ma">5</span> hari sebelumnya, per emiten.
+      Ranking realtime dari tertinggi. <b>Catatan bias pagi:</b> di awal sesi volume baru terkumpul sedikit,
+      jadi rasio semua emiten kecil & membesar sepanjang hari — urutan tetap benar, hanya angka absolut bergeser.
+      Alat observasi keramaian, bukan sinyal beli/jual.
+    </div>
+
+    <div class="vs-thead">
+      <span>#</span><span>Emiten</span><span>Surge</span><span>Vol hari ini</span><span>MA vol</span>
+    </div>
+    <div id="rows"></div>
+    <div id="empty" class="vs-note"></div>
+  </main>
+
+  <script type="module">
+    import { renderHeader, whenTokenReady } from '../../shared/header.js'
+    import { TOKEN, EMITEN_INFO, setEmitenInfo } from '../../shared/store.js'
+    import { fetchEmitenJson } from '../../shared/api.js'
+    import { loadCache, warmCache, todayWIB } from '../market-rotation/mr-data.js'
+    import { rankSurge, alertLevel, fmtRatio, fmtVol } from './engine.js'
+
+    const $ = id => document.getElementById(id)
+    let ALLSYMS = [], cache = new Map(), CACHE_DATE = null
+    let MA_LEN = 5, MIN_RATIO = 0, MIN_VOL = 0
+
+    renderHeader($('app-header'), [
+      { label:'IHSG Suite', href:'../../index.html' }, { label:'Volume Surge' },
+    ])
+
+    $('ma-len').addEventListener('change', e => { MA_LEN = Math.max(2, +e.target.value||5); $('note-ma').textContent = MA_LEN; render() })
+    $('min-ratio').addEventListener('change', e => { MIN_RATIO = Math.max(0, +e.target.value||0); render() })
+    $('min-vol').addEventListener('change', e => { MIN_VOL = Math.max(0, +e.target.value||0)*1e6; render() })
+
+    let RESULT = []
+    function render() {
+      const rows = ALLSYMS.map(sym => ({ sym, daily: cache.get(sym) })).filter(r => r.daily)
+      RESULT = rankSurge(rows, MA_LEN)
+        .filter(r => r.ratio >= MIN_RATIO && r.today >= MIN_VOL)
+      const body = $('rows'); body.innerHTML = ''
+      if (!RESULT.length) { $('empty').textContent = 'Belum ada data / tak ada yang lolos filter.'; return }
+      $('empty').textContent = ''
+      const frag = document.createDocumentFragment()
+      RESULT.slice(0, 200).forEach((r, i) => {
+        const lvl = alertLevel(r.ratio)
+        const badge = lvl === 'extreme' ? '<span class="vs-badge badge-extreme">SURGE</span>'
+                    : lvl === 'high' ? '<span class="vs-badge badge-high">HIGH</span>' : ''
+        const div = document.createElement('div')
+        div.className = `vs-row lvl-${lvl}`
+        div.innerHTML =
+          `<span class="vs-rank">${i+1}</span>` +
+          `<span class="vs-sym">${r.sym}${badge}</span>` +
+          `<span class="vs-ratio">${fmtRatio(r.ratio)}</span>` +
+          `<span class="vs-num">${fmtVol(r.today)}</span>` +
+          `<span class="vs-num">${fmtVol(r.ma)}</span>`
+        frag.appendChild(div)
+      })
+      body.appendChild(frag)
+    }
+
+    async function run(force=false) {
+      if(!TOKEN.isSet()){ $('live-txt').textContent='token belum diset'; return }
+      render()
+      const { cache: c2 } = await warmCache(ALLSYMS, {
+        cache, fetchedAt: CACHE_DATE, force, delay: 120,
+        onProgress: (d,t)=>{ $('live-txt').textContent=`memuat ${d}/${t}…`; if(d%10===0||d===t) render() }
+      })
+      cache = c2; CACHE_DATE = todayWIB()
+      render()
+      $('live-txt').textContent = `Live · ${new Date().toLocaleTimeString('id-ID')}`
+    }
+
+    ;(async () => {
+      try {
+        await whenTokenReady()
+        const raw = await fetchEmitenJson()
+        setEmitenInfo(raw)
+        ALLSYMS = (raw.emiten || []).filter(e => e.tradeable !== 0).map(e => e.code)
+        if(!ALLSYMS.length){ $('live-txt').textContent='daftar emiten kosong'; return }
+        const loaded = await loadCache()
+        cache = loaded.cache; CACHE_DATE = loaded.fetchedAt
+        await run()
+        // live otomatis tiap 3 menit saat halaman terlihat
+        let t = setInterval(() => { if(document.visibilityState==='visible') run(true) }, 180000)
+        window.addEventListener('beforeunload', () => clearInterval(t))
+      } catch(e){ $('live-txt').textContent = 'gagal: ' + e.message }
+    })()
+  </script>
+</body>
+</html>

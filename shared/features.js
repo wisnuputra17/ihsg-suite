@@ -112,6 +112,13 @@ export const FEATURES = [
     desc:   'Alat OBSERVASI arah aliran uang lintas sektor IDX & grup kustom — toggle % return berbobot ↔ net asing, tabel rotasi terurut inflow, drill-down emiten. Bukan sinyal beli/jual.',
     tags:   ['rotasi', 'sektor', 'aliran', 'inflow', 'net asing', 'heatmap', 'grup', 'watchlist', 'observasi'],
     status: 'ready'
+  },
+  {
+    id:     'volume-surge',
+    name:   'Volume Surge',
+    desc:   'Alert lonjakan volume realtime — ranking semua emiten dari volume hari ini vs rata-rata 5 hari (MA5). Emiten paling ramai tak biasa di puncak, penanda alert per kelipatan. Alat observasi, bukan sinyal.',
+    tags:   ['volume', 'surge', 'lonjakan', 'alert', 'realtime', 'ranking', 'ma5', 'keramaian', 'observasi'],
+    status: 'ready'
   }
 ]
 
