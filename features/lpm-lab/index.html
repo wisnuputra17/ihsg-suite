@@ -30,7 +30,9 @@
       <input id="sym" placeholder="KODE" value="DSSA">
       <input id="lim" type="number" value="200" style="width:70px" title="jumlah transaksi">
       <button id="run">Analisa</button>
+      <button id="bots">Deteksi Bot</button>
       <button id="probe">Uji Histori</button>
+      <input id="minrep" type="number" value="5" style="width:56px" title="min pengulangan lot">
       <span id="status" class="note"></span>
     </div>
     <div id="out" class="out"></div>
@@ -39,6 +41,7 @@
   <script type="module">
     import { renderHeader, whenTokenReady } from '../../shared/header.js'
     import { TOKEN } from '../../shared/store.js'
+    import { botSeries, botNetDirection, lotSignatures } from './bot-engine.js'
 
     const $ = id => document.getElementById(id)
     const HOST = 'https://exodus.stockbit.com'
@@ -107,6 +110,61 @@
       s += `top beli: ${tb.map(([b,l])=>`<span class="up">${b}</span> ${l}lot`).join(' · ')}\n`
       s += `top jual: ${ts.map(([b,l])=>`<span class="down">${b}</span> ${l}lot`).join(' · ')}\n`
       return s
+    }
+
+    // Deteksi bot: signature lot identik berulang-agresif + grafik kumulatif
+    $('bots').addEventListener('click', async () => {
+      const sym = $('sym').value.trim().toUpperCase()
+      const lim = +$('lim').value || 200
+      const minRep = +$('minrep').value || 5
+      $('status').textContent = 'memuat…'; $('out').innerHTML = ''
+      try {
+        const list = await fetchRunning(sym, lim)
+        $('status').textContent = `${list.length} transaksi`
+        const trades = list.map(t => ({ lot:t.lot, action:t.action, time:t.time, price:t.price, value:t.value }))
+        const series = botSeries(trades, minRep)
+        let s = `<div class="sec">Bot terdeteksi (lot identik berulang ≥${minRep}×, agresif)</div>`
+        if (!series.length) {
+          s += `<span class="note">Tak ada ukuran lot yg berulang ≥${minRep}× di ${list.length} transaksi ini. Turunkan ambang atau coba emiten lain / saat bursa buka.</span>`
+          $('out').innerHTML = s; return
+        }
+        s += `<span class="note">Tiap baris = 1 kandidat bot (ukuran lot + sisi). Garis = volume kumulatif dikumpulkan.</span>\n\n`
+        for (const b of series) {
+          const dir = botNetDirection(trades, b.lot)
+          const arrow = b.action==='buy' ? '<span class="up">▲ BELI</span>' : '<span class="down">▼ JUAL</span>'
+          s += `<span class="hi">${b.lot} lot</span> ${arrow} · ${b.count}× · total ${b.totalLot} lot · net ${b.lot}-lot: <span class="${dir.net>=0?'up':'down'}">${dir.bias}</span>\n`
+        }
+        // grafik garis kumulatif multi-bot
+        s += `\n<div class="sec">Grafik volume kumulatif per bot</div>`
+        s += renderChart(series)
+        $('out').innerHTML = s
+      } catch(e) { $('status').textContent = 'gagal: ' + e.message }
+    })
+
+    function renderChart(series) {
+      const W=800, H=260, pad=40
+      // gabung semua titik utk skala; sumbu-x = urutan transaksi (indeks), y = cumVolume
+      const maxLen = Math.max(...series.map(s=>s.series.length))
+      const maxVol = Math.max(...series.map(s=>s.series[s.series.length-1]?.cumVolume||0))
+      if (!maxVol) return '<span class="note">data kosong</span>'
+      const colors = ['#2bb383','#e07444','#e8b34a','#22d3ee','#c084fc','#fb7185']
+      const x = i => pad + (i/(maxLen-1||1))*(W-2*pad)
+      const y = v => H-pad - (v/maxVol)*(H-2*pad)
+      let svg = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:4px;margin-top:6px">`
+      // axis
+      svg += `<line x1="${pad}" y1="${H-pad}" x2="${W-pad}" y2="${H-pad}" stroke="var(--line-hi)"/>`
+      svg += `<line x1="${pad}" y1="${pad}" x2="${pad}" y2="${H-pad}" stroke="var(--line-hi)"/>`
+      svg += `<text x="${pad}" y="${pad-6}" fill="var(--ghost)" font-size="9" font-family="monospace">vol kumulatif (maks ${maxVol})</text>`
+      series.forEach((b,bi)=>{
+        const col = colors[bi%colors.length]
+        const pts = b.series.map((p,i)=>`${x(i)},${y(p.cumVolume)}`).join(' ')
+        svg += `<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.8"/>`
+        // label di ujung
+        const last = b.series[b.series.length-1]
+        svg += `<text x="${x(b.series.length-1)+4}" y="${y(last.cumVolume)}" fill="${col}" font-size="9" font-family="monospace">${b.lot}${b.action==='buy'?'B':'S'}</text>`
+      })
+      svg += `</svg>`
+      return svg
     }
 
     $('run').addEventListener('click', async () => {
