@@ -30,6 +30,7 @@
       <input id="sym" placeholder="KODE" value="DSSA">
       <input id="lim" type="number" value="200" style="width:70px" title="jumlah transaksi">
       <button id="run">Analisa</button>
+      <button id="probe">Uji Histori</button>
       <span id="status" class="note"></span>
     </div>
     <div id="out" class="out"></div>
@@ -117,6 +118,40 @@
         $('status').textContent = `${list.length} transaksi`
         $('out').innerHTML = analyze(list)
       } catch(e) { $('status').textContent = 'gagal: ' + e.message }
+    })
+
+    // Uji apakah endpoint running-trade bisa ambil data LAMPAU (syarat konsep 1 tahun)
+    $('probe').addEventListener('click', async () => {
+      const sym = $('sym').value.trim().toUpperCase()
+      const tok = TOKEN.get()
+      if (!tok) return $('status').textContent = 'token belum diset'
+      $('status').textContent = 'menguji parameter histori…'
+      const base = `${HOST}/order-trade/running-trade`
+      const yst = new Date(Date.now() - 3*86400*1000).toISOString().slice(0,10) // 3 hari lalu
+      const sp = `symbols%5B%5D=${sym}&sort=DESC&limit=50&order_by=RUNNING_TRADE_ORDER_BY_TIME`
+      const variants = [
+        [`date=${yst}`,            `${base}?${sp}&date=${yst}`],
+        [`from/to=${yst}`,         `${base}?${sp}&from=${yst}&to=${yst}`],
+        [`start_date=${yst}`,      `${base}?${sp}&start_date=${yst}&end_date=${yst}`],
+        [`page=2`,                 `${base}?${sp}&page=2`],
+        [`offset=100`,             `${base}?${sp}&offset=100`],
+        [`before (id)`,            `${base}?${sp}&before=1`],
+      ]
+      let out = '<div class="sec">Uji parameter histori running-trade</div>'
+      out += '<span class="note">Cari parameter yg mengembalikan transaksi dari tanggal LAMPAU. Kalau semua cuma kasih data terbaru → endpoint real-time-only, konsep 1 tahun tak bisa dari sini.</span>\n\n'
+      for (const [label, url] of variants) {
+        try {
+          const r = await fetch(url, { headers: { 'Authorization':'Bearer '+tok }, cache:'no-store' })
+          const j = await r.json().catch(()=>({}))
+          const list = j?.data?.running_trade || []
+          const t0 = list[list.length-1]?.time, t1 = list[0]?.time
+          out += `<span class="hi">${label}</span>: HTTP ${r.status} · ${list.length} tx · waktu ${t0||'-'}→${t1||'-'}\n`
+        } catch(e) { out += `${label}: ERR ${e.message}\n` }
+        await new Promise(r=>setTimeout(r,300))
+      }
+      out += '\n<span class="note">Kalau kolom waktu semua sama (jam terbaru) apa pun parameternya → endpoint abaikan tanggal = real-time only.</span>'
+      $('out').innerHTML = out
+      $('status').textContent = 'uji selesai'
     })
 
     ;(async () => { await whenTokenReady(); $('status').textContent = 'siap — klik Analisa' })()
