@@ -147,16 +147,8 @@
         onProgress: (d,t)=>{ $('live-txt').textContent=`memuat ${d}/${t}…`; if(d%10===0||d===t) render() }
       })
       cache = c2; CACHE_DATE = todayWIB()
-      // diagnostik: catat volume 1 emiten acuan tiap refresh utk lihat apakah berubah
-      try {
-        const ref = cache.get('BBCA')
-        if (ref && ref.length) {
-          const last = ref[ref.length-1]
-          console.log(`[VS refresh ${new Date().toLocaleTimeString('id-ID')}] BBCA ${last.date} vol=${last.volume}`)
-        }
-      } catch(e) {}
       render()
-      $('live-txt').textContent = `Live · ${new Date().toLocaleTimeString('id-ID')}`
+      $('live-txt').textContent = `Live · scan ${new Date().toLocaleTimeString('id-ID')}`
     }
 
     ;(async () => {
@@ -170,8 +162,24 @@
         cache = loaded.cache; CACHE_DATE = loaded.fetchedAt
         await run()
         // live otomatis tiap 3 menit saat halaman terlihat
-        let t = setInterval(() => { if(document.visibilityState==='visible') run(true) }, 180000)
-        window.addEventListener('beforeunload', () => clearInterval(t))
+        // Scan berkelanjutan (looping) selama halaman terlihat: begitu 1 putaran
+        // selesai, langsung mulai lagi. Efektif refresh ~tiap putaran (~1.5 mnt utk
+        // ~800 emiten), tanpa jeda diam. Pause saat tab hidden, lanjut saat kembali.
+        let looping = true
+        window.addEventListener('beforeunload', () => { looping = false })
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible' && looping) scanLoop()
+        })
+        async function scanLoop() {
+          if (scanLoop._running) return   // cegah dua loop paralel
+          scanLoop._running = true
+          while (looping && document.visibilityState === 'visible') {
+            await run(true)               // 1 putaran scan penuh
+            await new Promise(r => setTimeout(r, 1500))  // jeda singkat antar-putaran
+          }
+          scanLoop._running = false
+        }
+        scanLoop()
       } catch(e){ $('live-txt').textContent = 'gagal: ' + e.message }
     })()
   </script>
