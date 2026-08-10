@@ -62,6 +62,17 @@ test('alertLevel: ambang benar', () => {
   assert.equal(alertLevel(1.2), 'normal')
 })
 
+test('volumeSurge: changePct dari close hari ini vs kemarin', () => {
+  // close kemarin 100, hari ini 105 → +5%
+  const daily = [
+    {volume:100,close:90}, {volume:100,close:95}, {volume:100,close:98},
+    {volume:100,close:99}, {volume:100,close:100}, {volume:300,close:105},
+  ]
+  const s = volumeSurge(daily)
+  assert.ok(Math.abs(s.changePct - 5) < 0.01, `changePct ${s.changePct} harus 5`)
+  assert.equal(s.close, 105)
+})
+
 test('fmtRatio & fmtVol', () => {
   assert.equal(fmtRatio(3.44), '3.4×')
   assert.equal(fmtRatio(null), '–')

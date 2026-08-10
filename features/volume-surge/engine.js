@@ -34,12 +34,16 @@ export function volumeSurge(daily, maLen = 5) {
   // dari puncak. (Median sempat dicoba, ditolak: sembunyikan hari raksasa kemarin.)
   const ma = hist.reduce((s, x) => s + x, 0) / maLen
   if (!ma) return null  // baseline nol (tak likuid/suspend) → skip
+  const prevClose = daily.length >= 2 ? (daily[daily.length - 2].close ?? null) : null
+  const closeNow = daily[daily.length - 1].close ?? null
+  const changePct = (prevClose && closeNow) ? (closeNow - prevClose) / prevClose * 100 : null
   return {
     today,
     ma,
     ratio: today / ma,
     nHist: hist.length,
-    close: daily[daily.length - 1].close ?? null,
+    close: closeNow,
+    changePct,
     date: daily[daily.length - 1].date ?? null,
   }
 }

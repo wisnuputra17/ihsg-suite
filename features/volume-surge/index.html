@@ -17,16 +17,18 @@
     .vs-controls label { font-family:var(--f-mono); font-size:10px; color:var(--dim); display:flex; align-items:center; gap:5px; }
     .vs-controls input[type=number] { width:52px; background:var(--panel); border:1px solid var(--line); color:var(--paper);
       border-radius:var(--radius); padding:3px 6px; font-family:var(--f-mono); font-size:11px; }
-    .vs-thead { display:grid; grid-template-columns:40px 1fr 90px 110px 110px; gap:0; font-family:var(--f-mono);
+    .vs-thead { display:grid; grid-template-columns:36px 1fr 76px 90px 90px 78px 70px; gap:0; font-family:var(--f-mono);
       font-size:9.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ghost); padding:0 10px 8px; border-bottom:1px solid var(--line); }
     .vs-thead span:nth-child(n+3){text-align:right}
-    .vs-row { display:grid; grid-template-columns:40px 1fr 90px 110px 110px; gap:0; align-items:center;
+    .vs-row { display:grid; grid-template-columns:36px 1fr 76px 90px 90px 78px 70px; gap:0; align-items:center;
       padding:8px 10px; border-bottom:1px solid var(--line); font-family:var(--f-mono); font-size:12px; }
     .vs-row:hover { background:var(--panel-hi); }
     .vs-rank { color:var(--ghost); font-size:11px; }
     .vs-sym { font-weight:600; color:var(--paper); }
     .vs-ratio { text-align:right; font-weight:700; }
     .vs-num { text-align:right; color:var(--dim); font-size:11px; }
+    .vs-num.up { color:var(--up); }
+    .vs-num.down { color:var(--down); }
     .lvl-extreme .vs-ratio { color:var(--phosphor); }
     .lvl-extreme { background:var(--phosphor-dim); }
     .lvl-high .vs-ratio { color:var(--up); }
@@ -64,7 +66,7 @@
     </div>
 
     <div class="vs-thead">
-      <span>#</span><span>Emiten</span><span>Surge</span><span>Vol hari ini</span><span>MA5 vol</span>
+      <span>#</span><span>Emiten</span><span>Surge</span><span>Vol hari ini</span><span>MA5 vol</span><span>Harga</span><span>Change</span>
     </div>
     <div id="rows"></div>
     <div id="empty" class="vs-note"></div>
@@ -128,12 +130,18 @@
                     : lvl === 'high' ? '<span class="vs-badge badge-high">HIGH</span>' : ''
         const div = document.createElement('div')
         div.className = `vs-row lvl-${lvl}`
+        const chg = r.changePct
+        const chgTxt = chg == null ? '–' : `${chg>=0?'+':''}${chg.toFixed(1)}%`
+        const chgCls = chg == null ? 'vs-num' : (chg >= 0 ? 'vs-num up' : 'vs-num down')
+        const priceTxt = r.close == null ? '–' : r.close.toLocaleString('id-ID')
         div.innerHTML =
           `<span class="vs-rank">${i+1}</span>` +
           `<span class="vs-sym">${r.sym}${badge}</span>` +
           `<span class="vs-ratio">${fmtRatio(r.ratio)}</span>` +
           `<span class="vs-num">${fmtVol(r.today)}</span>` +
-          `<span class="vs-num">${fmtVol(r.ma)}</span>`
+          `<span class="vs-num">${fmtVol(r.ma)}</span>` +
+          `<span class="vs-num" style="color:var(--paper)">${priceTxt}</span>` +
+          `<span class="${chgCls}">${chgTxt}</span>`
         frag.appendChild(div)
       })
       body.appendChild(frag)
