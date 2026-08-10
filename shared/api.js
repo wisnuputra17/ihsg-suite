@@ -63,7 +63,7 @@ async function _fetch(url, options = {}) {
   const timer = setTimeout(() => ctrl.abort(), 15_000)
   let res
   try {
-    res = await fetch(url, { ...options, signal: ctrl.signal })
+    res = await fetch(url, { ...options, cache: 'no-store', signal: ctrl.signal })
     clearTimeout(timer)
   } catch (e) {
     clearTimeout(timer)
