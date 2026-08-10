@@ -52,7 +52,9 @@
       <label>MA <input type="number" id="ma-len" value="5" min="2" max="20"></label>
       <label>Min ratio <input type="number" id="min-ratio" value="0" min="0" step="0.5"></label>
       <label>Min volume (jt) <input type="number" id="min-vol" value="0" min="0"></label>
+      <button id="cek-rt" style="font-family:var(--f-mono);font-size:10px;padding:3px 10px;background:var(--panel);color:var(--dim);border:1px solid var(--line);border-radius:var(--radius);cursor:pointer" title="Cek apakah volume endpoint update realtime (jalankan 2x saat bursa buka)">Cek Realtime</button>
     </div>
+    <div id="rt-result" class="vs-note" style="color:var(--phosphor)"></div>
 
     <div class="vs-note">
       Surge = volume hari ini ÷ rata-rata volume <span id="note-ma">5</span> hari sebelumnya (MA5), per emiten.
@@ -86,6 +88,30 @@
     $('ma-len').addEventListener('change', e => { MA_LEN = Math.max(2, +e.target.value||5); $('note-ma').textContent = MA_LEN; render() })
     $('min-ratio').addEventListener('change', e => { MIN_RATIO = Math.max(0, +e.target.value||0); render() })
     $('min-vol').addEventListener('change', e => { MIN_VOL = Math.max(0, +e.target.value||0)*1e6; render() })
+
+    // Diagnostik: apakah endpoint daily update volume realtime? Simpan sampel,
+    // klik lagi setelah beberapa menit (saat bursa buka) utk lihat apakah bertambah.
+    $('cek-rt').addEventListener('click', async () => {
+      try {
+        const { fetchDaily } = await import('../../shared/api.js')
+        const today = new Date(Date.now()+7*3600*1000).toISOString().slice(0,10)
+        const from = new Date(Date.now()-10*86400*1000).toISOString().slice(0,10)
+        const d = await fetchDaily('BBCA', today, from)
+        const asc = [...d].sort((a,b)=>a.date<b.date?-1:1)
+        const last = asc[asc.length-1]
+        const jam = new Date(Date.now()+7*3600*1000).toISOString().slice(11,19)
+        const prev = window.__vsRtSample
+        if (prev && prev.date === last.date) {
+          const delta = last.volume - prev.volume
+          $('rt-result').innerHTML = delta > 0
+            ? `✓ REALTIME: volume BBCA ${prev.volume} → ${last.volume} (+${delta}) antara ${prev.jam} dan ${jam}. Endpoint hidup.`
+            : `✗ BEKU: volume BBCA tetap ${last.volume} antara ${prev.jam} dan ${jam}. Endpoint daily TIDAK realtime — perlu sumber lain (running-trade).`
+        } else {
+          $('rt-result').textContent = `Sampel 1 [${jam}]: BBCA ${last.date} vol=${last.volume}. Klik lagi setelah 2-3 menit (saat bursa buka) utk bandingkan.`
+        }
+        window.__vsRtSample = { date: last.date, volume: last.volume, jam }
+      } catch(e) { $('rt-result').textContent = 'cek gagal: ' + e.message }
+    })
 
     let RESULT = []
     function render() {
