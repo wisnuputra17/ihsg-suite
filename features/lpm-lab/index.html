@@ -31,6 +31,7 @@
       <input id="lim" type="number" value="200" style="width:70px" title="jumlah transaksi">
       <button id="run">Analisa</button>
       <button id="bots">Deteksi Bot</button>
+      <button id="dayfull">Tarik 1 Hari Penuh</button>
       <button id="probe">Uji Histori</button>
       <input id="minrep" type="number" value="5" style="width:56px" title="min pengulangan lot">
       <span id="status" class="note"></span>
@@ -42,6 +43,7 @@
     import { renderHeader, whenTokenReady } from '../../shared/header.js'
     import { TOKEN } from '../../shared/store.js'
     import { botSeries, botNetDirection, lotSignatures } from './bot-engine.js'
+    import { probePagination, fetchDayFull, normalizeTrades } from './history.js'
 
     const $ = id => document.getElementById(id)
     const HOST = 'https://exodus.stockbit.com'
@@ -111,6 +113,54 @@
       s += `top jual: ${ts.map(([b,l])=>`<span class="down">${b}</span> ${l}lot`).join(' · ')}\n`
       return s
     }
+
+    // Tarik 1 hari penuh via paginasi trade_number, lalu deteksi bot dari data lengkap
+    $('dayfull').addEventListener('click', async () => {
+      const sym = $('sym').value.trim().toUpperCase()
+      const date = prompt('Tanggal (YYYY-MM-DD), kosong = hari ini:', new Date(Date.now()+7*3600*1000).toISOString().slice(0,10))
+      if (date === null) return
+      const d = date.trim() || new Date(Date.now()+7*3600*1000).toISOString().slice(0,10)
+      const minRep = +$('minrep').value || 5
+      $('status').textContent = 'menguji paginasi…'; $('out').innerHTML = ''
+      const tok = TOKEN.get()
+      const fetchFn = async (url) => {
+        const r = await fetch(url, { headers:{'Authorization':'Bearer '+tok}, cache:'no-store' })
+        if (!r.ok) throw new Error('HTTP '+r.status)
+        return (await r.json())?.data?.running_trade || []
+      }
+      try {
+        // 1. uji paginasi dulu
+        const probe = await probePagination(fetchFn, sym, d, 80)
+        let s = `<div class="sec">Uji paginasi ${sym} @ ${d}</div>`
+        s += `batch1: ${probe.batch1Count}tx (paling awal ${probe.batch1Earliest})\n`
+        s += `batch2: ${probe.batch2Count}tx (paling akhir ${probe.batch2Latest}) · overlap ${probe.overlap}\n`
+        s += probe.works
+          ? `<span class="up">✓ PAGINASI BEKERJA — bisa gulir mundur, tarik hari penuh</span>\n\n`
+          : `<span class="down">✗ paginasi tak menggulir mundur — hanya dapat sampel penutupan</span>\n\n`
+        $('out').innerHTML = s
+
+        // 2. tarik hari penuh
+        $('status').textContent = 'menarik hari penuh…'
+        const raw = await fetchDayFull(fetchFn, sym, d, { limit: 80, maxBatch: 40,
+          onProgress: (tot, batch) => { $('status').textContent = `batch ${batch}, ${tot} tx…` } })
+        const trades = normalizeTrades(raw)
+        s += `<div class="sec">Data terkumpul: ${trades.length} transaksi</div>`
+        if (trades.length) s += `rentang waktu ${trades[0].time} → ${trades[trades.length-1].time}\n\n`
+
+        // 3. deteksi bot dari data lengkap
+        const series = botSeries(trades, minRep)
+        s += `<div class="sec">Bot terdeteksi (lot identik ≥${minRep}×, agresif)</div>`
+        if (!series.length) s += `<span class="note">tak ada bot ≥${minRep}× di ${trades.length} transaksi.</span>`
+        for (const b of series) {
+          const dir = botNetDirection(trades, b.lot)
+          const arrow = b.action==='buy'?'<span class="up">▲BELI</span>':'<span class="down">▼JUAL</span>'
+          s += `<span class="hi">${b.lot} lot</span> ${arrow} · ${b.count}× · ${b.totalLot} lot · <span class="${dir.net>=0?'up':'down'}">${dir.bias}</span>\n`
+        }
+        if (series.length) { s += `\n<div class="sec">Grafik kumulatif</div>` + renderChart(series) }
+        $('out').innerHTML = s
+        $('status').textContent = `selesai · ${trades.length} tx`
+      } catch(e) { $('status').textContent = 'gagal: ' + e.message }
+    })
 
     // Deteksi bot: signature lot identik berulang-agresif + grafik kumulatif
     $('bots').addEventListener('click', async () => {
