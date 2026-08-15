@@ -119,6 +119,13 @@ export const FEATURES = [
     desc:   'Alert lonjakan volume realtime — ranking semua emiten dari volume hari ini vs rata-rata 5 hari (MA5). Emiten paling ramai tak biasa di puncak, penanda alert per kelipatan. Alat observasi, bukan sinyal.',
     tags:   ['volume', 'surge', 'lonjakan', 'alert', 'realtime', 'ranking', 'ma5', 'keramaian', 'observasi'],
     status: 'ready'
+  },
+  {
+    id:     'lpm-lab',
+    name:   'LPM Lab (eksperimen)',
+    desc:   'Lab deteksi order terstruktur (bot market maker) dari running-trade — ukuran lot identik berulang-agresif, grafik volume kumulatif per bot. Diagnostik, menuju grafik bot historis.',
+    tags:   ['lpm', 'bot', 'deteksi', 'running-trade', 'lot', 'akumulasi', 'distribusi', 'lab', 'eksperimen', 'bandar'],
+    status: 'ready'
   }
 ]
 
