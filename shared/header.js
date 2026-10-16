@@ -234,8 +234,16 @@ function _renderStatus(retryCount = 0) {
       label.textContent = 'Token expired'
       return
     }
-    // Network error / timeout — retry otomatis
-    const delay = _STATUS_RETRY_DELAYS[Math.min(retryCount, _STATUS_RETRY_DELAYS.length - 1)]
+    // Network error / timeout / CORS-blocked — browser sengaja tak bedakan
+    // ketiganya ke JS (keamanan), jadi kita retry terbatas lalu berhenti.
+    // Retry selamanya percuma kalau penyebabnya kebijakan server yang statis
+    // (mis. CORS) — itu tak akan pernah pulih sendiri dengan dicoba ulang.
+    if (retryCount >= _STATUS_RETRY_DELAYS.length) {
+      dot.className     = 'status-dot wait'
+      label.textContent = 'Status tak bisa dicek (coba refresh halaman)'
+      return  // berhenti — jangan jadwalkan retry lagi
+    }
+    const delay = _STATUS_RETRY_DELAYS[retryCount]
     const attempt = retryCount + 1
     dot.className     = 'status-dot wait'
     label.textContent = `Gagal · coba lagi (${attempt}/${_STATUS_RETRY_DELAYS.length})...`
