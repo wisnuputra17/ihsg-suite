@@ -38,7 +38,12 @@ export const TOKEN = {
     return raw.replace(/[^\x00-\x7F]/g, '') // sanitize non-ASCII wajib
   },
   set: (v) => {
-    localStorage.setItem('ihsglab_token', v.replace(/[^\x00-\x7F]/g, ''))
+    // Buang prefiks "Bearer " kalau ikut ter-paste (dari DevTools/Network tab) —
+    // _headers() di api.js SELALU menambahkan 'Bearer ' sendiri, jadi token
+    // yang tersimpan harus mentah (JWT saja), tanpa prefiks, atau jadi dobel
+    // "Bearer Bearer ..." dan Stockbit menolak dengan 401.
+    const clean = v.replace(/^\s*bearer\s+/i, '').trim()
+    localStorage.setItem('ihsglab_token', clean.replace(/[^\x00-\x7F]/g, ''))
     localStorage.setItem('ihsglab_token_set_at', String(Date.now()))
   },
   clear: () => {

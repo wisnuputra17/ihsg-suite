@@ -42,6 +42,26 @@ test('TOKEN: sanitize WAJIB buang karakter non-ASCII (mencegah header Authorizat
   assert.equal(TOKEN.get(), 'abc.def.ghi')
 })
 
+test('TOKEN: buang prefiks "Bearer " kalau ikut ter-paste (bug nyata Wisnu, Okt 2026)', () => {
+  // _headers() di api.js SELALU tambah 'Bearer ' sendiri. Kalau yang di-paste
+  // dari DevTools/Network tab adalah nilai header UTUH ("Bearer eyJ..."),
+  // header jadi "Bearer Bearer eyJ..." → Stockbit tolak 401.
+  TOKEN.set('Bearer eyJhbGciOiJSUzI1NiIsImt0')
+  assert.equal(TOKEN.get(), 'eyJhbGciOiJSUzI1NiIsImt0')
+})
+
+test('TOKEN: buang "bearer" case-insensitive + spasi berlebih', () => {
+  TOKEN.set('bearer    eyJxyz')
+  assert.equal(TOKEN.get(), 'eyJxyz')
+  TOKEN.set('BEARER eyJabc')
+  assert.equal(TOKEN.get(), 'eyJabc')
+})
+
+test('TOKEN: token normal TANPA prefiks Bearer tetap apa adanya (tak ada regresi)', () => {
+  TOKEN.set('eyJhbGciOiJSUzI1NiIsImt0.payload.sig')
+  assert.equal(TOKEN.get(), 'eyJhbGciOiJSUzI1NiIsImt0.payload.sig')
+})
+
 test('TOKEN: clear() menghapus token & timestamp-nya', () => {
   TOKEN.set('sometoken')
   TOKEN.clear()
